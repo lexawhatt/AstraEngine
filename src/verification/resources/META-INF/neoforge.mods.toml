@@ -1,0 +1,13 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="All Rights Reserved"
+[[mods]]
+modId="astraengine_verify"
+version="1"
+displayName="AstraEngine Verification (development only)"
+[[dependencies.astraengine_verify]]
+modId="astraengine"
+type="required"
+versionRange="[0,)"
+ordering="AFTER"
+side="BOTH"

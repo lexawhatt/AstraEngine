@@ -1,0 +1,33 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:celestial_bloom_compose",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "SceneColor"
+    },
+    {
+      "name": "BloomColor"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "BloomStrength",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.65
+      ]
+    },
+    {
+      "name": "Exposure",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    }
+  ]
+}

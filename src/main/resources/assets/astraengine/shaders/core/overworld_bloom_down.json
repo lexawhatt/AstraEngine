@@ -1,0 +1,39 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:celestial_bloom_down",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "Source"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "SourceTexel",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0.00078125,
+        0.001388888888888889
+      ]
+    },
+    {
+      "name": "Extract",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "Threshold",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    }
+  ]
+}

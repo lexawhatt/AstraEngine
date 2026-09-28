@@ -1,0 +1,34 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:celestial_bloom_up",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "Source"
+    },
+    {
+      "name": "DetailColor"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "SourceTexel",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0.00078125,
+        0.001388888888888889
+      ]
+    },
+    {
+      "name": "Scatter",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.7
+      ]
+    }
+  ]
+}

@@ -38,3 +38,7 @@ run/
 **/src/generated/**/.cache/
 repo/
 !**/src/**/repo/
+
+### Local workflow notes ###
+/AGENTS.md
+/Workflow/

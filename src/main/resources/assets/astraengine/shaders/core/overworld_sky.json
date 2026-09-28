@@ -1,0 +1,151 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:overworld_sky",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [],
+  "uniforms": [
+    {
+      "name": "InverseViewProjection",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ScreenSize",
+      "type": "float",
+      "count": 2,
+      "values": [
+        1280,
+        720
+      ]
+    },
+    {
+      "name": "SunDirection",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "SunRadius",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0.00465046
+      ]
+    },
+    {
+      "name": "Time",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "Weather",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "SkyColor",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.5,
+        0.65,
+        1
+      ]
+    },
+    {
+      "name": "AtmosphereFog",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.65,
+        0.75,
+        0.95
+      ]
+    },
+    {
+      "name": "Evolution",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        -1,
+        0
+      ]
+    },
+    {
+      "name": "SolarLight",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "MoonPhase",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "Detail",
+      "type": "int",
+      "count": 1,
+      "values": [
+        4
+      ]
+    },
+    {
+      "name": "HdrOutput",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "Exposure",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    }
+  ]
+}

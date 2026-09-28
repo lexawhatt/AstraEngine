@@ -1,0 +1,18 @@
+{
+  "solar_tension": {
+    "subtitle": "subtitles.astraengine.solar_tension",
+    "sounds": [{"name": "astraengine:solar_tension", "stream": true}]
+  },
+  "solar_collapse": {
+    "subtitle": "subtitles.astraengine.solar_collapse",
+    "sounds": [{"name": "astraengine:solar_collapse", "stream": true}]
+  },
+  "solar_supernova": {
+    "subtitle": "subtitles.astraengine.solar_supernova",
+    "sounds": [{"name": "astraengine:solar_supernova", "stream": true}]
+  },
+  "solar_rumble": {
+    "subtitle": "subtitles.astraengine.solar_rumble",
+    "sounds": [{"name": "astraengine:solar_rumble", "stream": true}]
+  }
+}

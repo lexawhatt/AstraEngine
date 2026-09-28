@@ -1,0 +1,874 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:cosmos",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [],
+  "uniforms": [
+    {
+      "name": "InverseViewProjection",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ScreenSize",
+      "type": "float",
+      "count": 2,
+      "values": [
+        1280,
+        720
+      ]
+    },
+    {
+      "name": "Time",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "Seed",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "GalaxyObserver",
+      "type": "float",
+      "count": 3,
+      "values": [
+        -0.52,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxySeed",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "Exposure",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "Detail",
+      "type": "int",
+      "count": 1,
+      "values": [
+        4
+      ]
+    },
+    {
+      "name": "Supernova",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyCount",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[0]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[1]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[2]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[3]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[4]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[5]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[6]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[7]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[8]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[9]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[10]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyDirectionRadius[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0.01
+      ]
+    },
+    {
+      "name": "BodyColorKind[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "BodySurface[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodyLightTilt[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "BodySpin[11]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "EvolutionIndex",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "Evolution",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        -1,
+        0
+      ]
+    },
+    {
+      "name": "SolarLight",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "HdrOutput",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "LensIndex",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[0]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[1]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[2]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[3]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[4]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[5]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[6]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[7]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[8]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[9]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[10]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "BodyDistanceRatio[11]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    }
+  ]
+}

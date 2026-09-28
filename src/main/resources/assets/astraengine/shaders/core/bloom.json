@@ -1,0 +1,31 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:bloom",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "Source"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "TexelStep",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "Extract",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    }
+  ]
+}
