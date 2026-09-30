@@ -306,7 +306,7 @@ final class AtlasScenario {
     private void verifyHomeAndFormat(MinecraftServer server) {
         require(server.overworld().getBlockState(MARKER).is(Blocks.DIAMOND_BLOCK), "Atlas flight changed the real home marker");
         CompoundTag saved = ExplorationCatalog.get(server).save(new CompoundTag(), server.registryAccess());
-        require(saved.getInt("version") == 6 && saved.getInt("universe_version") == UniverseGenerator.VERSION,
+        require(saved.getInt("version") == 7 && saved.getInt("universe_version") == UniverseGenerator.VERSION,
                 "Atlas ownership format or generation version was not persisted");
     }
     private boolean home(int minimum) { return ticks >= minimum && minecraft.level.dimension().equals(Level.OVERWORLD); }

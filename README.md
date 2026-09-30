@@ -38,7 +38,9 @@ not whole-globe traversal. Existing Overworld is preserved.
 An independent [highlands prototype](docs/PLANETARY_TERRAIN.md) adds kilometer-scale
 relief in a 2048-block vertical range. Geographic **F3** coordinates are available
 on the prototype and Moon/Earth patches. This is the first terrain-development
-stage; closed planetary traversal and unrestricted world height remain future work.
+stage. The second stage adds [closed geographic tile addresses](docs/PLANETARY_GEOGRAPHY.md),
+polar neighbors and saved identity metadata. Continuous planetary traversal and
+unrestricted world height remain future work.
 
 ## Consumer ship rendering
 
@@ -92,6 +94,14 @@ and supernova remnants have named destinations and shared spatial descriptors.
 One active galaxy has a quasar nucleus with jets. The core's stellar population
 and dust replace the previous smooth luminous spot. Transit has no radial lines
 or ribbons. [Atlas contents, controls and limits](docs/UNIVERSE.md).
+
+Each galaxy also has a **Pulsar** destination with a compact physical body and
+rotating visual beams. Find **Milky Way Pulsar** in the atlas, chart it and fly
+there manually before fast travel unlocks. Existing systems retain their identities.
+The Moon now shares detailed maria, filtered impact markings and grazing relief
+lighting between its orbital material and the Overworld phase disc; saved landing
+terrain and physical radii remain unchanged. Large maria and impact markings change
+surface reflectance, not the voxel terrain height.
 
 Use `/astra-flight speed interstellar` for the first system visit, or
 `/astra-flight speed galactic` for an external galaxy view. `/astra-flight galaxy aim`
@@ -147,7 +157,8 @@ while preserving the contribution of block light sources.
 
 The supernova expands into seeded gas layers, filaments and knots that cool into
 a dim remnant. Generated remnant systems use the same mature material. The
-supernova has a rising rumble, an impact, and a fading tail. Set its volume
+gas emission has a modest 22% brightness lift without raising cloud illumination
+or the flash envelope. The supernova has a rising rumble, an impact, and a fading tail. Set its volume
 with `/astra-audio volume 0.75`, or disable it with `/astra-audio enabled false`.
 Space and the solar sky use HDR bloom; adjust its strength with
 `/astra-render bloom-strength 0.65` and exposure with `/astra-render exposure 1`.
@@ -414,6 +425,28 @@ production Overworld renderer and controlled space-view poses, with bloom on/off
 Screenshots and scope notes distinguish real navigation from diagnostic draws;
 this is not an OS input, performance or shader-pack sky-integration test.
 For Fabulous, use another fresh directory with `-PverifyGraphics=fabulous`.
+
+Pulsar atlas charting, manual first entry, continuous approach and saved return:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-pulsar-run -PverifyPhase=pulsar-create
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-pulsar-run -PverifyPhase=pulsar-restart -PverifyGraphics=fabulous
+```
+
+Use a fresh directory for creation. The fixture stages the observer near the
+destination, then crosses the boundary through real manual flight; it does not
+claim to fly the full galactic distance. Charting alone must leave fast travel locked.
+
+Frozen Moon phases and pulsar beam angles, bloom pairs, reload and resize:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-lunar-visuals -PverifyPhase=lunar-pulsar
+```
+
+This separate fresh-world fixture probes the production renderer at controlled
+camera poses and checks that presentation does not change navigation. For Iris,
+prepare its optional stack as described in the compatibility guide below; this
+checks space rendering, not a pack-owned Overworld sky.
 
 Overworld rendering and persistent solar evolution (the first run requires a
 fresh directory; the second continues its saved event):

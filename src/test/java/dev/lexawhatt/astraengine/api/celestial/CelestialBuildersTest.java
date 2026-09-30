@@ -25,6 +25,7 @@ class CelestialBuildersTest {
         EnumSet<CelestialBody.Kind> materials = EnumSet.noneOf(CelestialBody.Kind.class);
         materials.add(CelestialBodies.star("sun", "Sun", 695_700_000).build().kind());
         materials.add(CelestialBodies.blackHole("hole", "Hole", 50_000).build().kind());
+        materials.add(CelestialBodies.pulsar("pulsar", "Pulsar", 12_000).build().kind());
         for (CelestialBody.Kind kind : List.of(CelestialBody.Kind.ROCKY, CelestialBody.Kind.OCEAN,
                 CelestialBody.Kind.GAS_GIANT, CelestialBody.Kind.ICE)) {
             materials.add(CelestialBodies.planet("world", "World", kind, 1_000).build().kind());
@@ -34,6 +35,8 @@ class CelestialBuildersTest {
                 () -> CelestialBodies.planet("bad", "Bad", CelestialBody.Kind.STAR, 1_000));
         assertThrows(IllegalArgumentException.class,
                 () -> CelestialBodies.planet("bad", "Bad", CelestialBody.Kind.BLACK_HOLE, 1_000));
+        assertThrows(IllegalArgumentException.class,
+                () -> CelestialBodies.planet("bad", "Bad", CelestialBody.Kind.PULSAR, 1_000));
         assertThrows(IllegalArgumentException.class, () -> CelestialBodies.planet("bad", "Bad", null, 1_000));
     }
 

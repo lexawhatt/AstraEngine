@@ -17,6 +17,7 @@ public final class SatelliteGenerator {
         List<CelestialBody> bodies = new ArrayList<>(parents);
         for (CelestialBody planet : parents) {
             if (planet.kind() == CelestialBody.Kind.STAR || planet.kind() == CelestialBody.Kind.BLACK_HOLE
+                    || planet.kind() == CelestialBody.Kind.PULSAR
                     || !planet.parentId().isEmpty() || planet.orbitMeters() == 0) { continue; }
             Random random = new Random(seed ^ 0x534154454c4c4954L ^ planet.id().hashCode() * 0x9E3779B97F4A7C15L);
             boolean giant = planet.kind() == CelestialBody.Kind.GAS_GIANT;

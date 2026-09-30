@@ -185,6 +185,8 @@
   "astraengine.rocket.visited": "System visited: %s. Fast travel unlocked; nearby systems charted.",
   "astraengine.rocket.chart_full": "Chart capacity reached. No previous discoveries were removed.",
   "astraengine.map.atlas": "Cosmic atlas",
+  "astraengine.atlas.kind.pulsar": "Pulsar / rotating neutron star",
+  "astraengine.atlas.pulsar_radius": "Stellar radius: %s km",
   "astraengine.atlas.title": "ASTRA / COSMIC ATLAS",
   "astraengine.atlas.close": "Close",
   "astraengine.atlas.aim": "Chart and aim",
@@ -244,5 +246,8 @@
   "astraengine.rocket.surface_departed": "Departure complete. Free flight restored.",
   "astraengine.debug.longitude": "Longitude: %s",
   "astraengine.debug.latitude": "Latitude: %s",
-  "astraengine.debug.altitude": "Altitude: %s above reference"
+  "astraengine.debug.altitude": "Altitude: %s above reference",
+  "astraengine.terrain.highlands_only": "This diagnostic requires the highlands prototype world.",
+  "astraengine.terrain.location": "Highlands latitude %s, longitude %s | %s | Reference terrain altitude %s m",
+  "astraengine.terrain.neighbor": "%s -> %s (entry %s, reversed %s)"
 }

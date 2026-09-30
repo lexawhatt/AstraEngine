@@ -18,6 +18,12 @@ apparent size. This explicit presentation setting leaves the Sol catalog and
 Rocket Mode unchanged. The Moon retains host phases and approximate opposite-Sun
 motion without a separate lunar orbit.
 
+Its airless material is shared with the Sol Moon in space: dark maria, filtered
+impact markings and grazing-angle relief lighting. Large impact rings and maria
+are reflectance features, not new terrain heights; the existing landing geography
+and physical radius remain unchanged. Active shader packs continue to own the
+Overworld sky, so this material applies when Astra's sky renderer is active.
+
 Nothing depletes automatically. An operator can start a separate diagnostic cycle:
 gradual resource extraction, stellar expansion and instability, collapse, a
 supernova, and a stable remnant. **The forced solar supernova is fictional gameplay,

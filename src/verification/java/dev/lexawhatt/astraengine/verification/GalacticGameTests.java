@@ -49,7 +49,7 @@ public final class GalacticGameTests {
                         && restored.position().x() == 123_456.125 && restored.revision() == 876,
                 "V3 migration changed exact chart, pose or revision");
         CompoundTag current = migrated.save(new CompoundTag(), server.registryAccess());
-        helper.assertTrue(current.getInt("version") == 6
+        helper.assertTrue(current.getInt("version") == 7
                         && ExplorationCatalog.decode(current).save(new CompoundTag(), server.registryAccess()).equals(current),
                 "Current exploration NBT failed exact roundtrip");
         for (List<String> invalid : List.of(List.<String>of(), List.of("sol", "sol"), List.of("sol"),

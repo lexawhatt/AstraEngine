@@ -101,5 +101,7 @@ No Distant Horizons or Voxy integration is claimed.
 F3 now shows Longitude, Latitude and reference Altitude on both patches, while
 reduced-debug mode retains its privacy. A separate
 [highlands prototype](PLANETARY_TERRAIN.md) explores kilometer relief and expanded
-height without modifying these version-one worlds. Closed planetary traversal,
-polar topology and production distant-terrain integration remain subsequent work.
+height without modifying these version-one worlds. The
+[closed geography model](PLANETARY_GEOGRAPHY.md) defines polar tile neighbors and
+saved identity metadata. Continuous planetary traversal and production distant-terrain
+integration remain subsequent work.

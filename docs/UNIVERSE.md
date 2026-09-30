@@ -36,7 +36,7 @@ Eight seeded neighbors occupy a bounded group around it, with distinct sizes,
 orientations and spiral, elliptical or irregular forms. Their placement is an
 artistic group, not an astronomical reconstruction of the Local Group.
 
-Each galaxy has seven named destinations:
+Each galaxy retains seven named region destinations:
 
 | Region | Appearance and local destination |
 | --- | --- |
@@ -47,6 +47,24 @@ Each galaxy has seven named destinations:
 | Globular cluster | Dense, warm stellar concentration in the halo |
 | Supernova remnant | A spatial gas shell surrounding a local remnant scene |
 | Nuclear cluster | Dense stellar environment close to the galactic center |
+
+An additional **Pulsar** row is available for each galaxy. These nine compact
+destinations use a separate version-one catalog (`p_0` through `p_8`), preserving
+all previous galaxy, region and system definitions. They are sparse authored
+landmarks, not a population estimate. Generated primary radii are 10-14 km.
+
+To inspect one, select **Milky Way Pulsar -> Chart and aim**, fly there manually,
+then use **Approach body** on its primary. The close view is framed at 80 body
+radii and shows two rotating beams around a compact emissive core. The canonical
+body radius is not enlarged. Beam rotation is deliberately slowed to a readable
+1.2-3.2-second visual period and consumes the existing occupied catalog clock;
+it does not introduce a neutron-star evolution or radiation-damage simulation.
+The display is an artistic visualization of the rotating-beam concept described
+by [NASA's pulsar overview](https://science.nasa.gov/mission/hubble/science/science-behind-the-discoveries/hubble-pulsars/).
+
+Charting a pulsar grants no visit or fast travel. Manual first entry records the
+visit and reveals its surrounding systems; subsequent fast travel survives reload
+and restart. The [creation API](CELESTIAL_API.md) also supports authored pulsar bodies.
 
 One generated galaxy has an active nucleus: its accreting central black hole
 powers the quasar presentation and jets. The Milky Way's central hole is not
@@ -107,16 +125,17 @@ biological life are outside this atlas feature.
 
 ## Save and request contract
 
-Exploration NBT **v6** retains `universe_version`, adds `satellite_version`, and
+Exploration NBT **v7** retains `universe_version` and `satellite_version`, adds
+`pulsar_version`, and
 preserves previous custom systems, known/visited lists, exact navigation pose,
 speed and shared clock.
-Readable v1-v5 saves migrate without changing existing system definitions. Old
-v1-v3 charts infer visits conservatively as before; v4/v5 visits remain exact.
+Readable v1-v6 saves migrate without changing existing system definitions. Old
+v1-v3 charts infer visits conservatively as before; v4-v6 visits remain exact.
 Unknown atlas versions, dangling identities and empty saved sectors are rejected;
 unreadable existing data is never silently replaced by a new catalog.
 
-Navigation protocol **v6** and action protocol **v4** require matching clients
-and servers. `CHART_ATLAS` accepts only the bounded public `u_` identities for
+Navigation protocol **v7** and action protocol **v6** require matching clients
+and servers. `CHART_ATLAS` accepts only the bounded public `u_` and `p_` landmark identities for
 the requesting player's active idle flight session, with the existing rate limit.
 It cannot reveal private custom content, grant visits, or bypass fast-travel
 checks. The client waits for a server chart snapshot before aiming; pending aim

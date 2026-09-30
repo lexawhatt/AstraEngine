@@ -12,8 +12,13 @@ public record GeographicPosition(double latitudeRadians, double longitudeRadians
         }
     }
 
-    /** Unit normal in body-fixed coordinates: +Y north, +X zero longitude, -Z east at zero longitude. */
+    /**
+     * Unit normal in body-fixed coordinates: +Y north, +X zero longitude, -Z east at zero longitude.
+     * Exact poles have no longitude-dependent horizontal component; nearby latitudes are never snapped.
+     */
     public SpaceVector normal() {
+        if (latitudeRadians == Math.PI / 2) { return new SpaceVector(0, 1, 0); }
+        if (latitudeRadians == -Math.PI / 2) { return new SpaceVector(0, -1, 0); }
         double cosine = Math.cos(latitudeRadians);
         return new SpaceVector(cosine * Math.cos(longitudeRadians), Math.sin(latitudeRadians),
                 -cosine * Math.sin(longitudeRadians));

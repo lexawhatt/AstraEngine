@@ -7,10 +7,33 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SurfaceCoordinatesTest {
+    @Test
+    void exactPolesHaveOneGeographicOwnerWhileAdjacentLatitudesRetainLongitude() {
+        PlanetaryTopology topology = new PlanetaryTopology(1, 12, 6_371_000);
+        for (int hemisphere : new int[]{-1, 1}) {
+            double poleLatitude = hemisphere * Math.PI / 2;
+            double nearLatitude = Math.nextAfter(poleLatitude, 0);
+            SpaceVector pole = new SpaceVector(0, hemisphere, 0);
+            PlanetaryTile owner = topology.locate(pole);
+            for (double longitude : new double[]{-Math.PI, -2.1, -Math.PI / 2, 0, Math.PI / 2, 2.1,
+                    Math.nextDown(Math.PI)}) {
+                SpaceVector exact = new GeographicPosition(poleLatitude, longitude, 0).normal();
+                SpaceVector near = new GeographicPosition(nearLatitude, longitude, 0).normal();
+                assertEquals(pole, exact);
+                assertEquals(owner, topology.locate(exact));
+                assertNotEquals(pole, near);
+                assertTrue(Math.hypot(near.x(), near.z()) > 0);
+            }
+            assertNotEquals(topology.locate(new GeographicPosition(nearLatitude, 0, 0).normal()),
+                    topology.locate(new GeographicPosition(nearLatitude, -Math.PI, 0).normal()));
+        }
+    }
+
     @Test
     void geographicCoordinatesRoundTripAcrossPolesSeamAndAltitude() {
         for (double latitude : new double[]{-Math.PI / 2, -1.2, 0, 1.2, Math.PI / 2}) {

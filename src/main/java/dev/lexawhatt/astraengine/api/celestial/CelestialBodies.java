@@ -4,7 +4,7 @@ import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 
 /**
- * Pure creation helpers for the existing immutable celestial descriptors and their six built-in visual materials.
+ * Pure creation helpers for immutable celestial descriptors and their built-in visual materials.
  * Builders are caller-owned mutable drafts, require no game thread, and must not be shared between threads.
  * Nothing is registered, saved or synchronized until a consumer submits a complete system through AstraCosmos.
  */
@@ -23,11 +23,20 @@ public final class CelestialBodies {
     }
 
     /**
+     * Creates a stationary neutron-star draft with rotating visual beams. Radius is the physical stellar radius
+     * in meters; axial tilt sets the spin-axis inclination. Beam rotation is seeded presentation, not a spin model.
+     */
+    public static Builder pulsar(String id, String name, double radiusMeters) {
+        return new Builder(id, name, CelestialBody.Kind.PULSAR, radiusMeters);
+    }
+
+    /**
      * Creates a planet draft using ROCKY, OCEAN, GAS_GIANT or ICE; stellar kinds and null are rejected.
      * Radius is in meters. The default orbit is stationary, with no atmosphere or rings and white linear RGB.
      */
     public static Builder planet(String id, String name, CelestialBody.Kind kind, double radiusMeters) {
-        if (kind == null || kind == CelestialBody.Kind.STAR || kind == CelestialBody.Kind.BLACK_HOLE) {
+        if (kind == null || kind == CelestialBody.Kind.STAR || kind == CelestialBody.Kind.BLACK_HOLE
+                || kind == CelestialBody.Kind.PULSAR) {
             throw new IllegalArgumentException("A planet requires ROCKY, OCEAN, GAS_GIANT or ICE material");
         }
         return new Builder(id, name, kind, radiusMeters);

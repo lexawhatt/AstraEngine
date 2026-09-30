@@ -64,6 +64,7 @@ record CelestialFrame(List<Body> bodies, int lensIndex) {
         double angularExtent() {
             double extent = Math.max(1 + descriptor.atmosphere() * 0.1, descriptor.ringOuterRatio());
             if (descriptor.kind() == CelestialBody.Kind.BLACK_HOLE) { extent = Math.max(extent, 6); }
+            if (descriptor.kind() == CelestialBody.Kind.PULSAR) { extent = Math.max(extent, 48); }
             return descriptor.radiusMeters() * extent / distance;
         }
     }

@@ -194,9 +194,10 @@ Solar System are listed in the [parameter table with NASA sources](SOLAR_REFEREN
 "1:1" means there is no gameplay size or distance factor; the measurements retain
 the precision of the published tables. Orbits are independent Kepler ellipses
 with selected initial phases, not ephemerides for today's planetary positions.
-Moons and minor bodies are absent from the initial Rocket-mode system. The
-procedural Moon in the Overworld sky belongs to a separate atmospheric renderer,
-not to this catalog.
+The additive satellite catalog includes 21 major Solar System moons; minor bodies
+are not included. The Overworld Moon shares its material with the catalog Moon,
+but retains the host's approximate phases and opposite-Sun motion rather than
+following the catalog orbit.
 
 The Sun has an angular diameter of approximately **0.533 degrees** at 1 AU.
 A distant planet can be smaller than a pixel even without distance culling.
@@ -330,16 +331,16 @@ The client interpolates received positions and camera orientation without creati
 an independent trajectory. An open map does not pause the server.
 
 The catalog is saved in the main world's `data/astraengine_exploration.dat`.
-Format **v6** pins the universe atlas and additive satellite versions and retains private visited IDs,
+Format **v7** pins the universe atlas, additive satellite and pulsar versions and retains private visited IDs,
 known IDs, up to 64 immutable
 custom system definitions, quaternion orientation, and speed in m/s. Readable
-v1-v5 records retain their exact prior position, known systems, definitions and
-speed. Existing v4/v5 visits remain exact. For v1-v3, only charted Sol and the current
+v1-v6 records retain their exact prior position, known systems, definitions and
+speed. Existing v4-v6 visits remain exact. For v1-v3, only charted Sol and the current
 system are inferred as visited on migration:
 an old scan is not proof of physical travel. Old neighbors stay on the map, and
 the current neighborhood is refreshed on login. Malformed data is rejected.
-Navigation snapshots use protocol v6, actions v4, controls v3, numeric speed v1, and custom
-definitions v2, so client and server need matching mod versions. Only a player's
+Navigation snapshots use protocol v7, actions v6, controls v3, numeric speed v1, and custom
+definition synchronization v3, so client and server need matching mod versions. Only a player's
 discovered custom definitions are sent, before navigation refers to them; client
 resource reload retains them and logout clears them. The aggregate custom
 descriptor wire budget is 900 KiB; creation rejects additions exceeding that

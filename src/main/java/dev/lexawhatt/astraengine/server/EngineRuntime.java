@@ -66,6 +66,7 @@ public final class EngineRuntime {
         ExplorationCatalog.get(server);
         SurfaceBindings.get(server).validate(server);
         PlanetaryTerrainWorld.validate(server);
+        PlanetaryGeographyState.get(server);
         SurfaceWorlds.maintainBorders(server);
         travel = new TravelService(server);
         rocket = new RocketService(server);
@@ -160,6 +161,7 @@ public final class EngineRuntime {
                 }))
                 .then(SolarEvolutionService.commands())
                 .then(SkyService.commands())
+                .then(PlanetaryGeographyCommands.commands())
                 .then(Commands.literal("status").executes(context -> {
                     for (String id : SystemWorlds.SYSTEM_IDS) {
                         SystemSnapshot snapshot = AstraSystems.snapshot(context.getSource().getServer(), id);

@@ -98,7 +98,9 @@ class CosmosGeneratorTest {
             }
             assertTrue(planets >= 2 && planets <= 9);
         }
-        assertEquals(EnumSet.allOf(CelestialBody.Kind.class), materials);
+        // Version-one sectors retain precisely their six original materials; pulsars have a separate catalog.
+        assertEquals(EnumSet.of(CelestialBody.Kind.STAR, CelestialBody.Kind.BLACK_HOLE, CelestialBody.Kind.ROCKY,
+                CelestialBody.Kind.OCEAN, CelestialBody.Kind.GAS_GIANT, CelestialBody.Kind.ICE), materials);
         assertTrue(ringFound);
     }
 

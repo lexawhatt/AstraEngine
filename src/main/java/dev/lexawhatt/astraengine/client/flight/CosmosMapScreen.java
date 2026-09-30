@@ -211,6 +211,7 @@ public final class CosmosMapScreen extends Screen {
                 int color = switch (system.kind()) {
                     case BLACK_HOLE -> 0xFFE7ACF7;
                     case SUPERNOVA -> 0xFFFF9F80;
+                    case PULSAR -> 0xFF92E8FF;
                     case BINARY -> 0xFFE6D493;
                     default -> 0xFFA8D5F0;
                 };

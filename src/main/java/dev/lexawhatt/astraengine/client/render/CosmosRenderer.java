@@ -173,7 +173,8 @@ public final class CosmosRenderer implements AutoCloseable {
         int evolutionIndex = -1;
         int atmosphereIndex = -1;
         int nucleusIndex = -1;
-        boolean atlasNucleus = UniverseGenerator.isAtlasSystemId(system.id()) && system.id().endsWith("_0");
+        boolean atlasNucleus = system.id().startsWith("u_")
+                && UniverseGenerator.isAtlasSystemId(system.id()) && system.id().endsWith("_0");
         if (atlasNucleus) {
             uploadVector("NucleusAxis", galaxyDefinitions.get(UniverseGenerator.galaxyIndex(system.id())).orientation().up());
         }
@@ -220,8 +221,11 @@ public final class CosmosRenderer implements AutoCloseable {
                             (float) relativeKm.z(), (float) (body.radiusMeters() * 0.001));
                 }
             }
-            // Rotation is an artistic material animation; only orbital positions are model state.
-            double rotationSeconds = body.kind() == CelestialBody.Kind.GAS_GIANT ? 36000 : 86400;
+            // Material/beam animation consumes the occupied catalog clock, never wall time.
+            // Pulsar spin is deliberately slowed for readable visuals; this is not a physical period.
+            double rotationSeconds = body.kind() == CelestialBody.Kind.PULSAR
+                    ? 1.2 + seed / 1024.0 * 2.0
+                    : body.kind() == CelestialBody.Kind.GAS_GIANT ? 36000 : 86400;
             shader.safeGetUniform("BodySpin[" + i + "]").set(definition == null
                     ? (float) ((timeSeconds % rotationSeconds) / rotationSeconds * Math.PI * 2)
                     : (float) definition.spinRadians(timeSeconds, timeSeconds * 20));
@@ -304,7 +308,8 @@ public final class CosmosRenderer implements AutoCloseable {
         SpaceVector direction = new SpaceVector(0.3, 0.6, 0.7).normalized();
         double strongest = -1;
         for (CelestialBody source : system.bodies()) {
-            if (source.id().equals(id) || source.kind() != CelestialBody.Kind.STAR) { continue; }
+            if (source.id().equals(id) || (source.kind() != CelestialBody.Kind.STAR
+                    && source.kind() != CelestialBody.Kind.PULSAR)) { continue; }
             SpaceVector delta = system.positionAt(source, seconds).subtract(position);
             double distance = delta.length();
             if (distance <= 0) { continue; }

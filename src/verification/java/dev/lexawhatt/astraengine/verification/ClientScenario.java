@@ -84,6 +84,8 @@ public final class ClientScenario {
     private CelestialPolishScenario celestialPolishScenario;
     private SurfaceScenario surfaceScenario;
     private TerrainScenario terrainScenario;
+    private LunarPulsarVisualScenario lunarPulsarVisualScenario;
+    private PulsarAtlasScenario pulsarAtlasScenario;
     private SurfacePayload latestSurface;
 
     public ClientScenario() {
@@ -98,6 +100,7 @@ public final class ClientScenario {
             require((System.nanoTime() - startedAt) < (phase.startsWith("surface-") || phase.startsWith("terrain-") ? 900_000_000_000L
                     : phase.startsWith("seasonal") || phase.equals("volumetric")
                     || phase.equals("render-compat") || phase.equals("celestial-polish")
+                    || phase.equals("lunar-pulsar") || phase.startsWith("pulsar-")
                     ? 600_000_000_000L : 240_000_000_000L),
                     "Native fixture timed out at step " + step);
             if (!opened && !onboardingContinued && minecraft.getOverlay() == null
@@ -118,7 +121,7 @@ public final class ClientScenario {
                     && (phase.equals("cosmos-restart") || phase.equals("solar-restart") || phase.equals("camera-restart")
                             || phase.equals("celestial-api-restart") || phase.equals("galactic-restart") || phase.equals("atlas-restart")
                             || phase.equals("seasonal-restart") || phase.equals("surface-restart") || phase.equals("surface-recover")
-                            || phase.equals("surface-upgrade") || phase.equals("terrain-restart"))
+                            || phase.equals("surface-upgrade") || phase.equals("terrain-restart") || phase.equals("pulsar-restart"))
                     && minecraft.player == null && minecraft.getOverlay() == null
                     && minecraft.screen instanceof BackupConfirmScreen screen
                     && screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
@@ -130,7 +133,8 @@ public final class ClientScenario {
                     String scenario = phase.equals("surface-recover") ? "surface-interrupt"
                             : phase.substring(0, phase.length() - "-restart".length());
                     String completedPhase = phase.equals("surface-restart") ? "surface-create"
-                            : phase.equals("terrain-restart") ? "terrain-create" : scenario;
+                            : phase.equals("terrain-restart") ? "terrain-create"
+                            : phase.equals("pulsar-restart") ? "pulsar-create" : scenario;
                     require(Files.isRegularFile(fixture.resolve("verified-" + completedPhase + ".txt"))
                                     && Files.isRegularFile(fixture.resolve(scenario + "-checkpoint.properties"))
                                     && Files.isRegularFile(fixture.resolve("saves/first-slice/level.dat")),
@@ -170,7 +174,8 @@ public final class ClientScenario {
                         || phase.equals("galactic") || phase.equals("galactic-restart")
                         || phase.equals("atlas") || phase.equals("atlas-restart")
                         || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("celestial-polish")
-                        || phase.startsWith("surface-") || phase.startsWith("terrain-")) {
+                        || phase.startsWith("surface-") || phase.startsWith("terrain-")
+                        || phase.equals("lunar-pulsar") || phase.startsWith("pulsar-")) {
                     minecraft.options.guiScale().set(2);
                 }
                 if (phase.equals("create") || phase.equals("lighting") || phase.equals("editor")
@@ -180,7 +185,8 @@ public final class ClientScenario {
                         || phase.equals("solar-clouds") || phase.equals("volumetric") || phase.equals("celestial-polish")
                         || phase.equals("surface-create") || phase.equals("surface-cancel") || phase.equals("surface-interrupt")
                         || phase.equals("surface-failures") || phase.equals("surface-boundaries")
-                        || phase.equals("terrain-create") || phase.equals("terrain-dh")) {
+                        || phase.equals("terrain-create") || phase.equals("terrain-dh")
+                        || phase.equals("lunar-pulsar") || phase.equals("pulsar-create")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
@@ -209,14 +215,14 @@ public final class ClientScenario {
             boolean solarPhase = phase.equals("solar") || phase.equals("solar-restart");
             boolean cameraPhase = phase.equals("camera") || phase.equals("camera-restart");
             boolean celestialPhase = phase.equals("celestial");
-            boolean celestialPolishPhase = phase.equals("celestial-polish");
+            boolean celestialPolishPhase = phase.equals("celestial-polish") || phase.equals("lunar-pulsar");
             boolean surfacePhase = phase.startsWith("surface-");
             if (phase.equals("surface-boundaries")) {
                 require(!(minecraft.screen instanceof AdvancementsScreen),
                         "Flight landing key opened vanilla advancements during the boundary fixture");
             }
             boolean approachPhase = phase.equals("approach");
-            boolean atlasPhase = phase.equals("atlas") || phase.equals("atlas-restart");
+            boolean atlasPhase = phase.equals("atlas") || phase.equals("atlas-restart") || phase.startsWith("pulsar-");
             boolean shipVisualPhase = phase.equals("ship-visual") || phase.equals("render-compat");
             boolean galacticPhase = phase.equals("galactic") || phase.equals("galactic-restart");
             boolean celestialApiPhase = phase.equals("celestial-api") || phase.equals("celestial-api-restart");
@@ -234,6 +240,16 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.equals("lunar-pulsar")) {
+                if (lunarPulsarVisualScenario == null) { lunarPulsarVisualScenario = new LunarPulsarVisualScenario(); }
+                if (lunarPulsarVisualScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("pulsar-")) {
+                if (pulsarAtlasScenario == null) { pulsarAtlasScenario = new PulsarAtlasScenario(phase.endsWith("-restart")); }
+                if (pulsarAtlasScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.startsWith("terrain-")) {
                 if (terrainScenario == null) { terrainScenario = new TerrainScenario(phase); }
                 if (terrainScenario.tick()) { finish(); }

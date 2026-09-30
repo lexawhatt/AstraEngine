@@ -60,7 +60,7 @@ public final class CelestialApiGameTests {
         ListTag definitions = new ListTag(); definitions.add(legacy); oldCatalog.put("custom_systems", definitions);
         ExplorationCatalog migrated = ExplorationCatalog.decode(oldCatalog);
         CompoundTag current = migrated.save(new CompoundTag(), server.registryAccess());
-        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 6
+        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 7
                         && current.getInt("satellite_version") == SatelliteGenerator.VERSION,
                 "Satellite generation was not pinned independently by v6 migration");
         helper.assertTrue(current.get("players").equals(oldCatalog.get("players"))
@@ -295,8 +295,8 @@ public final class CelestialApiGameTests {
         legacy.put("players", players); legacy.putLong("clock_ticks", 81234); legacy.putBoolean("landing", true);
         ExplorationCatalog migrated = ExplorationCatalog.decode(legacy);
         CompoundTag current = migrated.save(new CompoundTag(), server.registryAccess());
-        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 6 && current.getList("custom_systems", Tag.TAG_COMPOUND).isEmpty(),
-                "Legacy v2 did not migrate to v6 with an empty custom catalog");
+        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 7 && current.getList("custom_systems", Tag.TAG_COMPOUND).isEmpty(),
+                "Legacy v2 did not migrate to v7 with an empty custom catalog");
         CompoundTag expectedPilot = pilot.copy(); expectedPilot.put("visited", discoveries.copy());
         ListTag expectedPlayers = new ListTag(); expectedPlayers.add(expectedPilot);
         helper.assertTrue(current.getList("players", Tag.TAG_COMPOUND).equals(expectedPlayers)

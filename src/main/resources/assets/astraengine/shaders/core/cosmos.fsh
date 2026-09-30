@@ -87,6 +87,8 @@ float fbm(vec3 p) {
 #moj_import <astraengine:black_hole.glsl>
 #moj_import <astraengine:planet_atmosphere.glsl>
 #moj_import <astraengine:surface_geography.glsl>
+#moj_import <astraengine:lunar.glsl>
+#moj_import <astraengine:pulsar.glsl>
 
 // Face projection avoids the pole stretching of latitude/longitude star textures.
 vec3 starCoordinates(vec3 ray) {
@@ -183,7 +185,9 @@ vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 paramet
         float fineWeight = 1.0 - smoothstep(0.15, 0.8, normalFootprint * geography.z / 16.0);
         float grain = fineWeight > 0.001 ? noise(p * (geography.z / 16.0)) : 0.5;
         if (surfaceKind == 1) {
-            albedo = mix(vec3(0.23, 0.22, 0.205), vec3(0.39, 0.38, 0.36), smoothstep(-30.0, 35.0, height));
+            return lunarRadiance(p, surfaceCoordinates(light, tilt, spin),
+                    surfaceCoordinates(-viewRay, tilt, spin), height, geographySeed,
+                    normalFootprint, geography.z, true);
         } else {
             water = 1.0 - smoothstep(-0.3, 0.4, height);
             albedo = mappedEarthAlbedo(p, height, geographySeed, normalFootprint, water);
@@ -293,6 +297,10 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
     float tilt = BodyLightTilt[index].w;
     int kind = int(material.w + 0.5);
     float along = dot(ray, center);
+    if (kind == 6) {
+        return pulsarRadiance(color, ray, center, radius, material.rgb, tilt,
+                              BodySpin[index], parameters.x, pixelAngle);
+    }
     if (along <= 0.0 && radius <= 1.0 && index != AtmosphereBodyIndex) { return color; }
     float separation = length(center - ray * along);
     vec3 normal = vec3(0);

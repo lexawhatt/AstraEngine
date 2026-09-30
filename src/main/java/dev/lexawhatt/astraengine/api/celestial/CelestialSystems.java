@@ -47,7 +47,8 @@ public final class CelestialSystems {
             CelestialBody body = system.bodies().get(index);
             // Match FlightDynamics.observation: a supernova primary takes precedence over body kind.
             double radii = index == 0 && system.kind() == CosmosSystem.Kind.SUPERNOVA ? 60
-                    : body.kind() == CelestialBody.Kind.BLACK_HOLE ? 24 : body.ringOuterRatio() > 0 ? 8 : 4;
+                    : body.kind() == CelestialBody.Kind.BLACK_HOLE ? 24 : body.kind() == CelestialBody.Kind.PULSAR ? 80
+                    : body.ringOuterRatio() > 0 ? 8 : 4;
             double margin = Math.max(body.radiusMeters() * radii, 100_000);
             double apoapsis = CelestialOrbits.maximumDistance(system.bodies(), body);
             if (apoapsis + margin > FlightDynamics.LOCAL_RADIUS) {

@@ -60,6 +60,8 @@ float fbm(vec3 p) {
 #moj_import <astraengine:solar.glsl>
 #moj_import <astraengine:celestial_display.glsl>
 #moj_import <astraengine:atmosphere.glsl>
+#moj_import <astraengine:surface_geography.glsl>
+#moj_import <astraengine:lunar.glsl>
 
 vec4 filteredCloudTransport(vec2 uv) {
     vec2 texel = 1.0 / vec2(textureSize(CloudTransport, 0));
@@ -126,11 +128,17 @@ vec3 moon(vec3 background, vec3 ray, float pixelAngle, float visibility, float i
     vec3 right = normalize(cross(reference, center));
     float phase = float(MoonPhase) * PI / 4.0;
     vec3 light = -center * cos(phase) + right * sin(phase);
-    float diffuse = max(dot(normal, light), 0.0);
-    float terrain = noise(normal * 28.0) * 0.14 + fbm(normal * 8.0) * 0.3;
-    vec3 albedo = vec3(0.43, 0.48, 0.59) * (0.51 + terrain);
+    // A fixed face in the lunar frame avoids texture rotation as the host Sun
+    // crosses the sky. Host phases still own illumination; this is not a new orbit.
+    vec3 up = cross(center, right);
+    vec3 p = vec3(dot(normal, right), dot(normal, up), -dot(normal, center));
+    vec3 localLight = vec3(dot(light, right), dot(light, up), -dot(light, center));
+    vec3 localView = vec3(dot(-ray, right), dot(-ray, up), dot(ray, center));
+    float footprint = pixelAngle / max(radius * max(0.025, dot(normal, -ray)), 1e-8);
+    vec3 reflected = lunarRadiance(p, localLight, localView, 18.0, 0x4D4F4F4Eu,
+                                  footprint, 1737400.0, false);
     float edge = 1.0 - smoothstep(radius - pixelAngle, radius + pixelAngle, length(perpendicular));
-    return mix(background, albedo * (0.016 + diffuse * 0.86) * incidentRadiance, edge * visibility);
+    return mix(background, reflected * incidentRadiance, edge * visibility);
 }
 
 void main() {

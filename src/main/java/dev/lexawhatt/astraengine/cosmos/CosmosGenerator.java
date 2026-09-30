@@ -101,7 +101,7 @@ public final class CosmosGenerator {
         return new CosmosSystem(id, name, seed, kind, position, SatelliteGenerator.procedural(bodies, seed, stellarMass));
     }
 
-    /** Reconstructs a canonical ID: "sol", or "s_" followed by three signed decimal sector integers. */
+    /** Resolves Sol, original s-sectors and the independently versioned universe u/v/p catalogs. */
     public static CosmosSystem byId(long galaxySeed, String id) {
         if (UniverseGenerator.isUniverseId(id)) {
             return UniverseGenerator.byId(galaxySeed, id);

@@ -229,7 +229,7 @@ public final class EngineGameTests {
         legacy.put("players", entries);
         ExplorationCatalog migrated = ExplorationCatalog.decode(legacy);
         CompoundTag current = migrated.save(new CompoundTag(), server.registryAccess());
-        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 6, "Legacy save was not marked for v6 migration");
+        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 7, "Legacy save was not marked for v7 migration");
         helper.assertTrue(current.getLong("seed") == legacy.getLong("seed")
                 && current.getLong("clock_ticks") == legacy.getLong("clock_ticks") && current.getBoolean("landing"),
                 "Migration changed catalog identity, active time or landing ownership");

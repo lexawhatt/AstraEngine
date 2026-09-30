@@ -46,9 +46,9 @@ public final class AstraEngine {
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
         event.registrar("1").playToClient(SystemPayload.TYPE, SystemPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SystemSnapshotReceivedEvent(payload)));
-        event.registrar("2").playToClient(CustomSystemsPayload.TYPE, CustomSystemsPayload.CODEC,
+        event.registrar("3").playToClient(CustomSystemsPayload.TYPE, CustomSystemsPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new CustomSystemsReceivedEvent(payload)));
-        event.registrar("6").playToClient(ExplorationPayload.TYPE, ExplorationPayload.CODEC,
+        event.registrar("7").playToClient(ExplorationPayload.TYPE, ExplorationPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new ExplorationReceivedEvent(payload)));
         event.registrar("1").playToClient(SolarPayload.TYPE, SolarPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SolarReceivedEvent(payload)));
@@ -57,7 +57,7 @@ public final class AstraEngine {
         // PayloadRegistrar defaults to MAIN: both request handlers run on the owning logical-server thread.
         event.registrar("1").playToClient(SurfacePayload.TYPE, SurfacePayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SurfaceReceivedEvent(payload)));
-        event.registrar("5").playToServer(FlightActionPayload.TYPE, FlightActionPayload.CODEC, (payload, context) -> {
+        event.registrar("6").playToServer(FlightActionPayload.TYPE, FlightActionPayload.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) { runtime.flightAction(player, payload); }
         });
         event.registrar("3").playToServer(FlightControlPayload.TYPE, FlightControlPayload.CODEC, (payload, context) -> {

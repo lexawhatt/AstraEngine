@@ -21,6 +21,8 @@ public final class VerificationMod {
             event.register(ArchivedConstructionGameTests.class);
             event.register(SurfaceGameTests.class);
             event.register(PlanetaryTerrainGameTests.class);
+            event.register(PulsarGameTests.class);
+            event.register(PlanetaryGeographyGameTests.class);
             if (Boolean.getBoolean("neoforge.gameTestServer")) {
                 try {
                     GlobalTestReporter.replaceWith(new JUnitLikeTestReporter(new File("gametest-results.xml")));

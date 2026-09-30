@@ -11,7 +11,7 @@ public record CosmosSystem(String id, String name, long seed, Kind kind, SpaceVe
         List<CelestialBody> bodies) {
     public static final int MAX_BODIES = 64;
     public enum Kind {
-        SINGLE, BINARY, BLACK_HOLE, SUPERNOVA
+        SINGLE, BINARY, BLACK_HOLE, SUPERNOVA, PULSAR
     }
 
     public CosmosSystem {

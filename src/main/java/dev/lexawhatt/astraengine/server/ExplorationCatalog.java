@@ -10,6 +10,7 @@ import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
+import dev.lexawhatt.astraengine.cosmos.PulsarGenerator;
 import dev.lexawhatt.astraengine.cosmos.SatelliteGenerator;
 import dev.lexawhatt.astraengine.cosmos.UniverseGenerator;
 import java.nio.file.Files;
@@ -259,7 +260,7 @@ public final class ExplorationCatalog extends SavedData {
         }
     }
 
-    /** Strict version-six codec; atlas and additive satellite versions are independent of legacy parent generation. */
+    /** Strict version-seven codec; atlas, satellite and pulsar versions are independent of legacy parent generation. */
     public static ExplorationCatalog decode(CompoundTag root) {
         if (root == null) { throw new IllegalArgumentException("An exploration save compound is required"); }
         require(root, Tag.TAG_INT, "version", "generator_version");
@@ -267,7 +268,7 @@ public final class ExplorationCatalog extends SavedData {
         require(root, Tag.TAG_LIST, "players");
         require(root, Tag.TAG_BYTE, "landing");
         int version = root.getInt("version");
-        if ((version < 1 || version > 6) || root.getInt("generator_version") != CosmosGenerator.VERSION
+        if ((version < 1 || version > 7) || root.getInt("generator_version") != CosmosGenerator.VERSION
                 || root.getLong("clock_ticks") < 0 || root.getLong("clock_ticks") > 1_000_000_000_000L) {
             throw new IllegalArgumentException("Unsupported or invalid exploration format");
         }
@@ -281,6 +282,12 @@ public final class ExplorationCatalog extends SavedData {
             require(root, Tag.TAG_INT, "satellite_version");
             if (root.getInt("satellite_version") != SatelliteGenerator.VERSION) {
                 throw new IllegalArgumentException("Unsupported saved satellite version; load with the matching engine version");
+            }
+        }
+        if (version >= 7) {
+            require(root, Tag.TAG_INT, "pulsar_version");
+            if (root.getInt("pulsar_version") != PulsarGenerator.VERSION) {
+                throw new IllegalArgumentException("Unsupported saved pulsar version; load with the matching engine version");
             }
         }
         ExplorationCatalog catalog = new ExplorationCatalog(root.getLong("seed"));
@@ -338,6 +345,9 @@ public final class ExplorationCatalog extends SavedData {
                 throw new IllegalArgumentException("Invalid saved discovery list");
             }
             List<String> names = discoveries.stream().map(Tag::getAsString).toList();
+            if (version < 7 && names.stream().anyMatch(PulsarGenerator::isPulsarId)) {
+                throw new IllegalArgumentException("Pulsar identities require exploration format version seven");
+            }
             if (version < 5 && names.stream().anyMatch(UniverseGenerator::isUniverseId)) {
                 throw new IllegalArgumentException("Atlas identities require exploration format version five");
             }
@@ -367,15 +377,16 @@ public final class ExplorationCatalog extends SavedData {
                     tag.getLong("revision"));
             if (catalog.pilots.putIfAbsent(id, pilot) != null) { throw new IllegalArgumentException("Duplicate saved pilot"); }
         }
-        if (version < 6) { catalog.setDirty(); }
+        if (version < 7) { catalog.setDirty(); }
         return catalog;
     }
 
     @Override
     public CompoundTag save(CompoundTag root, HolderLookup.Provider registries) {
-        root.putInt("version", 6); root.putInt("generator_version", CosmosGenerator.VERSION);
+        root.putInt("version", 7); root.putInt("generator_version", CosmosGenerator.VERSION);
         root.putInt("universe_version", UniverseGenerator.VERSION);
         root.putInt("satellite_version", SatelliteGenerator.VERSION);
+        root.putInt("pulsar_version", PulsarGenerator.VERSION);
         root.putLong("seed", galaxySeed); root.putLong("clock_ticks", clockTicks); root.putBoolean("landing", landingInitialized);
         ListTag descriptors = new ListTag();
         for (CosmosSystem descriptor : customSystems.values()) {

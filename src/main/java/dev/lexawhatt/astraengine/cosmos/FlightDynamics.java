@@ -62,7 +62,7 @@ public final class FlightDynamics {
 
     /**
      * Frames a body from its illuminated side. Planets use four radii, rings eight, black holes twenty-four,
-     * and a supernova primary sixty. No body size or orbital distance is changed to achieve this framing.
+     * a supernova primary sixty and a pulsar eighty. No body size or orbital distance is changed for this framing.
      */
     public static Observation observation(CosmosSystem system, CelestialBody body, double seconds) {
         if (system == null || body == null || !system.bodies().contains(body)
@@ -72,12 +72,15 @@ public final class FlightDynamics {
         boolean primary = body.id().equals(system.bodies().getFirst().id());
         boolean remnant = primary && system.kind() == CosmosSystem.Kind.SUPERNOVA;
         boolean blackHole = body.kind() == CelestialBody.Kind.BLACK_HOLE;
-        boolean stellar = body.kind() == CelestialBody.Kind.STAR || blackHole || remnant;
-        double radii = remnant ? 60 : blackHole ? 24 : body.ringOuterRatio() > 0 ? 8 : 4;
+        boolean stellar = body.kind() == CelestialBody.Kind.STAR || body.kind() == CelestialBody.Kind.PULSAR
+                || blackHole || remnant;
+        double radii = remnant ? 60 : blackHole ? 24 : body.kind() == CelestialBody.Kind.PULSAR ? 80
+                : body.ringOuterRatio() > 0 ? 8 : 4;
         SpaceVector center = system.positionAt(body, seconds);
         SpaceVector observerDirection = new SpaceVector(0, 0.3, -1).normalized();
         if (!stellar) {
-            CelestialBody source = system.bodies().stream().filter(value -> value.kind() == CelestialBody.Kind.STAR)
+            CelestialBody source = system.bodies().stream().filter(value -> value.kind() == CelestialBody.Kind.STAR
+                    || value.kind() == CelestialBody.Kind.PULSAR)
                     .findFirst().orElse(system.bodies().getFirst());
             SpaceVector towardSource = system.positionAt(source, seconds).subtract(center);
             if (towardSource.length() > 1) {

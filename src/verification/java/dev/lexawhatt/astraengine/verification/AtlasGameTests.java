@@ -33,7 +33,7 @@ public final class AtlasGameTests {
         CompoundTag pilot = current.getList("players", Tag.TAG_COMPOUND).stream().map(CompoundTag.class::cast)
                 .filter(value -> value.getUUID("uuid").equals(id)).findFirst().orElseThrow().copy();
         ListTag onlyPilot = new ListTag(); onlyPilot.add(pilot); current.put("players", onlyPilot);
-        helper.assertTrue(current.getInt("version") == 6 && current.getInt("universe_version") == UniverseGenerator.VERSION,
+        helper.assertTrue(current.getInt("version") == 7 && current.getInt("universe_version") == UniverseGenerator.VERSION,
                 "Atlas generation ownership is missing from current NBT");
         CompoundTag legacy = current.copy(); legacy.putInt("version", 4); legacy.remove("universe_version");
         ExplorationCatalog migrated = ExplorationCatalog.decode(legacy);
@@ -50,7 +50,7 @@ public final class AtlasGameTests {
         customPilot.putString("system", customU.id());
         customPilot.put("discovered", strings(List.of("sol", customU.id(), customV.id())));
         customPilot.put("visited", strings(List.of("sol", customU.id(), customV.id())));
-        CompoundTag expectedCustom = customLegacy.copy(); expectedCustom.putInt("version", 6);
+        CompoundTag expectedCustom = customLegacy.copy(); expectedCustom.putInt("version", 7);
         expectedCustom.putInt("universe_version", UniverseGenerator.VERSION);
         ExplorationCatalog customMigrated = ExplorationCatalog.decode(customLegacy);
         helper.assertTrue(customMigrated.isDirty()

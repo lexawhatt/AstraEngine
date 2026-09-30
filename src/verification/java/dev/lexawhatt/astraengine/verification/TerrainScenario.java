@@ -3,6 +3,7 @@ package dev.lexawhatt.astraengine.verification;
 import com.mojang.blaze3d.platform.NativeImage;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.server.PlanetaryTerrainWorld;
+import dev.lexawhatt.astraengine.server.PlanetaryGeographyState;
 import dev.lexawhatt.astraengine.surface.PlanetaryTerrain;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -11,10 +12,12 @@ import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
 import net.neoforged.neoforge.common.NeoForge;
@@ -63,6 +66,23 @@ final class TerrainScenario {
                 game.options.renderDistance().set(4);
                 server(server -> {
                     PlanetaryTerrainWorld.validate(server);
+                    var geography = PlanetaryGeographyState.get(server);
+                    String manifest = geography.save(new CompoundTag(), server.registryAccess()).toString();
+                    try {
+                        Path checkpoint = path("geography-checkpoint.txt");
+                        if (phase.equals("terrain-restart")) {
+                            require(Files.isRegularFile(server.getWorldPath(LevelResource.ROOT).resolve(
+                                    "data/" + PlanetaryGeographyState.FILE_NAME + ".dat")),
+                                    "Geographic identity was not persisted by the host");
+                            require(Files.readString(checkpoint).equals(manifest),
+                                    "Geographic identity changed across process restart");
+                        } else {
+                            require(!Files.exists(checkpoint), "Refusing to replace a geography checkpoint");
+                            Files.writeString(checkpoint, manifest);
+                        }
+                    } catch (java.io.IOException failure) {
+                        throw new IllegalStateException("Cannot retain geography restart evidence", failure);
+                    }
                     var level = server.getLevel(PlanetaryTerrainWorld.DIMENSION);
                     require(level != null, "Highlands world is missing");
                     level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);

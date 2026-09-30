@@ -65,7 +65,9 @@ vec3 stellarEjectaRadiance(vec3 ray, vec3 center, float angularRadius, float ela
     float ignition = smoothstep(0.04, 0.65, elapsed);
     // Finite cooling follows only the authoritative phase age, meeting the mature remnant
     // continuously at sixteen seconds. It does not pulse or restart with shader Time.
-    return gas * ignition * (0.30 + 4.0 * exp(-elapsed * 0.18));
+    // A modest visual lift for gas filaments only. Flash energy, exposure and
+    // incident sky/cloud illumination retain their separately authored bounds.
+    return gas * ignition * (0.30 + 4.0 * exp(-elapsed * 0.18)) * 1.22;
 }
 
 vec3 evolvingSolarRadiance(vec3 background, vec3 ray, vec3 center, float physicalRadius,

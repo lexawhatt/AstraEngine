@@ -15,7 +15,7 @@ public record CelestialBody(String id, String name, Kind kind, double radiusMete
     private static final double TWO_PI = Math.PI * 2;
 
     public enum Kind {
-        STAR, BLACK_HOLE, ROCKY, OCEAN, GAS_GIANT, ICE
+        STAR, BLACK_HOLE, ROCKY, OCEAN, GAS_GIANT, ICE, PULSAR
     }
 
     /** Compatibility constructor: the orbit is relative to the system origin, as in the original descriptor. */

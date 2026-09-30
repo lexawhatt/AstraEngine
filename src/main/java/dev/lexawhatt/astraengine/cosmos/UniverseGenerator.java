@@ -125,6 +125,9 @@ public final class UniverseGenerator {
 
     /** Resolves all built-in identities; canonical but unpopulated v-sector identities return empty. */
     public static Optional<CosmosSystem> find(long seed, String id) {
+        if (PulsarGenerator.isPulsarId(id)) {
+            return Optional.of(PulsarGenerator.byId(seed, id));
+        }
         ParsedId parsed = parse(id);
         if (parsed != null) {
             GalaxyDescriptor galaxy = galaxy(seed, parsed.galaxy());
@@ -143,19 +146,22 @@ public final class UniverseGenerator {
         return find(seed, id).orElseThrow(() -> new IllegalArgumentException("Unpopulated universe sector: " + id));
     }
 
-    /** Canonical u-landmark or v-sector syntax only; this never generates or grants access to a system. */
+    /** Canonical u/p-landmark or v-sector syntax only; this never generates or grants access to a system. */
     public static boolean isUniverseId(String id) {
-        return parse(id) != null;
+        return PulsarGenerator.isPulsarId(id) || parse(id) != null;
     }
 
-    /** True only for the bounded public atlas's u-landmark identities, never arbitrary sectors or custom systems. */
+    /** True only for bounded public u/p landmarks, never arbitrary sectors or custom systems. */
     public static boolean isAtlasSystemId(String id) {
         ParsedId parsed = parse(id);
-        return parsed != null && parsed.landmark();
+        return PulsarGenerator.isPulsarId(id) || parsed != null && parsed.landmark();
     }
 
-    /** Owning galaxy index for a canonical u/v identity; legacy and custom identities are rejected. */
+    /** Owning galaxy index for a canonical u/v/p identity; legacy and custom identities are rejected. */
     public static int galaxyIndex(String systemId) {
+        if (PulsarGenerator.isPulsarId(systemId)) {
+            return PulsarGenerator.galaxyIndex(systemId);
+        }
         ParsedId parsed = parse(systemId);
         if (parsed == null) {
             throw new IllegalArgumentException("A universe system identity is required");
@@ -165,11 +171,14 @@ public final class UniverseGenerator {
 
     /**
      * Reveals no state: queries a bounded neighborhood for a current descriptor. Legacy and custom contexts retain
-     * the original absolute s-sector query; u/v contexts use only their galaxy's density-conditioned v population.
+     * the original absolute s-sector query; u/v/p contexts use their galaxy's density-conditioned v population.
      */
     public static List<CosmosSystem> nearby(long seed, CosmosSystem current, int radiusSectors) {
         if (current == null) {
             throw new IllegalArgumentException("A neighborhood query requires a current system");
+        }
+        if (PulsarGenerator.isPulsarId(current.id())) {
+            return nearby(seed, PulsarGenerator.galaxyIndex(current.id()), current.galaxyPosition(), radiusSectors);
         }
         ParsedId parsed = parse(current.id());
         return parsed == null ? CosmosGenerator.nearby(seed, current.galaxyPosition(), radiusSectors)

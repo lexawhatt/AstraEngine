@@ -2,7 +2,10 @@ package dev.lexawhatt.astraengine.client.flight;
 
 import dev.lexawhatt.astraengine.cosmos.CosmicRegion;
 import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
+import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.GalaxyDescriptor;
+import dev.lexawhatt.astraengine.cosmos.PulsarGenerator;
+import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.cosmos.UniverseGenerator;
 import java.util.List;
 import java.util.Locale;
@@ -20,6 +23,7 @@ public final class UniverseAtlasScreen extends Screen {
     private final RocketController controller;
     private List<GalaxyDescriptor> galaxies = List.of();
     private List<CosmicRegion> regions = List.of();
+    private CosmosSystem pulsar;
     private int selectedGalaxy;
     private int selectedRegion;
     private int columnX;
@@ -38,7 +42,7 @@ public final class UniverseAtlasScreen extends Screen {
 
     @Override
     protected void init() {
-        if (width < 560 || height < 340) {
+        if (width < 560 || height < 360) {
             addRenderableWidget(Button.builder(Component.translatable("astraengine.map.smaller_ui"), button -> {
                 minecraft.options.guiScale().set(1); minecraft.resizeDisplay();
             }).bounds(width / 2 - 100, height / 2, 200, 20).build());
@@ -52,6 +56,7 @@ public final class UniverseAtlasScreen extends Screen {
         long seed = controller.snapshot().galaxySeed();
         galaxies = UniverseGenerator.galaxies(seed);
         regions = UniverseGenerator.regions(seed, selectedGalaxy);
+        pulsar = PulsarGenerator.landmark(seed, selectedGalaxy);
         int leftWidth = Math.min(220, (width - 48) / 3);
         columnX = 30 + leftWidth;
         columnWidth = width - columnX - 16;
@@ -67,9 +72,13 @@ public final class UniverseAtlasScreen extends Screen {
                 selectedRegion = region.index(); rebuildWidgets();
             }).bounds(columnX, 58 + region.index() * 22, columnWidth, 20).build());
         }
+        addRenderableWidget(Button.builder(Component.literal((selectedRegion == regions.size() ? "> " : "")
+                + pulsar.name()), button -> {
+            selectedRegion = regions.size(); rebuildWidgets();
+        }).bounds(columnX, 58 + regions.size() * 22, columnWidth, 20).build());
         int buttonWidth = (columnWidth - 8) / 2;
         aim = addRenderableWidget(Button.builder(text("aim"), button -> {
-            if (controller.chartAtlasSystem(selected().systemId())) { onClose(); }
+            if (controller.chartAtlasSystem(selectedSystemId())) { onClose(); }
         }).bounds(columnX, height - 54, buttonWidth, 20).build());
         addRenderableWidget(Button.builder(text("map"), button -> minecraft.setScreen(new CosmosMapScreen(controller)))
                 .bounds(columnX + buttonWidth + 8, height - 54, buttonWidth, 20).build());
@@ -78,7 +87,7 @@ public final class UniverseAtlasScreen extends Screen {
 
     @Override
     public void tick() {
-        if (galaxies.isEmpty() && controller.snapshot() != null && width >= 560 && height >= 340) {
+        if (galaxies.isEmpty() && controller.snapshot() != null && width >= 560 && height >= 360) {
             rebuildWidgets();
         }
         refreshActions();
@@ -88,37 +97,40 @@ public final class UniverseAtlasScreen extends Screen {
         if (aim == null) { return; }
         boolean idle = controller.active() && controller.snapshot().jumpTicks() == 0;
         boolean known = controller.snapshot() != null
-                && controller.snapshot().discoveredSystems().contains(selected().systemId());
+                && controller.snapshot().discoveredSystems().contains(selectedSystemId());
         aim.active = idle && (known || controller.snapshot().discoveredSystems().size() < 256);
     }
 
-    private CosmicRegion selected() { return regions.get(selectedRegion); }
+    private boolean pulsarSelected() { return selectedRegion == regions.size(); }
+    private String selectedSystemId() { return pulsarSelected() ? pulsar.id() : regions.get(selectedRegion).systemId(); }
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
         graphics.fill(0, 0, width, height, 0xFA070D16);
         graphics.drawString(font, title, 16, 18, 0xFFE8F5F4);
-        if (width < 560 || height < 340) {
+        if (width < 560 || height < 360) {
             graphics.drawCenteredString(font, Component.translatable("astraengine.map.small"),
                     width / 2, height / 2 - 24, 0xFFB1CBD1);
         } else if (galaxies.isEmpty() || controller.snapshot() == null) {
             graphics.drawString(font, text("waiting"), 16, 44, 0xFFB1CBD1);
         } else {
             GalaxyDescriptor galaxy = galaxies.get(selectedGalaxy);
-            CosmicRegion region = selected();
+            CosmicRegion region = pulsarSelected() ? null : regions.get(selectedRegion);
+            SpaceVector position = region == null ? pulsar.galaxyPosition() : region.centerLightYears();
             graphics.drawString(font, text("galaxies", galaxies.size()), 16, 42, 0xFF8FE3DA);
             graphics.drawString(font, text("regions"), columnX, 42, 0xFF8FE3DA);
             graphics.drawString(font, kind(galaxy.kind().name()), 16, height - 66, 0xFF8FE3DA);
             graphics.drawString(font, text("galaxy_radius", format(galaxy.radiusLightYears())),
                     16, height - 52, 0xFFB1CBD1);
-            graphics.drawString(font, kind(region.kind().name()), columnX, height - 124, 0xFF8FE3DA);
-            graphics.drawString(font, text("distance", RocketController.distance(region.centerLightYears()
+            graphics.drawString(font, kind(region == null ? "PULSAR" : region.kind().name()), columnX, height - 124, 0xFF8FE3DA);
+            graphics.drawString(font, text("distance", RocketController.distance(position
                     .distance(controller.galaxyPosition()) * CosmosGenerator.LIGHT_YEAR)),
                     columnX, height - 108, 0xFFB1CBD1);
-            graphics.drawString(font, text("region_radius", format(region.radiusLightYears())),
+            graphics.drawString(font, region == null ? text("pulsar_radius", format(pulsar.bodies().getFirst().radiusMeters() / 1000))
+                    : text("region_radius", format(region.radiusLightYears())),
                     columnX, height - 92, 0xFFB1CBD1);
-            String state = controller.visited(region.systemId()) ? "visited"
-                    : controller.snapshot().discoveredSystems().contains(region.systemId()) ? "charted" : "uncharted";
+            String state = controller.visited(selectedSystemId()) ? "visited"
+                    : controller.snapshot().discoveredSystems().contains(selectedSystemId()) ? "charted" : "uncharted";
             graphics.drawString(font, text(state), columnX, height - 76, 0xFFEED4AA);
             Component hint = text(controller.active() ? "manual_hint" : "enter_hint");
             graphics.drawString(font, hint, 16, height - 18, 0xFF7E9EA9);

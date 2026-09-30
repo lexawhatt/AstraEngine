@@ -84,8 +84,10 @@ uses 2048 blocks; it does not remove those host limits. Mountains beyond this
 envelope require a separate storage and coordinate design, not just a larger JSON
 height value.
 
-Closed traversal, polar tile neighbors, canonical storage across local frames,
-continuous walking and larger vertical storage are subsequent development stages.
+[Closed geographic tile identities](PLANETARY_GEOGRAPHY.md), polar neighbors and
+saved topology metadata are implemented as the second terrain stage. Continuous
+walking, authoritative block storage across local frames and larger vertical storage
+remain subsequent development stages.
 The highlands currently use the host sky and atmosphere. Shared orbital terrain,
 altitude-dependent atmospheric integration and landing at arbitrary geographic
 coordinates are not provided by this prototype.

@@ -4,6 +4,7 @@ import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -12,6 +13,24 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CelestialFrameTest {
+    @Test
+    void beamExtentKeepsACompactPulsarVisibleWithoutInflatingItsPhysicalDisc() {
+        var bodies = new ArrayList<CelestialBody>();
+        bodies.add(body("primary", CelestialBody.Kind.STAR, 10, 0));
+        for (int index = 0; index < 20; index++) {
+            bodies.add(body("planet_" + index, CelestialBody.Kind.ROCKY, 100, 10000 + index));
+        }
+        bodies.add(body("pulsar", CelestialBody.Kind.PULSAR, 10, 20000));
+        CosmosSystem system = new CosmosSystem("fixture", "Fixture", 1, CosmosSystem.Kind.SINGLE,
+                SpaceVector.ZERO, bodies);
+        var frame = CelestialFrame.extract(system, new SpaceVector(0, 0, 100), 0);
+        var pulsar = frame.bodies().stream().filter(value -> value.descriptor().id().equals("pulsar"))
+                .findFirst().orElseThrow();
+        assertEquals(CelestialFrame.MAX_RENDERED_BODIES, frame.bodies().size());
+        assertEquals(10 / Math.hypot(20000, 100), pulsar.radiusRatio(), 1e-10);
+        assertEquals(48 * 10 / Math.hypot(20000, 100), pulsar.angularExtent(), 1e-15);
+    }
+
     @Test
     void solarCatalogExceedsGpuBudgetButNearbySatellitesAndPrimaryRemainVisible() {
         CosmosSystem sol = CosmosGenerator.sol();

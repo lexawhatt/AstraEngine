@@ -63,7 +63,7 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
                 navigationEpoch);
     }
 
-    /** Compatibility adapter for former gear/yaw/pitch callers; network semantics use version six. */
+    /** Compatibility adapter for former gear/yaw/pitch callers; network semantics use version seven. */
     public ExplorationPayload(long galaxySeed, long clockTicks, String systemId, SpaceVector position,
             SpaceVector velocity, boolean active, int speedIndex, float yaw, float pitch, int jumpTicks,
             String jumpTarget, List<String> discoveredSystems, long revision, long navigationEpoch) {

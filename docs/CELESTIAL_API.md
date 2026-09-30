@@ -81,6 +81,7 @@ discovers generated systems; custom content is revealed explicitly through this 
 | --- | --- |
 | `CelestialBodies.planet(id, name, kind, radiusMeters)` | `ROCKY`, `OCEAN`, `GAS_GIANT`, or `ICE` material |
 | `CelestialBodies.star(id, name, radiusMeters)` | Existing stellar shader |
+| `CelestialBodies.pulsar(id, name, radiusMeters)` | Compact emissive body with rotating visual beams; no evolution clock |
 | `CelestialBodies.blackHole(id, name, radiusMeters)` | Physical horizon radius; existing lensing and accretion disc |
 | `.orbit(meters, seconds)` | Parent-relative semimajor axis and period; both zero means stationary at that origin |
 | `.parent(bodyId)` | Local parent identity; empty string (the default) means the system origin |
@@ -93,7 +94,7 @@ discovers generated systems; custom content is revealed explicitly through this 
 | `.axialTiltRadians(value)` | Tilt in `[-pi, pi]`; also sets ring orientation |
 | `CelestialSystems.builder(id, name)` | Namespaced custom ID and display name |
 | `.seed(long)` | Deterministic visual seed, default zero |
-| `.kind(kind)` | `SINGLE`, `BINARY`, `BLACK_HOLE`, or `SUPERNOVA`; default `SINGLE` |
+| `.kind(kind)` | `SINGLE`, `BINARY`, `BLACK_HOLE`, `SUPERNOVA`, or `PULSAR`; default `SINGLE` |
 | `.galaxyPositionLightYears(x, y, z)` | Galactic position in light-years, default origin |
 | `.body(body)` | Adds a body; the first body is the primary and fast-travel observation target |
 
@@ -179,9 +180,9 @@ do not retain the live player reference beyond its lifecycle.
 ## Saving, synchronization, and scope
 
 Custom definitions and navigation records share the Overworld's
-`data/astraengine_exploration.dat`, format **v6**. Descriptor encoding is version 2.
-Existing navigation formats v1-v5 migrate without losing position, roll, speed,
-definitions or discovery. Existing v4/v5 visits are retained; for v1-v3 only charted Sol/current are inferred as visited;
+`data/astraengine_exploration.dat`, format **v7**. Descriptor encoding is version 2.
+Existing navigation formats v1-v6 migrate without losing position, roll, speed,
+definitions or discovery. Existing v4-v6 visits are retained; for v1-v3 only charted Sol/current are inferred as visited;
 the other charted systems need a manual visit before fast travel unlocks.
 Malformed definitions, duplicate identities, and missing referenced
 systems fail closed; they are never silently replaced by generated content.
@@ -194,8 +195,14 @@ unchanged parent and universe generators. Built-in Sol and procedural systems ga
 satellites without moving their existing planets or stars. An unknown future
 satellite version fails closed: reopen with the matching engine version, retaining
 the original save; do not delete the version field or regenerate the catalog.
-Descriptor synchronization requires protocol version 2 on both endpoints; old wire
-descriptors are rejected instead of guessing their missing parent data.
+Version seven adds independently pinned pulsar catalog version 1 without changing
+existing system definitions. `CelestialBodies.pulsar("primary", "Beacon", 12000)`
+creates a 12-km-radius body; use a `PULSAR` system kind and add the body explicitly.
+The visual spin is deliberately slowed for inspection, not a measured physical
+rotation period. A pulsar observation uses an 80-radius framing margin.
+Descriptor synchronization requires protocol version 3 on both endpoints; older
+clients are rejected before receiving an unsupported body kind. Descriptor NBT
+and wire field layout remain version 2, with the new kind appended.
 
 Saved definitions survive departure and restart even if the consumer no longer
 calls `create`. A successful call marks data dirty for normal Minecraft saving;
