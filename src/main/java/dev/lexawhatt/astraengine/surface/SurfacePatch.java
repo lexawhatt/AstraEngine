@@ -51,6 +51,50 @@ public record SurfacePatch(double radiusMeters, double latitudeRadians, double l
                 radiusMeters * bodyMeters.dot(south(latitudeRadians, longitudeRadians)) / forward);
     }
 
+    /**
+     * Differential of {@link #toBody}: local meters per game tick to body-fixed meters per game tick at the
+     * supplied feet position. The gnomonic and radial scale factors are included; this is not a direction-only
+     * rotation. Adds no spin/orbital transport velocity. The point may lie beyond the playable patch, but its
+     * radial distance and projection length must be finite and strictly positive. Null/nonfinite values fail.
+     */
+    public SpaceVector toBodyVelocity(SpaceVector localFeetMeters, SpaceVector localVelocityMetersPerTick) {
+        double radialDistance = velocityRadius(localFeetMeters, localVelocityMetersPerTick);
+        SpaceVector east = east(latitudeRadians, longitudeRadians);
+        SpaceVector south = south(latitudeRadians, longitudeRadians);
+        SpaceVector projected = anchorNormal().multiply(radiusMeters).add(east.multiply(localFeetMeters.x()))
+                .add(south.multiply(localFeetMeters.z()));
+        double projectedLength = projectionLength(projected);
+        SpaceVector normal = projected.normalized();
+        SpaceVector horizontal = east.multiply(localVelocityMetersPerTick.x())
+                .add(south.multiply(localVelocityMetersPerTick.z()));
+        SpaceVector tangent = horizontal.subtract(normal.multiply(normal.dot(horizontal)));
+        return tangent.multiply(radialDistance / projectedLength)
+                .add(normal.multiply(localVelocityMetersPerTick.y()));
+    }
+
+    /**
+     * Inverts {@link #toBodyVelocity} at the same local feet position, retaining meters per game tick.
+     * This is the derivative of the inverse position mapping, not {@link #toLocalDirection}; geometric
+     * scaling away from the anchor and at altitude is retained. Rejects invalid positions, null/nonfinite
+     * velocities and nonrepresentable results. No world state, clocks or movement authority are involved.
+     */
+    public SpaceVector toLocalVelocity(SpaceVector localFeetMeters, SpaceVector bodyVelocityMetersPerTick) {
+        double radialDistance = velocityRadius(localFeetMeters, bodyVelocityMetersPerTick);
+        SpaceVector anchor = anchorNormal();
+        SpaceVector east = east(latitudeRadians, longitudeRadians);
+        SpaceVector south = south(latitudeRadians, longitudeRadians);
+        SpaceVector projected = anchor.multiply(radiusMeters).add(east.multiply(localFeetMeters.x()))
+                .add(south.multiply(localFeetMeters.z()));
+        double projectedLength = projectionLength(projected);
+        double scale = projectedLength / radialDistance;
+        double forwardVelocity = anchor.dot(bodyVelocityMetersPerTick);
+        return new SpaceVector(scale * (east.dot(bodyVelocityMetersPerTick)
+                        - localFeetMeters.x() / radiusMeters * forwardVelocity),
+                projected.normalized().dot(bodyVelocityMetersPerTick),
+                scale * (south.dot(bodyVelocityMetersPerTick)
+                        - localFeetMeters.z() / radiusMeters * forwardVelocity));
+    }
+
     /** Rotates local east/up/south directions into body-fixed directions at a column, preserving camera roll. */
     public FlightOrientation orientationAt(double x, double z) {
         SpaceVector up = normal(x, z);
@@ -80,6 +124,26 @@ public record SurfacePatch(double radiusMeters, double latitudeRadians, double l
     }
 
     private SpaceVector anchorNormal() { return new GeographicPosition(latitudeRadians, longitudeRadians, 0).normal(); }
+
+    private double velocityRadius(SpaceVector localFeetMeters, SpaceVector velocityMetersPerTick) {
+        if (localFeetMeters == null || velocityMetersPerTick == null
+                || !Double.isFinite(velocityMetersPerTick.length())) {
+            throw new IllegalArgumentException("Surface velocity requires a feet position and finite velocity");
+        }
+        double distance = radiusMeters + localFeetMeters.y() - seaY;
+        if (!Double.isFinite(distance) || distance <= 0) {
+            throw new IllegalArgumentException("Surface velocity requires a finite position outside the body's center");
+        }
+        return distance;
+    }
+
+    private static double projectionLength(SpaceVector projected) {
+        double length = projected.length();
+        if (!Double.isFinite(length) || length == 0) {
+            throw new IllegalArgumentException("Surface velocity requires a finite nonzero projection length");
+        }
+        return length;
+    }
 
     private static SpaceVector east(double latitude, double longitude) {
         return new SpaceVector(-Math.sin(longitude), 0, -Math.cos(longitude));

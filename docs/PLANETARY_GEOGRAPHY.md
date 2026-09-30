@@ -7,6 +7,10 @@ world edges, moving block storage between frames and changing gravity are not ye
 implemented. Existing Moon/Earth patches and the highlands world keep their blocks,
 generator definitions, borders and arrival behavior.
 
+[Live geographic frames](SURFACE_FRAMES.md) now connect this topology to actual
+highlands players with immutable poses, exact differential velocities and
+server-side tile observations. It does not yet transfer blocks or stitch world views.
+
 ## Canonical addresses
 
 `PlanetaryTopology` projects six subdivided cube faces onto a sphere. Its current

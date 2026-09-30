@@ -39,6 +39,7 @@ public final class EngineRuntime {
     private TravelService travel;
     private RocketService rocket;
     private SolarEvolutionService solar;
+    private SurfaceFrameTracker surfaceFrames;
 
     /** Registers common/server listeners once. */
     public EngineRuntime() {
@@ -48,6 +49,8 @@ public final class EngineRuntime {
         NeoForge.EVENT_BUS.addListener(this::onTick);
         NeoForge.EVENT_BUS.addListener(this::onLogin);
         NeoForge.EVENT_BUS.addListener(this::onLogout);
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerRespawnEvent event) -> resetSurfaceFrame(event));
+        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> resetSurfaceFrame(event));
         NeoForge.EVENT_BUS.addListener(this::onCosmosDiscovery);
         NeoForge.EVENT_BUS.addListener(this::onCommands);
         NeoForge.EVENT_BUS.addListener((PlayerInteractEvent.RightClickBlock event) -> onInteract(event));
@@ -67,6 +70,7 @@ public final class EngineRuntime {
         SurfaceBindings.get(server).validate(server);
         PlanetaryTerrainWorld.validate(server);
         PlanetaryGeographyState.get(server);
+        surfaceFrames = new SurfaceFrameTracker(server);
         SurfaceWorlds.maintainBorders(server);
         travel = new TravelService(server);
         rocket = new RocketService(server);
@@ -76,11 +80,14 @@ public final class EngineRuntime {
     }
 
     private void onStopping(ServerStoppingEvent event) {
+        if (surfaceFrames != null) { surfaceFrames.close(); surfaceFrames = null; }
         if (rocket != null) { rocket.close(); }
         if (travel != null) { travel.close(); }
     }
 
-    private void onStopped(ServerStoppedEvent event) { solar = null; rocket = null; travel = null; server = null; }
+    private void onStopped(ServerStoppedEvent event) {
+        surfaceFrames = null; solar = null; rocket = null; travel = null; server = null;
+    }
 
     private void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
@@ -88,13 +95,21 @@ public final class EngineRuntime {
             if (rocket != null) { rocket.recover(player); }
             if (solar != null) { solar.send(player); }
             SkyService.send(player);
+            if (surfaceFrames != null) { surfaceFrames.observe(player); }
         }
     }
 
     private void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            if (surfaceFrames != null) { surfaceFrames.forget(player); }
             if (travel != null) { travel.disconnect(player); }
             if (rocket != null) { rocket.disconnect(player); }
+        }
+    }
+
+    private void resetSurfaceFrame(PlayerEvent event) {
+        if (surfaceFrames != null && event.getEntity() instanceof ServerPlayer player) {
+            surfaceFrames.forget(player);
         }
     }
 
@@ -109,6 +124,7 @@ public final class EngineRuntime {
         travel.tick();
         if (rocket != null) { rocket.tick(); }
         if (solar != null) { solar.tick(); }
+        if (surfaceFrames != null) { surfaceFrames.tick(); }
         SystemCatalog catalog = SystemCatalog.get(event.getServer());
         for (String id : SystemWorlds.SYSTEM_IDS) {
             ServerLevel level = event.getServer().getLevel(SystemWorlds.dimension(id));

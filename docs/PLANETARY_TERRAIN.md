@@ -88,6 +88,8 @@ height value.
 saved topology metadata are implemented as the second terrain stage. Continuous
 walking, authoritative block storage across local frames and larger vertical storage
 remain subsequent development stages.
+[Live surface-frame tracking](SURFACE_FRAMES.md) adds read-only pose snapshots,
+motion conversion and geographic tile rows in F3 within this existing world.
 The highlands currently use the host sky and atmosphere. Shared orbital terrain,
 altitude-dependent atmospheric integration and landing at arbitrary geographic
 coordinates are not provided by this prototype.

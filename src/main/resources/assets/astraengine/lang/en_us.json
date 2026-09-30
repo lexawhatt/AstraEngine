@@ -247,6 +247,8 @@
   "astraengine.debug.longitude": "Longitude: %s",
   "astraengine.debug.latitude": "Latitude: %s",
   "astraengine.debug.altitude": "Altitude: %s above reference",
+  "astraengine.debug.geographic_tile": "Geographic tile: %s",
+  "astraengine.debug.tile_local": "Tile tangent position: %s",
   "astraengine.terrain.highlands_only": "This diagnostic requires the highlands prototype world.",
   "astraengine.terrain.location": "Highlands latitude %s, longitude %s | %s | Reference terrain altitude %s m",
   "astraengine.terrain.neighbor": "%s -> %s (entry %s, reversed %s)"

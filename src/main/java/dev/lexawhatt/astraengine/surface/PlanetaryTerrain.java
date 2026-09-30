@@ -18,6 +18,7 @@ public record PlanetaryTerrain(int version, long seed) {
     public static final double MIN_ELEVATION = -192;
     public static final double MAX_ELEVATION = 1536;
     public static final SurfacePatch PATCH = new SurfacePatch(6_371_000, Math.PI / 4, 0, 32768, SEA_Y);
+    public static final PlanetaryTopology TOPOLOGY = new PlanetaryTopology(1, 12, PATCH.radiusMeters());
 
     /** Rejects unknown algorithms; arbitrary seeds are valid pure fields, while world codecs pin their saved seed. */
     public PlanetaryTerrain {

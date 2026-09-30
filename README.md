@@ -42,6 +42,13 @@ stage. The second stage adds [closed geographic tile addresses](docs/PLANETARY_G
 polar neighbors and saved identity metadata. Continuous planetary traversal and
 unrestricted world height remain future work.
 
+[Live geographic frames](docs/SURFACE_FRAMES.md) now provide read-only server pose
+snapshots and tile-change notifications during highlands movement. Position, velocity
+and full orientation can be re-expressed in adjacent local frames without changing
+their body-fixed values. F3 shows the current tile; Minecraft still owns movement,
+collisions, builds and saved player positions. Cross-world chunk/view stitching is
+the next traversal stage.
+
 ## Consumer ship rendering
 
 AstraEngine renders consumer-supplied visual assemblies: analytic shapes,

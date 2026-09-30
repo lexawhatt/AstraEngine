@@ -20,8 +20,7 @@ public final class PlanetaryGeographyState extends SavedData {
     public static final String GEOGRAPHY_ID = "astraengine:highlands";
     public static final String FILE_NAME = "astraengine_geography";
     private static final int FORMAT = 1;
-    private static final PlanetaryTopology TOPOLOGY = new PlanetaryTopology(1, 12,
-            PlanetaryTerrain.PATCH.radiusMeters());
+    private static final PlanetaryTopology TOPOLOGY = PlanetaryTerrain.TOPOLOGY;
 
     private PlanetaryGeographyState() {}
 

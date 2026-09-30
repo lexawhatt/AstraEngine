@@ -3,9 +3,11 @@ package dev.lexawhatt.astraengine.client.surface;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
 import dev.lexawhatt.astraengine.surface.SurfacePatch;
+import dev.lexawhatt.astraengine.surface.PlanetaryTerrain;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Locale;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
 import net.minecraft.resources.ResourceLocation;
@@ -47,9 +49,22 @@ public final class SurfaceDebugOverlay {
         if (patch == null) { return; }
         SurfaceDebugCoordinates coordinates = SurfaceDebugCoordinates.fromFeet(patch,
                 new SpaceVector(minecraft.player.getX(), minecraft.player.getY(), minecraft.player.getZ()));
-        SurfaceDebugCoordinates.replacePrimaryRows(event.getLeft(), List.of(
+        boolean replaced = SurfaceDebugCoordinates.replacePrimaryRows(event.getLeft(), List.of(
                 I18n.get("astraengine.debug.longitude", coordinates.longitudeText()),
                 I18n.get("astraengine.debug.latitude", coordinates.latitudeText()),
                 I18n.get("astraengine.debug.altitude", coordinates.altitudeText())), false);
+        double radialDistance = patch.radiusMeters() + minecraft.player.getY() - patch.seaY();
+        if (replaced && Double.isFinite(radialDistance) && radialDistance > 0
+                && minecraft.level.dimension().location().toString().equals(PlanetaryTerrain.DIMENSION_ID)
+                && patch.contains(minecraft.player.getX(), minecraft.player.getZ())
+                && minecraft.level.getWorldBorder().isWithinBounds(minecraft.player.getX(), minecraft.player.getZ())) {
+            var bodyFeet = patch.toBody(new SpaceVector(minecraft.player.getX(), minecraft.player.getY(),
+                    minecraft.player.getZ()));
+            var tile = PlanetaryTerrain.TOPOLOGY.locate(bodyFeet);
+            var local = PlanetaryTerrain.TOPOLOGY.frame(tile, 0.5, 0.5).toLocalPoint(bodyFeet);
+            event.getLeft().add(I18n.get("astraengine.debug.geographic_tile", tile.key()));
+            event.getLeft().add(I18n.get("astraengine.debug.tile_local", String.format(Locale.ROOT,
+                    "%.2f / %.2f / %.2f m", local.x(), local.y(), local.z())));
+        }
     }
 }
