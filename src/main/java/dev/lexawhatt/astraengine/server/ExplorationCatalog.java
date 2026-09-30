@@ -10,6 +10,7 @@ import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
+import dev.lexawhatt.astraengine.cosmos.SatelliteGenerator;
 import dev.lexawhatt.astraengine.cosmos.UniverseGenerator;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
@@ -86,7 +87,9 @@ public final class ExplorationCatalog extends SavedData {
         if (existing != null) {
             return existing.equals(descriptor) ? CreateResult.ALREADY_EXISTS : CreateResult.CONFLICT;
         }
-        if (customSystems.size() >= MAX_CUSTOM_SYSTEMS) {
+        if (customSystems.size() >= MAX_CUSTOM_SYSTEMS
+                || CosmosDescriptorCodec.snapshotBytes(customSystems.values()) + CosmosDescriptorCodec.encodedBytes(descriptor)
+                        > CosmosDescriptorCodec.MAX_SNAPSHOT_BYTES) {
             return CreateResult.LIMIT_REACHED;
         }
         customSystems.put(descriptor.id(), descriptor);
@@ -162,8 +165,11 @@ public final class ExplorationCatalog extends SavedData {
         }
         return added;
     }
-    /** Safe stationary observation point four body radii from its center. */
+    /** Legacy origin-relative observation; parented bodies require the complete-system overload. */
     public static SpaceVector arrival(CelestialBody body, double seconds) {
+        if (body == null || !body.parentId().isEmpty()) {
+            throw new IllegalArgumentException("A parented body observation requires its complete system");
+        }
         return body.positionAt(seconds).add(new SpaceVector(0, 0, -Math.max(body.radiusMeters() * 4, 100_000)));
     }
     /** Sunlit, body-aware framing with view angles carried in the authoritative navigation snapshot. */
@@ -253,7 +259,7 @@ public final class ExplorationCatalog extends SavedData {
         }
     }
 
-    /** Strict version-five codec; atlas generation is pinned independently of unchanged legacy system generation. */
+    /** Strict version-six codec; atlas and additive satellite versions are independent of legacy parent generation. */
     public static ExplorationCatalog decode(CompoundTag root) {
         if (root == null) { throw new IllegalArgumentException("An exploration save compound is required"); }
         require(root, Tag.TAG_INT, "version", "generator_version");
@@ -261,7 +267,7 @@ public final class ExplorationCatalog extends SavedData {
         require(root, Tag.TAG_LIST, "players");
         require(root, Tag.TAG_BYTE, "landing");
         int version = root.getInt("version");
-        if ((version < 1 || version > 5) || root.getInt("generator_version") != CosmosGenerator.VERSION
+        if ((version < 1 || version > 6) || root.getInt("generator_version") != CosmosGenerator.VERSION
                 || root.getLong("clock_ticks") < 0 || root.getLong("clock_ticks") > 1_000_000_000_000L) {
             throw new IllegalArgumentException("Unsupported or invalid exploration format");
         }
@@ -269,6 +275,12 @@ public final class ExplorationCatalog extends SavedData {
             require(root, Tag.TAG_INT, "universe_version");
             if (root.getInt("universe_version") != UniverseGenerator.VERSION) {
                 throw new IllegalArgumentException("Unsupported saved universe atlas version");
+            }
+        }
+        if (version >= 6) {
+            require(root, Tag.TAG_INT, "satellite_version");
+            if (root.getInt("satellite_version") != SatelliteGenerator.VERSION) {
+                throw new IllegalArgumentException("Unsupported saved satellite version; load with the matching engine version");
             }
         }
         ExplorationCatalog catalog = new ExplorationCatalog(root.getLong("seed"));
@@ -282,9 +294,15 @@ public final class ExplorationCatalog extends SavedData {
             }
             for (int index = 0; index < descriptors.size(); index++) {
                 CosmosSystem descriptor = CosmosDescriptorCodec.decode(descriptors.getCompound(index));
+                if (descriptors.getCompound(index).getInt("version") != CosmosDescriptorCodec.VERSION) {
+                    catalog.setDirty();
+                }
                 if (catalog.customSystems.putIfAbsent(descriptor.id(), descriptor) != null) {
                     throw new IllegalArgumentException("Duplicate saved custom cosmos system: " + descriptor.id());
                 }
+            }
+            if (CosmosDescriptorCodec.snapshotBytes(catalog.customSystems.values()) > CosmosDescriptorCodec.MAX_SNAPSHOT_BYTES) {
+                throw new IllegalArgumentException("Saved custom catalog exceeds its synchronization byte budget");
             }
         } else if (root.contains("custom_systems")) {
             require(root, Tag.TAG_LIST, "custom_systems");
@@ -349,14 +367,15 @@ public final class ExplorationCatalog extends SavedData {
                     tag.getLong("revision"));
             if (catalog.pilots.putIfAbsent(id, pilot) != null) { throw new IllegalArgumentException("Duplicate saved pilot"); }
         }
-        if (version < 5) { catalog.setDirty(); }
+        if (version < 6) { catalog.setDirty(); }
         return catalog;
     }
 
     @Override
     public CompoundTag save(CompoundTag root, HolderLookup.Provider registries) {
-        root.putInt("version", 5); root.putInt("generator_version", CosmosGenerator.VERSION);
+        root.putInt("version", 6); root.putInt("generator_version", CosmosGenerator.VERSION);
         root.putInt("universe_version", UniverseGenerator.VERSION);
+        root.putInt("satellite_version", SatelliteGenerator.VERSION);
         root.putLong("seed", galaxySeed); root.putLong("clock_ticks", clockTicks); root.putBoolean("landing", landingInitialized);
         ListTag descriptors = new ListTag();
         for (CosmosSystem descriptor : customSystems.values()) {

@@ -3,8 +3,8 @@
 AstraEngine renders astronomical bodies with shaders around a virtual camera.
 In Rocket mode, the player occupies the small empty `astraengine:flight` world,
 while the virtual camera's position within a system is stored separately in
-meters. The initial system is our Sun and eight planets, with physical radii
-and orbits at 1:1 scale. Other systems are reproduced from a seed and sector
+meters. The initial system is our Sun, eight planets, and 21 major moons, with
+physical radii and orbits at 1:1 scale. Other systems are reproduced from a seed and sector
 coordinates.
 
 ## First flight
@@ -42,9 +42,12 @@ or structures on procedural planets.
 | Roll | Q / E |
 | Stop / cancel approach | Hold B |
 | Multiply / divide speed by 1.5 | Wheel or + / - during flight |
-| Map zoom | Wheel over the map |
+| Pan either map | Hold middle mouse and drag inside the chart |
+| Map zoom | Wheel over the chart, anchored to the cursor |
+| Focus selected body/system | F while the map is open |
+| Reset current chart framing | Home while the map is open |
 
-Keys can be remapped in Minecraft's control settings. Flight uses first-person
+Flight keys can be remapped in Minecraft's control settings. Map F/Home shortcuts are screen-local. Flight uses first-person
 view and restores the previous camera mode on exit. This is currently an
 inspection free camera: rotation crosses the poles, roll is controlled manually,
 and movement follows all three rotated camera axes. Q/E do not drop items or
@@ -110,6 +113,13 @@ and shows distance to the body's center. **Approach body** starts automatic flig
 to an observation point. Large symbolic map markers do not enlarge bodies in the
 flight scene.
 
+The list includes moons and is paginated. Select **Moon**, then press **F** to
+frame the Earth-Moon pair, or focus **Jupiter** to see its four major moons.
+Satellite orbit paths follow their moving parent. Panning and zooming change only
+the view; they do not move the pilot or discover destinations. Each tab keeps its
+framing through selection, pagination and window resizing. **Home** resets the
+active chart; closing the screen or changing systems starts a fresh view.
+
 **Known systems** contains this player's charted systems, sorted
 by distance from the current system. Scanning discovers the current sector and
 all adjacent sectors around the current visited system, including diagonals:
@@ -172,7 +182,7 @@ Transit has no radial lines or animated ribbons.
 Discoveries are personal: at most **256 systems per player** and **4096 player
 records** in the world catalog. Once the list is full, scans do not evict prior
 discoveries. The map also provides access to distant discovered systems; filtering
-to nearby systems only and arbitrary map panning are not implemented. Zoom ranges
+to nearby systems only is not implemented. Both charts support panning. Zoom ranges
 from `0.25..1000000`. A button can reduce Minecraft's GUI scale when the interface
 is too small to fit the controls.
 
@@ -201,7 +211,10 @@ GPU. Minecraft geometry stays near the local origin, and the shader does not
 have to resolve small objects using enormous `float` coordinates.
 
 This does not draw the entire galaxy at once: each frame extracts at most
-**12 bodies from the current system**. Distant stars and nebulae are a procedural
+**12 bodies from a catalog of up to 64 in the current system**. The primary and
+nearest black hole are retained, then bodies are selected by apparent size
+(including ring/atmosphere extent). The full catalog remains selectable on the map;
+approaching a moon brings it into the visible set. Distant stars and nebulae are a procedural
 background, not an exact projection of every galactic catalog record. Interstellar
 navigation uses the map. Catalog size and visible object counts do not imply
 unlimited computation or unlimited render distance for ordinary blocks.
@@ -221,7 +234,11 @@ Results do not depend on visit order. Each legacy four-light-year sector contain
 2% black-hole, and 2% visual supernova-remnant systems**. These are gameplay
 weights, not real astronomical frequencies. A new system has 2-9 planets, with
 materials and rings determined by the same seed. Identity and unit details are
-in the [generator reference](SOLAR_REFERENCE.md).
+in the [generator reference](SOLAR_REFERENCE.md). An independent version-one
+satellite pass adds 0-2 moons around rocky/ocean/ice planets and 1-4 around gas
+giants, subject to conservative orbital spacing bounds. It preserves all legacy
+parent descriptors, IDs and indices. Consumer-authored systems gain moons only
+when their author explicitly supplies parented bodies.
 
 The shader draws stars at several scales, a galactic light band, dark dust lanes,
 and colored nebulae. Surface materials include rocky bodies, oceans with land
@@ -257,8 +274,9 @@ for light capture and is wider than the physical horizon, whose catalog radius
 stays unchanged. Nearby bodies occlude the lens; real Minecraft blocks render
 over the sky and are not gravitationally distorted. This is not a general solver
 for multiple lenses or intersecting translucent rings. The supernova remnant is
-a glowing procedural shell; its animation does not trigger an explosion, destroy
-buildings, or complete gameplay progression. These visual catalog templates are
+a seeded volume of gas layers, filaments and knots. Its mature structure does not
+pulse with shader time or trigger an explosion, destroy buildings, or complete
+gameplay progression. These visual catalog templates are
 separate from resource evolution in the first API slice.
 
 The Sun in `sol` has a separate [controlled evolution cycle](SOLAR_SKY.md), shared
@@ -311,18 +329,20 @@ The client interpolates received positions and camera orientation without creati
 an independent trajectory. An open map does not pause the server.
 
 The catalog is saved in the main world's `data/astraengine_exploration.dat`.
-Format **v5** pins the universe atlas version and retains private visited IDs,
+Format **v6** pins the universe atlas and additive satellite versions and retains private visited IDs,
 known IDs, up to 64 immutable
 custom system definitions, quaternion orientation, and speed in m/s. Readable
-v1-v4 records retain their exact prior position, known systems, definitions and
-speed. Existing v4 visits remain exact. For v1-v3, only charted Sol and the current
+v1-v5 records retain their exact prior position, known systems, definitions and
+speed. Existing v4/v5 visits remain exact. For v1-v3, only charted Sol and the current
 system are inferred as visited on migration:
 an old scan is not proof of physical travel. Old neighbors stay on the map, and
 the current neighborhood is refreshed on login. Malformed data is rejected.
 Navigation snapshots use protocol v6, actions v4, controls v3, numeric speed v1, and custom
-definitions v1, so client and server need matching mod versions. Only a player's
+definitions v2, so client and server need matching mod versions. Only a player's
 discovered custom definitions are sent, before navigation refers to them; client
-resource reload retains them and logout clears them. The catalog contains format
+resource reload retains them and logout clears them. The aggregate custom
+descriptor wire budget is 900 KiB; creation rejects additions exceeding that
+budget before persistence or synchronization. The catalog contains format
 and generator versions, a seed, custom definitions, a shared orbital clock, and personal navigation
 records. An active approach route belongs to the current session: leaving ends
 it, and reconnecting does not resume it automatically. Discoveries, system, and

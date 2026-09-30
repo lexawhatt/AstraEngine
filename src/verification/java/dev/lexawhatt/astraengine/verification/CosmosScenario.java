@@ -452,14 +452,14 @@ final class CosmosScenario {
     private void verifyObservation(String bodyId) {
         CelestialBody body = controller.currentSystem().bodies().stream().filter(value -> value.id().equals(bodyId))
                 .findFirst().orElseThrow();
-        double distance = controller.snapshot().position().distance(body.positionAt(controller.timeSeconds()));
+        double distance = controller.snapshot().position().distance(controller.currentSystem().positionAt(body, controller.timeSeconds()));
         boolean remnant = controller.currentSystem().kind() == CosmosSystem.Kind.SUPERNOVA
                 && body.id().equals(controller.currentSystem().bodies().getFirst().id());
         double framing = remnant ? 60 : body.kind() == CelestialBody.Kind.BLACK_HOLE ? 24
                 : body.ringOuterRatio() > 0 ? 8 : 4;
         require(Math.abs(distance - body.radiusMeters() * framing) < body.radiusMeters() * 0.2,
                 "Approach did not reach the expected physical observation radius for " + bodyId + ": " + distance);
-        SpaceVector towardBody = body.positionAt(controller.timeSeconds()).subtract(controller.visualPosition()).normalized();
+        SpaceVector towardBody = controller.currentSystem().positionAt(body, controller.timeSeconds()).subtract(controller.visualPosition()).normalized();
         var actualLook = minecraft.gameRenderer.getMainCamera().getLookVector();
         double alignment = towardBody.dot(new SpaceVector(actualLook.x, actualLook.y, actualLook.z).normalized());
         require(alignment > 0.99, "Rendered camera does not face the approached body " + bodyId

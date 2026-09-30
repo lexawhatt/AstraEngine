@@ -1,6 +1,7 @@
 package dev.lexawhatt.astraengine.api.celestial;
 
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
+import dev.lexawhatt.astraengine.cosmos.CelestialOrbits;
 import dev.lexawhatt.astraengine.cosmos.CosmosIds;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
@@ -11,7 +12,7 @@ import java.util.List;
 /** Pure custom-system construction and shared publication validation; no worlds or saved state are allocated. */
 public final class CelestialSystems {
     public static final int MAX_CUSTOM_SYSTEMS = 64;
-    public static final int MAX_BODIES = 12;
+    public static final int MAX_BODIES = CosmosSystem.MAX_BODIES;
     public static final double MAX_GALAXY_COORDINATE_LIGHT_YEARS = 1_000_000;
 
     private CelestialSystems() {
@@ -28,13 +29,13 @@ public final class CelestialSystems {
     /**
      * Validates a complete custom descriptor for creation, storage and synchronization, on any thread.
      * Throws IllegalArgumentException for null, a reserved/noncanonical ID or unsupported bounds.
-     * Galaxy coordinates are bounded per axis to +/-1e6 light-years. Every body's apoapsis plus its standard
+     * Galaxy coordinates are bounded per axis to +/-1e6 light-years. Every body's full parent-chain apoapsis plus its standard
      * observation margin must fit within the 4096-AU navigation sphere for all orbital phases.
      * This does not prove collision-free routes, assign gameplay permissions, or create a dimension.
      */
     public static void validateCustom(CosmosSystem system) {
         if (system == null || !CosmosIds.isCustom(system.id()) || system.bodies().size() > MAX_BODIES) {
-            throw new IllegalArgumentException("A custom system requires a namespaced ID and 1..12 bodies");
+            throw new IllegalArgumentException("A custom system requires a namespaced ID and 1..64 bodies");
         }
         SpaceVector galaxy = system.galaxyPosition();
         if (Math.abs(galaxy.x()) > MAX_GALAXY_COORDINATE_LIGHT_YEARS
@@ -48,7 +49,7 @@ public final class CelestialSystems {
             double radii = index == 0 && system.kind() == CosmosSystem.Kind.SUPERNOVA ? 60
                     : body.kind() == CelestialBody.Kind.BLACK_HOLE ? 24 : body.ringOuterRatio() > 0 ? 8 : 4;
             double margin = Math.max(body.radiusMeters() * radii, 100_000);
-            double apoapsis = body.orbitMeters() * (1 + body.eccentricity());
+            double apoapsis = CelestialOrbits.maximumDistance(system.bodies(), body);
             if (apoapsis + margin > FlightDynamics.LOCAL_RADIUS) {
                 throw new IllegalArgumentException("Body observation exceeds the navigation boundary: " + body.id());
             }
@@ -90,7 +91,7 @@ public final class CelestialSystems {
         /** Adds one immutable descriptor in render/catalog order; the first body is the primary. Null is rejected. */
         public Builder body(CelestialBody body) {
             if (body == null || bodies.size() >= MAX_BODIES) {
-                throw new IllegalArgumentException("A system draft accepts at most 12 non-null bodies");
+                throw new IllegalArgumentException("A system draft accepts at most 64 non-null bodies");
             }
             bodies.add(body);
             return this;

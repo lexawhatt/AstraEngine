@@ -16,11 +16,11 @@ class CosmosGeneratorTest {
         CosmosSystem sol = CosmosGenerator.sol();
         assertEquals(CosmosSystem.Kind.SINGLE, sol.kind());
         assertEquals(SpaceVector.ZERO, sol.galaxyPosition());
-        assertEquals(List.of("sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune"),
-                sol.bodies().stream().map(CelestialBody::id).toList());
+        assertEquals(List.of("sun", "mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune", "moon"),
+                sol.bodies().stream().limit(10).map(CelestialBody::id).toList());
         CelestialBody sun = sol.bodies().getFirst();
         CelestialBody earth = sol.bodies().get(3);
-        CelestialBody neptune = sol.bodies().getLast();
+        CelestialBody neptune = sol.bodies().get(8);
         assertEquals(695_700_000, sun.radiusMeters());
         assertEquals(6_371_000, earth.radiusMeters());
         assertEquals(149_598_000_000d, earth.orbitMeters());
@@ -75,10 +75,13 @@ class CosmosGeneratorTest {
         boolean ringFound = false;
         for (int sector = 1; sector <= 1000; sector++) {
             CosmosSystem system = CosmosGenerator.generate(20260927, sector, -sector / 3, sector / 7);
-            assertTrue(system.bodies().size() >= 3 && system.bodies().size() <= 11);
+            long parents = system.bodies().stream().filter(body -> body.parentId().isEmpty()).count();
+            assertTrue(parents >= 3 && parents <= 11);
+            assertTrue(system.bodies().size() <= CosmosSystem.MAX_BODIES);
             double previousAphelion = 0;
             int planets = 0;
             for (CelestialBody body : system.bodies()) {
+                if (!body.parentId().isEmpty()) { continue; }
                 materials.add(body.kind());
                 ringFound |= body.ringOuterRatio() > 0;
                 if (body.kind() == CelestialBody.Kind.STAR || body.kind() == CelestialBody.Kind.BLACK_HOLE) {
@@ -148,7 +151,7 @@ class CosmosGeneratorTest {
         ArrayList<CelestialBody> bodies = new ArrayList<>(CosmosGenerator.sol().bodies());
         CosmosSystem system = new CosmosSystem("copy", "Copy", 3, CosmosSystem.Kind.SINGLE, SpaceVector.ZERO, bodies);
         bodies.clear();
-        assertEquals(9, system.bodies().size());
+        assertEquals(30, system.bodies().size());
         assertThrows(UnsupportedOperationException.class, () -> system.bodies().clear());
         CelestialBody earth = CosmosGenerator.sol().bodies().get(3);
         assertThrows(IllegalArgumentException.class, () -> new CosmosSystem("copy", "Copy", 3,

@@ -74,12 +74,12 @@ public final class FlightDynamics {
         boolean blackHole = body.kind() == CelestialBody.Kind.BLACK_HOLE;
         boolean stellar = body.kind() == CelestialBody.Kind.STAR || blackHole || remnant;
         double radii = remnant ? 60 : blackHole ? 24 : body.ringOuterRatio() > 0 ? 8 : 4;
-        SpaceVector center = body.positionAt(seconds);
+        SpaceVector center = system.positionAt(body, seconds);
         SpaceVector observerDirection = new SpaceVector(0, 0.3, -1).normalized();
         if (!stellar) {
             CelestialBody source = system.bodies().stream().filter(value -> value.kind() == CelestialBody.Kind.STAR)
                     .findFirst().orElse(system.bodies().getFirst());
-            SpaceVector towardSource = source.positionAt(seconds).subtract(center);
+            SpaceVector towardSource = system.positionAt(source, seconds).subtract(center);
             if (towardSource.length() > 1) {
                 double elevation = body.ringOuterRatio() > 0 ? 0.55 : 0.22;
                 observerDirection = towardSource.normalized().add(new SpaceVector(0, elevation, 0)).normalized();
@@ -130,7 +130,7 @@ public final class FlightDynamics {
     /** Advances at most 0.1 seconds; released input/brake immediately yields zero velocity, without inertia. */
     public static State step(State state, Input input, double speedMetersPerSecond, double seconds,
             List<CelestialBody> bodies, double clockSeconds) {
-        if (state == null || input == null || bodies == null || bodies.size() > 12
+        if (state == null || input == null || bodies == null || bodies.size() > CosmosSystem.MAX_BODIES
                 || !Double.isFinite(seconds) || seconds < 0 || seconds > 0.1
                 || !Double.isFinite(clockSeconds) || clockSeconds < 0) {
             throw new IllegalArgumentException("Invalid free-camera simulation step");
@@ -145,7 +145,7 @@ public final class FlightDynamics {
         SpaceVector start = state.position();
         // Orbit motion can overtake an idle observer. Resolve penetration before the sweep.
         for (CelestialBody body : bodies) {
-            SpaceVector center = body.positionAt(clockSeconds);
+            SpaceVector center = CelestialOrbits.positionAt(bodies, body, clockSeconds);
             SpaceVector offset = start.subtract(center);
             double radius = safeRadius(body);
             if (offset.length() < radius) {
@@ -160,7 +160,7 @@ public final class FlightDynamics {
         if (length > 0) {
             SpaceVector direction = motion.multiply(1 / length);
             for (CelestialBody body : bodies) {
-                SpaceVector relative = body.positionAt(clockSeconds).subtract(start);
+                SpaceVector relative = CelestialOrbits.positionAt(bodies, body, clockSeconds).subtract(start);
                 double projection = dot(relative, direction);
                 double radius = safeRadius(body);
                 SpaceVector perpendicular = relative.subtract(direction.multiply(projection));
@@ -197,7 +197,7 @@ public final class FlightDynamics {
 
     static boolean clearSegment(SpaceVector start, SpaceVector end, List<CelestialBody> bodies,
             double startSeconds, double endSeconds, double curveAllowance) {
-        if (start == null || end == null || bodies == null || bodies.size() > 12
+        if (start == null || end == null || bodies == null || bodies.size() > CosmosSystem.MAX_BODIES
                 || !Double.isFinite(startSeconds) || !Double.isFinite(endSeconds)
                 || !Double.isFinite(curveAllowance) || curveAllowance < 0
                 || startSeconds < 0 || endSeconds < startSeconds
@@ -206,20 +206,13 @@ public final class FlightDynamics {
         }
         double seconds = endSeconds - startSeconds;
         for (CelestialBody body : bodies) {
-            SpaceVector relativeStart = start.subtract(body.positionAt(startSeconds));
-            SpaceVector relativeEnd = end.subtract(body.positionAt(endSeconds));
+            SpaceVector relativeStart = start.subtract(CelestialOrbits.positionAt(bodies, body, startSeconds));
+            SpaceVector relativeEnd = end.subtract(CelestialOrbits.positionAt(bodies, body, endSeconds));
             SpaceVector relativeMotion = relativeEnd.subtract(relativeStart);
             double squareLength = relativeMotion.dot(relativeMotion);
             double fraction = squareLength > 0
                     ? Math.clamp(-relativeStart.dot(relativeMotion) / squareLength, 0, 1) : 0;
-            double allowance = 0;
-            if (body.orbitalPeriodSeconds() > 0 && seconds > 0) {
-                double frequency = Math.PI * 2 / body.orbitalPeriodSeconds();
-                double acceleration = frequency * frequency * body.orbitMeters()
-                        / Math.pow(1 - body.eccentricity(), 2);
-                allowance = Math.min(body.orbitMeters() * (1 + body.eccentricity()) * 2,
-                        acceleration * seconds * seconds / 8);
-            }
+            double allowance = CelestialOrbits.curvatureBound(bodies, body, seconds);
             if (relativeStart.add(relativeMotion.multiply(fraction)).length() <= safeRadius(body) + allowance + curveAllowance) {
                 return false;
             }

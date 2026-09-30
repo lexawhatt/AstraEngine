@@ -560,7 +560,7 @@ final class CameraScenario {
     private void verifyTarget(String id) {
         CelestialBody body = controller.currentSystem().bodies().stream().filter(value -> value.id().equals(id))
                 .findFirst().orElseThrow();
-        SpaceVector direction = body.positionAt(controller.timeSeconds()).subtract(controller.visualPosition()).normalized();
+        SpaceVector direction = controller.currentSystem().positionAt(body, controller.timeSeconds()).subtract(controller.visualPosition()).normalized();
         double alignment = direction.dot(controller.orientation().forward());
         if (alignment <= 0.999) { diagnoseCamera("target-mismatch-" + id); }
         require(alignment > 0.999, "Approach failed to face " + id + ", dot=" + alignment);

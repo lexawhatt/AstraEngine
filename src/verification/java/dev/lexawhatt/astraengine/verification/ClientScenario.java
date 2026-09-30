@@ -77,6 +77,7 @@ public final class ClientScenario {
     private SolarCloudScenario solarCloudScenario;
     private VolumetricScenario volumetricScenario;
     private RenderCompatibilityScenario renderCompatibilityScenario;
+    private CelestialPolishScenario celestialPolishScenario;
 
     public ClientScenario() {
         NeoForge.EVENT_BUS.addListener(this::tick);
@@ -87,7 +88,7 @@ public final class ClientScenario {
         if (finished) { return; }
         try {
             require((System.nanoTime() - startedAt) < (phase.startsWith("seasonal") || phase.equals("volumetric")
-                    || phase.equals("render-compat")
+                    || phase.equals("render-compat") || phase.equals("celestial-polish")
                     ? 600_000_000_000L : 240_000_000_000L),
                     "Native fixture timed out at step " + step);
             if (!opened && !onboardingContinued && minecraft.getOverlay() == null
@@ -151,14 +152,14 @@ public final class ClientScenario {
                         || phase.equals("celestial-api") || phase.equals("celestial-api-restart")
                         || phase.equals("galactic") || phase.equals("galactic-restart")
                         || phase.equals("atlas") || phase.equals("atlas-restart")
-                        || phase.equals("ship-visual") || phase.equals("render-compat")) {
+                        || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("celestial-polish")) {
                     minecraft.options.guiScale().set(2);
                 }
                 if (phase.equals("create") || phase.equals("lighting") || phase.equals("editor")
                         || phase.equals("cosmos") || phase.equals("solar") || phase.equals("camera") || phase.equals("audio")
                         || phase.equals("celestial") || phase.equals("approach") || phase.equals("celestial-api") || phase.equals("galactic") || phase.equals("atlas")
                         || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("seasonal")
-                        || phase.equals("solar-clouds") || phase.equals("volumetric")) {
+                        || phase.equals("solar-clouds") || phase.equals("volumetric") || phase.equals("celestial-polish")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
@@ -184,6 +185,7 @@ public final class ClientScenario {
             boolean solarPhase = phase.equals("solar") || phase.equals("solar-restart");
             boolean cameraPhase = phase.equals("camera") || phase.equals("camera-restart");
             boolean celestialPhase = phase.equals("celestial");
+            boolean celestialPolishPhase = phase.equals("celestial-polish");
             boolean approachPhase = phase.equals("approach");
             boolean atlasPhase = phase.equals("atlas") || phase.equals("atlas-restart");
             boolean shipVisualPhase = phase.equals("ship-visual") || phase.equals("render-compat");
@@ -192,7 +194,8 @@ public final class ClientScenario {
             if (minecraft.player == null || minecraft.level == null || minecraft.getOverlay() != null
                     || (minecraft.screen != null && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
                             || minecraft.screen instanceof ShaderEditorScreen))
-                            && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || approachPhase || celestialApiPhase || galacticPhase)
+                            && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || celestialPolishPhase
+                                    || approachPhase || celestialApiPhase || galacticPhase)
                                     && minecraft.screen instanceof CosmosMapScreen)
                             && !(atlasPhase && (minecraft.screen instanceof CosmosMapScreen
                                     || minecraft.screen instanceof UniverseAtlasScreen))
@@ -201,6 +204,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (celestialPolishPhase) {
+                if (celestialPolishScenario == null) { celestialPolishScenario = new CelestialPolishScenario(); }
+                if (celestialPolishScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.equals("render-compat")) {
                 if (renderCompatibilityScenario == null) { renderCompatibilityScenario = new RenderCompatibilityScenario(); }
                 if (renderCompatibilityScenario.tick()) { finish(); }

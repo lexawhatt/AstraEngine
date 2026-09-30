@@ -170,7 +170,7 @@ public final class RocketController {
             // A manual boundary changes the coordinate origin, not the live free-camera heading.
             pendingSpeedSteps = 0;
             targetBody = currentSystem().bodies().stream()
-                    .min(Comparator.comparingDouble(body -> body.positionAt(timeSeconds()).distance(incoming.position())))
+                    .min(Comparator.comparingDouble(body -> currentSystem().positionAt(body, timeSeconds()).distance(incoming.position())))
                     .map(CelestialBody::id).orElse(currentSystem().bodies().getFirst().id());
         }
         systems.keySet().retainAll(incoming.discoveredSystems());
@@ -545,7 +545,7 @@ public final class RocketController {
         }
         CelestialBody body = currentSystem().bodies().stream().filter(value -> value.id().equals(targetBody)).findFirst().orElse(null);
         if (body == null) { return; }
-        drawTargetMarker(graphics, width, height, body.positionAt(timeSeconds()).subtract(visualPosition()), body.name());
+        drawTargetMarker(graphics, width, height, currentSystem().positionAt(body, timeSeconds()).subtract(visualPosition()), body.name());
     }
 
     private void drawTargetMarker(GuiGraphics graphics, int width, int height, SpaceVector relative, String name) {

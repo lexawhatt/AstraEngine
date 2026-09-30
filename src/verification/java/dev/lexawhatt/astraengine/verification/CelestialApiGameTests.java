@@ -1,9 +1,14 @@
 package dev.lexawhatt.astraengine.verification;
 
 import dev.lexawhatt.astraengine.api.AstraCosmos;
+import dev.lexawhatt.astraengine.api.celestial.CelestialBodies;
+import dev.lexawhatt.astraengine.api.celestial.CelestialSystems;
+import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
+import dev.lexawhatt.astraengine.cosmos.SatelliteGenerator;
+import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.network.CustomSystemsPayload;
 import dev.lexawhatt.astraengine.network.ExplorationPayload;
 import dev.lexawhatt.astraengine.network.FlightActionPayload;
@@ -11,6 +16,7 @@ import dev.lexawhatt.astraengine.server.CosmosDescriptorCodec;
 import dev.lexawhatt.astraengine.server.ExplorationCatalog;
 import io.netty.buffer.Unpooled;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.UUID;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
@@ -24,6 +30,108 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /** Public consumer creation and strict host persistence/wire contracts; excluded from the shipped mod. */
 @PrefixGameTestTemplate(false)
 public final class CelestialApiGameTests {
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty")
+    public static void parentedDescriptorsAndAdditiveSatelliteMigration(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        CosmosSystem moons = new CosmosSystem("verification:solar_moons", "Solar moons", 7,
+                CosmosSystem.Kind.SINGLE, SpaceVector.ZERO, CosmosGenerator.sol().bodies());
+        CompoundTag encoded = CosmosDescriptorCodec.encode(moons);
+        helper.assertTrue(encoded.getInt("version") == 2 && CosmosDescriptorCodec.decode(encoded).equals(moons),
+                "Parent-relative v2 NBT changed a descriptor or moon identity");
+        for (String parent : new String[]{"absent", "moon"}) {
+            CompoundTag malformed = encoded.copy();
+            malformed.getList("bodies", Tag.TAG_COMPOUND).getCompound(9).putString("parent_id", parent);
+            rejects(helper, () -> CosmosDescriptorCodec.decode(malformed), "Invalid saved lunar parent " + parent);
+        }
+        CompoundTag cycle = encoded.copy();
+        cycle.getList("bodies", Tag.TAG_COMPOUND).getCompound(3).putString("parent_id", "moon");
+        rejects(helper, () -> CosmosDescriptorCodec.decode(cycle), "Cyclic saved lunar parents");
+        CompoundTag missing = encoded.copy(); missing.getList("bodies", Tag.TAG_COMPOUND).getCompound(9).remove("parent_id");
+        rejects(helper, () -> CosmosDescriptorCodec.decode(missing), "Missing required v2 parent field");
+        CosmosSystem original = CelestialApiFixtures.ringSystem();
+        CompoundTag legacy = CosmosDescriptorCodec.encode(original); legacy.putInt("version", 1);
+        legacy.getList("bodies", Tag.TAG_COMPOUND).forEach(tag -> ((CompoundTag) tag).remove("parent_id"));
+        helper.assertTrue(CosmosDescriptorCodec.decode(legacy).equals(original), "Legacy custom descriptor changed during parent migration");
+
+        var detached = ExplorationCatalog.decode(ExplorationCatalog.get(server).save(new CompoundTag(), server.registryAccess()));
+        UUID id = UUID.randomUUID(); detached.player(id);
+        CompoundTag oldCatalog = detached.save(new CompoundTag(), server.registryAccess());
+        oldCatalog.putInt("version", 5); oldCatalog.remove("satellite_version");
+        ListTag definitions = new ListTag(); definitions.add(legacy); oldCatalog.put("custom_systems", definitions);
+        ExplorationCatalog migrated = ExplorationCatalog.decode(oldCatalog);
+        CompoundTag current = migrated.save(new CompoundTag(), server.registryAccess());
+        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 6
+                        && current.getInt("satellite_version") == SatelliteGenerator.VERSION,
+                "Satellite generation was not pinned independently by v6 migration");
+        helper.assertTrue(current.get("players").equals(oldCatalog.get("players"))
+                        && current.get("seed").equals(oldCatalog.get("seed"))
+                        && current.get("clock_ticks").equals(oldCatalog.get("clock_ticks"))
+                        && migrated.system(original.id()).equals(original),
+                "Satellite migration changed saved navigation, time, private visits or authored content");
+        helper.assertTrue(migrated.system("sol").bodies().size() == 30,
+                "A migrated Sol catalog did not receive the additive major moons");
+        for (boolean unknown : new boolean[]{false, true}) {
+            CompoundTag broken = current.copy();
+            if (unknown) { broken.putInt("satellite_version", 999); } else { broken.remove("satellite_version"); }
+            rejects(helper, () -> ExplorationCatalog.decode(broken), "Missing or unsupported satellite version");
+        }
+        RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), server.registryAccess());
+        try {
+            CustomSystemsPayload payload = new CustomSystemsPayload(List.of(moons));
+            CustomSystemsPayload.CODEC.encode(buffer, payload);
+            helper.assertTrue(buffer.readableBytes() == CosmosDescriptorCodec.snapshotBytes(payload.systems()),
+                    "Descriptor byte accounting disagrees with the wire encoder");
+            helper.assertTrue(CustomSystemsPayload.CODEC.decode(buffer).equals(payload) && !buffer.isReadable(),
+                    "Moon parents did not survive wire synchronization");
+            buffer.clear(); buffer.writeVarInt(1);
+            rejects(helper, () -> CosmosDescriptorCodec.read(buffer), "Old descriptor wire version");
+        } finally { buffer.release(); }
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty")
+    public static void descriptorByteBudgetPreventsOversizeCustomSynchronization(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var catalog = ExplorationCatalog.decode(ExplorationCatalog.get(server).save(new CompoundTag(), server.registryAccess()));
+        CompoundTag clean = catalog.save(new CompoundTag(), server.registryAccess());
+        clean.put("custom_systems", new ListTag()); clean.put("players", new ListTag());
+        catalog = ExplorationCatalog.decode(clean);
+        ArrayList<CosmosSystem> accepted = new ArrayList<>();
+        ArrayList<CelestialBody> bodies = new ArrayList<>();
+        String name = "\u65e5".repeat(96);
+        String primary = "a".repeat(64);
+        bodies.add(CelestialBodies.star(primary, name, 1000).build());
+        for (int index = 1; index < CelestialSystems.MAX_BODIES; index++) {
+            bodies.add(CelestialBodies.planet(String.format(java.util.Locale.ROOT, "b%063d", index), name,
+                    CelestialBody.Kind.ROCKY, 1000).parent(primary).orbit(1e7 + index * 1e6, 1e7).build());
+        }
+        for (int index = 0; index < 64; index++) {
+            CosmosSystem system = new CosmosSystem("verification:bytes_" + index, name, index,
+                    CosmosSystem.Kind.SINGLE, SpaceVector.ZERO, bodies);
+            ArrayList<CosmosSystem> candidate = new ArrayList<>(accepted); candidate.add(system);
+            boolean fits = CosmosDescriptorCodec.snapshotBytes(candidate) <= CosmosDescriptorCodec.MAX_SNAPSHOT_BYTES;
+            AstraCosmos.CreateResult result = catalog.createSystem(system);
+            helper.assertTrue(result == (fits ? AstraCosmos.CreateResult.CREATED : AstraCosmos.CreateResult.LIMIT_REACHED),
+                    "Catalog byte budget disagrees with creation capacity");
+            if (!fits) {
+                rejects(helper, () -> new CustomSystemsPayload(candidate), "Oversize descriptor snapshot");
+                break;
+            }
+            accepted.add(system);
+        }
+        helper.assertTrue(!accepted.isEmpty() && accepted.size() < 64, "Maximum UTF-8 fixture did not exercise byte capacity");
+        RegistryFriendlyByteBuf buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), server.registryAccess());
+        try {
+            CustomSystemsPayload payload = new CustomSystemsPayload(accepted);
+            CustomSystemsPayload.CODEC.encode(buffer, payload);
+            helper.assertTrue(buffer.readableBytes() == CosmosDescriptorCodec.snapshotBytes(accepted)
+                            && buffer.readableBytes() <= CosmosDescriptorCodec.MAX_SNAPSHOT_BYTES,
+                    "Maximum-length UTF-8 descriptors exceeded their exact byte budget");
+            helper.assertTrue(CustomSystemsPayload.CODEC.decode(buffer).equals(payload), "Near-capacity descriptor payload changed fields");
+        } finally { buffer.release(); }
+        helper.succeed();
+    }
+
     @GameTest(templateNamespace = "astraengine_verify", template = "empty")
     public static void consumerCreationCapacityAndPrivateDiscovery(GameTestHelper helper) {
         var server = helper.getLevel().getServer();
@@ -101,11 +209,11 @@ public final class CelestialApiGameTests {
         CompoundTag duplicate = encoded.copy(); duplicate.getList("bodies", Tag.TAG_COMPOUND).add(encoded.getList("bodies", Tag.TAG_COMPOUND).getCompound(0).copy());
         rejects(helper, () -> CosmosDescriptorCodec.decode(duplicate), "Duplicate body identity");
         CompoundTag excess = encoded.copy(); ListTag excessBodies = new ListTag();
-        for (int index = 0; index < 13; index++) {
+        for (int index = 0; index < 65; index++) {
             CompoundTag body = encoded.getList("bodies", Tag.TAG_COMPOUND).getCompound(0).copy(); body.putString("id", "body_" + index); excessBodies.add(body);
         }
         excess.put("bodies", excessBodies);
-        rejects(helper, () -> CosmosDescriptorCodec.decode(excess), "Thirteen-body descriptor");
+        rejects(helper, () -> CosmosDescriptorCodec.decode(excess), "Sixty-five-body descriptor");
         CompoundTag reserved = encoded.copy(); reserved.putString("id", "sol");
         rejects(helper, () -> CosmosDescriptorCodec.decode(reserved), "Reserved built-in descriptor identity");
 
@@ -123,7 +231,7 @@ public final class CelestialApiGameTests {
             }
             buffer.clear(); buffer.writeVarInt(2); CosmosDescriptorCodec.write(buffer, ring); CosmosDescriptorCodec.write(buffer, ring);
             rejects(helper, () -> CustomSystemsPayload.CODEC.decode(buffer), "Duplicate wire descriptor identity");
-            for (int count : new int[]{0, 13}) {
+            for (int count : new int[]{0, 65}) {
                 buffer.clear(); writeDescriptorHeader(buffer, count);
                 rejects(helper, () -> CosmosDescriptorCodec.read(buffer), "Out-of-bounds wire body count " + count);
             }
@@ -134,6 +242,7 @@ public final class CelestialApiGameTests {
             for (int index = 0; index < 3; index++) { buffer.writeDouble(1); }
             for (int index = 0; index < 3; index++) { buffer.writeFloat(0); }
             buffer.writeDouble(0);
+            buffer.writeUtf("", 64);
             rejects(helper, () -> CosmosDescriptorCodec.read(buffer), "Non-finite wire body radius");
             buffer.clear();
             var action = new FlightActionPayload(FlightActionPayload.Action.JUMP_SYSTEM, ring.id());
@@ -186,8 +295,8 @@ public final class CelestialApiGameTests {
         legacy.put("players", players); legacy.putLong("clock_ticks", 81234); legacy.putBoolean("landing", true);
         ExplorationCatalog migrated = ExplorationCatalog.decode(legacy);
         CompoundTag current = migrated.save(new CompoundTag(), server.registryAccess());
-        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 5 && current.getList("custom_systems", Tag.TAG_COMPOUND).isEmpty(),
-                "Legacy v2 did not migrate to v5 with an empty custom catalog");
+        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 6 && current.getList("custom_systems", Tag.TAG_COMPOUND).isEmpty(),
+                "Legacy v2 did not migrate to v6 with an empty custom catalog");
         CompoundTag expectedPilot = pilot.copy(); expectedPilot.put("visited", discoveries.copy());
         ListTag expectedPlayers = new ListTag(); expectedPlayers.add(expectedPilot);
         helper.assertTrue(current.getList("players", Tag.TAG_COMPOUND).equals(expectedPlayers)
@@ -216,7 +325,7 @@ public final class CelestialApiGameTests {
     }
 
     private static void writeDescriptorHeader(RegistryFriendlyByteBuf buffer, int bodies) {
-        buffer.writeVarInt(1); buffer.writeUtf("verification:wire", 64); buffer.writeUtf("Wire descriptor", 96);
+        buffer.writeVarInt(CosmosDescriptorCodec.VERSION); buffer.writeUtf("verification:wire", 64); buffer.writeUtf("Wire descriptor", 96);
         buffer.writeLong(1); buffer.writeVarInt(0);
         buffer.writeDouble(0); buffer.writeDouble(0); buffer.writeDouble(0); buffer.writeVarInt(bodies);
     }

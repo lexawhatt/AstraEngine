@@ -247,7 +247,7 @@ public final class CosmosRenderer implements AutoCloseable {
         double strongest = -1;
         for (CelestialBody source : system.bodies()) {
             if (source.id().equals(id) || source.kind() != CelestialBody.Kind.STAR) { continue; }
-            SpaceVector delta = source.positionAt(seconds).subtract(position);
+            SpaceVector delta = system.positionAt(source, seconds).subtract(position);
             double distance = delta.length();
             if (distance <= 0) { continue; }
             double strength = source.radiusMeters() / distance;

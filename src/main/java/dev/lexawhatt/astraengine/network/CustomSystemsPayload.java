@@ -35,6 +35,9 @@ public record CustomSystemsPayload(List<CosmosSystem> systems) implements Custom
                 throw new IllegalArgumentException("Duplicate custom system in snapshot: " + system.id());
             }
         }
+        if (CosmosDescriptorCodec.snapshotBytes(systems) > CosmosDescriptorCodec.MAX_SNAPSHOT_BYTES) {
+            throw new IllegalArgumentException("Custom descriptor snapshot exceeds its 900-KiB wire budget");
+        }
         systems = List.copyOf(systems);
     }
 
@@ -46,6 +49,9 @@ public record CustomSystemsPayload(List<CosmosSystem> systems) implements Custom
     }
 
     private static CustomSystemsPayload read(RegistryFriendlyByteBuf buffer) {
+        if (buffer.readableBytes() > CosmosDescriptorCodec.MAX_SNAPSHOT_BYTES) {
+            throw new IllegalArgumentException("Custom descriptor packet exceeds its 900-KiB wire budget");
+        }
         int count = buffer.readVarInt();
         if (count < 0 || count > CelestialSystems.MAX_CUSTOM_SYSTEMS) {
             throw new IllegalArgumentException("Custom descriptor packet count exceeds bounds");

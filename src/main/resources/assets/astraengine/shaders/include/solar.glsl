@@ -1,7 +1,72 @@
-// Shared solar presentation. Caller supplies noise(), fbm(), Time, Evolution and
+// Shared solar presentation. Caller supplies noise(), fbm(), Detail, Time, Evolution and
 // SolarLight. All distances below are angular; canonical descriptors stay intact.
 // Evolution = depletion, collapse progress, explosion age seconds (-1 before), remnant.
 // SolarLight = relative illumination, one-shot flash, envelope radius scale, reserved.
+
+// Shell samples share a three-dimensional comoving field. There is no
+// azimuth lookup seam or animation clock: expansion carries the same knots outwards.
+vec3 ejectaFilaments(vec3 position, vec3 offset, float footprint, float cooling, float layer) {
+    vec3 direction = position / max(length(position), 0.0001);
+    float clumps = noise(position * 3.6 + offset);
+    float flow = noise(direction * 6.0 + position * 5.0 + offset + clumps * 1.8);
+    float detail = noise(position * 29.0 + offset + flow * 2.3);
+    float resolved = 1.0 / (1.0 + footprint * 29.0);
+    detail = mix(0.5, detail, resolved);
+    float thread = pow(max(0.0, 1.0 - abs(detail * 2.0 - 1.0)), 8.0)
+                 * smoothstep(0.54, 0.73, flow);
+    float knots = pow(max(0.0, clumps * 0.55 + flow * 0.3 + detail * 0.15 - 0.33), 2.0) * 5.0;
+    float r = length(position);
+    float outer = exp(-pow((r - (0.84 + (clumps - 0.5) * 0.34)) / 0.14, 2.0));
+    float inner = exp(-pow((r - 0.49) / 0.23, 2.0)) * 0.38;
+    float density = (outer + inner) * (0.018 + thread * 0.50 + knots)
+                  * (1.0 - smoothstep(0.92, 1.20, r));
+    vec3 hot = mix(vec3(1.0, 0.23, 0.045), vec3(1.0, 0.76, 0.37), layer * 0.55 + knots * 0.35);
+    vec3 ions = mix(vec3(0.82, 0.12, 0.15), vec3(0.10, 0.40, 0.76),
+                    smoothstep(0.40, 0.64, clumps + layer * 0.05));
+    ions += vec3(0.17, 0.20, 0.25) * knots;
+    return mix(hot, ions, cooling) * density;
+}
+
+// Short emissive integral through finite ellipsoidal bounds, without a secondary
+// light march or a physical hydrodynamic simulation. Both gas layers share the field.
+vec3 stellarEjectaRadiance(vec3 ray, vec3 center, float angularRadius, float elapsed,
+                          float seed, float pixelAngle) {
+    float along = dot(ray, center);
+    if (along <= 0.0) { return vec3(0.0); }
+    vec3 transverse = ray - center * along;
+    float separation = length(transverse);
+    float angle = atan(separation, along);
+    float radius = max(angularRadius, 1e-8);
+    if (angle > radius * 1.65 + pixelAngle * 2.0) { return vec3(0.0); }
+    vec3 projected = transverse * (angle / max(separation, 1e-8)) / radius;
+    vec3 axis = normalize(vec3(sin(seed * 0.73 + 0.6), 0.43, cos(seed * 0.91 + 1.2)));
+    // A mildly elongated, seeded volume gives an identifiable remnant from different views.
+    vec3 point = projected - axis * dot(projected, axis) * 0.26;
+    vec3 sight = center - axis * dot(center, axis) * 0.26;
+    vec3 offset = vec3(seed * 0.013, seed * 0.027 + 7.4, seed * 0.019 + 19.1);
+    float a = max(dot(sight, sight), 0.1);
+    float b = dot(point, sight);
+    float closestSquared = max(0.0, dot(point, point) - b * b / a);
+    float footprint = pixelAngle / radius;
+    float cooling = smoothstep(0.8, 11.0, elapsed);
+    vec3 gas = vec3(0.0);
+    float halfDepth = sqrt(max(0.0, 1.44 - closestSquared) / a);
+    int samples = Detail <= 3 ? 6 : (Detail >= 5 ? 10 : 8);
+    float stepLength = halfDepth * 2.0 / float(samples);
+    if (halfDepth <= 0.00001) { return gas; }
+    vec3 middle = point - sight * (b / a);
+    for (int sampleIndex = 0; sampleIndex < 10; sampleIndex++) {
+        if (sampleIndex >= samples) { break; }
+        float distance = -halfDepth + (float(sampleIndex) + 0.5) * stepLength;
+        vec3 samplePosition = middle + sight * distance;
+        gas += ejectaFilaments(samplePosition, offset, footprint, cooling,
+                              1.0 - smoothstep(0.2, 1.0, length(samplePosition))) * stepLength;
+    }
+    float ignition = smoothstep(0.04, 0.65, elapsed);
+    // Finite cooling follows only the authoritative phase age, meeting the mature remnant
+    // continuously at sixteen seconds. It does not pulse or restart with shader Time.
+    return gas * ignition * (0.30 + 4.0 * exp(-elapsed * 0.18));
+}
 
 vec3 evolvingSolarRadiance(vec3 background, vec3 ray, vec3 center, float physicalRadius,
                           vec3 stellarColor, float seed, float pixelAngle) {
@@ -71,28 +136,15 @@ vec3 evolvingSolarRadiance(vec3 background, vec3 ray, vec3 center, float physica
     // Expansion is deliberately time-compressed fiction. A shared physical-radius
     // multiple gives a larger angular event near the Sun without unbounded inputs.
     float shellRadius = min(physicalRadius * (1.0 + 102.0 * sqrt(progress)), 0.85);
-    float width = max(pixelAngle * 1.5, shellRadius * (0.09 + progress * 0.075));
-    vec3 field = (ray - center * along) / max(shellRadius, 1e-8) * 5.0;
-    float turbulent = fbm(field * 2.2 + vec3(seed * 0.013));
-    float shellShape = shellRadius * (0.86 + turbulent * 0.27);
-    float shell = exp(-pow((angle - shellShape) / width, 2.0));
-    float ridges = pow(1.0 - abs(fbm(field * 9.0 + vec3(13.1)) - 0.49) * 2.0, 6.0);
-    float haze = exp(-pow(angle / max(shellRadius, 1e-8), 2.0) * 1.8);
-    float cooling = smoothstep(0.6, 9.0, elapsed);
-    vec3 gas = mix(vec3(1.5, 0.45, 0.055),
-                   mix(vec3(0.018, 0.42, 0.95), vec3(1.0, 0.032, 0.18),
-                       smoothstep(0.34, 0.66, turbulent)), cooling);
-    float ignition = smoothstep(0.04, 0.65, elapsed);
-    float shock = exp(-pow((angle - shellRadius * 1.11) / max(width * 0.16, pixelAngle), 2.0));
-    float shockFade = (1.0 - smoothstep(5.0, 15.5, elapsed)) * ignition;
-    color += gas * shell * (0.15 + ridges * 0.85) * ignition * 2.5;
-    color += gas * haze * turbulent * 0.09 * ignition;
-    color += vec3(0.28, 0.58, 1.0) * shock * shockFade * 2.2;
+    float emitted = clamp(SolarLight.x / 0.035, 0.0, 1.0);
+    color += stellarEjectaRadiance(ray, center, shellRadius, elapsed, seed, pixelAngle) * emitted;
     float core = exp(-pow(angle / max(physicalRadius * 0.35, pixelAngle), 2.0));
-    color += vec3(0.42, 0.72, 1.0) * core * (0.9 + exp(-elapsed * 0.9) * 8.0);
+    color += vec3(0.42, 0.72, 1.0) * core * (0.35 + exp(-elapsed * 0.9) * 8.0) * emitted;
     // Exactly one server-aged flash: finite, spatially bounded, and never replayed by Time.
     float flashWidth = max(physicalRadius * 12.0, 0.045);
     color += vec3(1.0, 0.86, 0.68) * SolarLight.y
            * (0.065 + 20.0 * exp(-pow(angle / flashWidth, 2.0)));
-    return color;
+    // The directional cutoff must not expose a bright hemispherical seam when the
+    // source is nearly behind the camera, particularly inside a large flash envelope.
+    return mix(background, color, smoothstep(0.0, 0.15, along));
 }

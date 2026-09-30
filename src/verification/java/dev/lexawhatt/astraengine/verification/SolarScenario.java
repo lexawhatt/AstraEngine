@@ -244,11 +244,11 @@ final class SolarScenario {
                 }
                 if (ticks < approachCompletedTick + 20 || renderedFrames < approachCompletedFrame + 8) { return false; }
                 require(snapshot.equals(paused), "Rocket approach changed the paused solar state");
-                SpaceVector towardSun = rocket.currentSystem().bodies().getFirst().positionAt(rocket.timeSeconds())
+                SpaceVector towardSun = rocket.currentSystem().positionAt(rocket.currentSystem().bodies().getFirst(), rocket.timeSeconds())
                         .subtract(rocket.visualPosition()).normalized();
                 var actualLook = minecraft.gameRenderer.getMainCamera().getLookVector();
                 double facing = towardSun.dot(new SpaceVector(actualLook.x, actualLook.y, actualLook.z).normalized());
-                double radiusRatio = rocket.currentSystem().bodies().getFirst().positionAt(rocket.timeSeconds())
+                double radiusRatio = rocket.currentSystem().positionAt(rocket.currentSystem().bodies().getFirst(), rocket.timeSeconds())
                         .distance(rocket.snapshot().position()) / rocket.currentSystem().bodies().getFirst().radiusMeters();
                 require(Math.abs(radiusRatio - 4) < 0.2, "Sun approach missed its four-radius observation point");
                 require(facing > 0.995, "Shared solar-state camera did not settle toward the approached Sun: dot=" + facing

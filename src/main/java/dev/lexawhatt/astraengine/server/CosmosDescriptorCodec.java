@@ -4,22 +4,52 @@ import dev.lexawhatt.astraengine.api.celestial.CelestialSystems;
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
+import io.netty.buffer.ByteBufUtil;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.VarInt;
 
 /**
- * Strict version-one custom descriptor persistence and explicit bounded wire encoding.
+ * Strict version-two custom descriptor persistence and bounded wire encoding, with version-one NBT migration.
  * Uses no logical-side state or client-only classes. Callers own tags and buffers; returned descriptors are immutable.
  * Invalid or missing fields, unknown versions/kinds and unsupported custom bounds throw before a descriptor is returned.
  */
 public final class CosmosDescriptorCodec {
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
+    /** Aggregate descriptor wire budget, leaving headroom below the host's one-MiB clientbound payload limit. */
+    public static final int MAX_SNAPSHOT_BYTES = 900 * 1024;
 
     private CosmosDescriptorCodec() {
+    }
+
+    /** Exact explicit wire length, including the descriptor version and each UTF-8 byte-length prefix. */
+    public static int encodedBytes(CosmosSystem system) {
+        CelestialSystems.validateCustom(system);
+        int bytes = VarInt.getByteSize(VERSION) + stringBytes(system.id()) + stringBytes(system.name())
+                + 8 + VarInt.getByteSize(system.kind().ordinal()) + 24 + VarInt.getByteSize(system.bodies().size());
+        for (CelestialBody body : system.bodies()) {
+            bytes += stringBytes(body.id()) + stringBytes(body.name()) + VarInt.getByteSize(body.kind().ordinal())
+                    + 48 + 24 + 12 + 8 + stringBytes(body.parentId());
+        }
+        return bytes;
+    }
+
+    /** Exact aggregate wire size, including its leading system count; all values must be valid custom systems. */
+    public static int snapshotBytes(Collection<CosmosSystem> systems) {
+        if (systems == null) { throw new IllegalArgumentException("A descriptor collection is required"); }
+        int bytes = VarInt.getByteSize(systems.size());
+        for (CosmosSystem system : systems) { bytes = Math.addExact(bytes, encodedBytes(system)); }
+        return bytes;
+    }
+
+    private static int stringBytes(String value) {
+        int bytes = ByteBufUtil.utf8Bytes(value);
+        return VarInt.getByteSize(bytes) + bytes;
     }
 
     /** Creates a new, fully populated NBT tag after validating the complete custom system. */
@@ -49,26 +79,28 @@ public final class CosmosDescriptorCodec {
             tag.putFloat("ring_inner_ratio", body.ringInnerRatio());
             tag.putFloat("ring_outer_ratio", body.ringOuterRatio());
             tag.putDouble("axial_tilt_radians", body.axialTiltRadians());
+            tag.putString("parent_id", body.parentId());
             bodies.add(tag);
         }
         root.put("bodies", bodies);
         return root;
     }
 
-    /** Reads version-one NBT without defaulting missing fields or changing the input tag. Null is rejected. */
+    /** Reads v1 origin-relative or v2 parent-relative NBT without changing the input. V2 requires parent_id. */
     public static CosmosSystem decode(CompoundTag root) {
         require(root, Tag.TAG_INT, "version");
         require(root, Tag.TAG_STRING, "id", "name", "kind");
         require(root, Tag.TAG_LONG, "seed");
         require(root, Tag.TAG_DOUBLE, "galaxy_x", "galaxy_y", "galaxy_z");
         require(root, Tag.TAG_LIST, "bodies");
-        if (root.getInt("version") != VERSION) {
+        int version = root.getInt("version");
+        if (version != 1 && version != VERSION) {
             throw new IllegalArgumentException("Unsupported custom descriptor version: " + root.getInt("version"));
         }
         ListTag entries = (ListTag) root.get("bodies");
-        if (entries.isEmpty() || entries.size() > CelestialSystems.MAX_BODIES
+        if (entries.isEmpty() || entries.size() > (version == 1 ? 12 : CelestialSystems.MAX_BODIES)
                 || entries.getElementType() != Tag.TAG_COMPOUND) {
-            throw new IllegalArgumentException("Custom descriptor bodies must contain 1..12 compounds");
+            throw new IllegalArgumentException("Custom descriptor bodies exceed their versioned count or compound type");
         }
         List<CelestialBody> bodies = new ArrayList<>(entries.size());
         for (int index = 0; index < entries.size(); index++) {
@@ -77,12 +109,18 @@ public final class CosmosDescriptorCodec {
             require(tag, Tag.TAG_DOUBLE, "radius_meters", "orbit_meters", "orbital_period_seconds", "phase_radians",
                     "inclination_radians", "eccentricity", "color_x", "color_y", "color_z", "axial_tilt_radians");
             require(tag, Tag.TAG_FLOAT, "atmosphere", "ring_inner_ratio", "ring_outer_ratio");
+            if (version >= 2) {
+                require(tag, Tag.TAG_STRING, "parent_id");
+            } else if (tag.contains("parent_id")) {
+                throw new IllegalArgumentException("Version-one descriptors cannot contain a parent field");
+            }
             bodies.add(new CelestialBody(tag.getString("id"), tag.getString("name"),
                     enumName(CelestialBody.Kind.class, tag.getString("kind")), tag.getDouble("radius_meters"),
                     tag.getDouble("orbit_meters"), tag.getDouble("orbital_period_seconds"),
                     tag.getDouble("phase_radians"), tag.getDouble("inclination_radians"), tag.getDouble("eccentricity"),
                     getVector(tag, "color_"), tag.getFloat("atmosphere"), tag.getFloat("ring_inner_ratio"),
-                    tag.getFloat("ring_outer_ratio"), tag.getDouble("axial_tilt_radians")));
+                    tag.getFloat("ring_outer_ratio"), tag.getDouble("axial_tilt_radians"),
+                    version >= 2 ? tag.getString("parent_id") : ""));
         }
         CosmosSystem system = new CosmosSystem(root.getString("id"), root.getString("name"), root.getLong("seed"),
                 enumName(CosmosSystem.Kind.class, root.getString("kind")), getVector(root, "galaxy_"), bodies);
@@ -90,7 +128,7 @@ public final class CosmosDescriptorCodec {
         return system;
     }
 
-    /** Writes version-one explicit fields; validates before writing and never writes an arbitrary NBT payload. */
+    /** Writes version-two explicit fields; validates before writing and never writes an arbitrary NBT payload. */
     public static void write(RegistryFriendlyByteBuf buffer, CosmosSystem system) {
         requireBuffer(buffer);
         CelestialSystems.validateCustom(system);
@@ -116,6 +154,7 @@ public final class CosmosDescriptorCodec {
             buffer.writeFloat(body.ringInnerRatio());
             buffer.writeFloat(body.ringOuterRatio());
             buffer.writeDouble(body.axialTiltRadians());
+            buffer.writeUtf(body.parentId(), 64);
         }
     }
 
@@ -133,7 +172,7 @@ public final class CosmosDescriptorCodec {
         SpaceVector galaxy = readVector(buffer);
         int count = buffer.readVarInt();
         if (count < 1 || count > CelestialSystems.MAX_BODIES) {
-            throw new IllegalArgumentException("Custom descriptor wire body count must be 1..12");
+            throw new IllegalArgumentException("Custom descriptor wire body count must be 1..64");
         }
         List<CelestialBody> bodies = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
@@ -141,7 +180,7 @@ public final class CosmosDescriptorCodec {
                     enumOrdinal(CelestialBody.Kind.values(), buffer.readVarInt()), buffer.readDouble(),
                     buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readDouble(),
                     buffer.readDouble(), readVector(buffer), buffer.readFloat(), buffer.readFloat(), buffer.readFloat(),
-                    buffer.readDouble()));
+                    buffer.readDouble(), buffer.readUtf(64)));
         }
         CosmosSystem system = new CosmosSystem(id, name, seed, kind, galaxy, bodies);
         CelestialSystems.validateCustom(system);

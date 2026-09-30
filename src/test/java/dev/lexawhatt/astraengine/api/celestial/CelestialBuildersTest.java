@@ -103,9 +103,9 @@ class CelestialBuildersTest {
         for (int index = 0; index < CelestialSystems.MAX_BODIES; index++) {
             full.body(CelestialBodies.star("body_" + index, "Body " + index, 1_000).build());
         }
-        assertEquals(12, full.build().bodies().size());
+        assertEquals(64, full.build().bodies().size());
         assertThrows(IllegalArgumentException.class, () -> full.body(primary));
-        assertEquals(12, full.build().bodies().size());
+        assertEquals(64, full.build().bodies().size());
     }
 
     @Test
@@ -119,7 +119,7 @@ class CelestialBuildersTest {
         assertThrows(IllegalArgumentException.class, () -> CelestialSystems.builder("consumer:far", "Far")
                 .galaxyPositionLightYears(Double.POSITIVE_INFINITY, 0, 0));
         assertEquals(695_700_000, CosmosGenerator.sol().bodies().getFirst().radiusMeters());
-        assertEquals(9, CosmosGenerator.sol().bodies().size());
+        assertEquals(30, CosmosGenerator.sol().bodies().size());
     }
 
     @Test

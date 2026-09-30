@@ -13,6 +13,38 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CelestialFrameTest {
     @Test
+    void solarCatalogExceedsGpuBudgetButNearbySatellitesAndPrimaryRemainVisible() {
+        CosmosSystem sol = CosmosGenerator.sol();
+        for (String id : List.of("moon", "phobos", "europa", "titan", "triton")) {
+            CelestialBody body = sol.bodies().stream().filter(value -> value.id().equals(id)).findFirst().orElseThrow();
+            SpaceVector observer = sol.positionAt(body, 731).add(new SpaceVector(0, 0, body.radiusMeters() * 4));
+            CelestialFrame frame = CelestialFrame.extract(sol, observer, 731);
+            assertEquals(CelestialFrame.MAX_RENDERED_BODIES, frame.bodies().size());
+            assertTrue(frame.bodies().stream().anyMatch(value -> value.descriptor().id().equals(id)));
+            assertTrue(frame.bodies().stream().anyMatch(value -> value.descriptor().id().equals("sun")));
+            for (int index = 1; index < frame.bodies().size(); index++) {
+                assertTrue(frame.bodies().get(index - 1).distance() >= frame.bodies().get(index).distance());
+            }
+        }
+        assertEquals(30, sol.bodies().size());
+    }
+
+    @Test
+    void moonFrameSubtractsTheObserverAfterResolvingItsEarthRelativeOrbit() {
+        CosmosSystem sol = CosmosGenerator.sol();
+        CelestialBody moon = sol.bodies().get(9);
+        SpaceVector center = sol.positionAt(moon, 731);
+        SpaceVector observer = center.add(new SpaceVector(0, 0, 4 * moon.radiusMeters()));
+        CelestialFrame frame = CelestialFrame.extract(sol, observer, 731);
+        CelestialFrame.Body projected = frame.bodies().stream()
+                .filter(value -> value.descriptor().id().equals("moon")).findFirst().orElseThrow();
+        assertEquals(center, projected.position());
+        assertEquals(4 * moon.radiusMeters(), projected.distance(), 0.0001);
+        assertEquals(new SpaceVector(0, 0, -1), projected.direction());
+        assertEquals(0.25f, projected.radiusRatio());
+    }
+
+    @Test
     void meterOffsetSurvivesAstronomicalOriginBeforeFloatConversion() {
         CelestialBody planet = body("planet", CelestialBody.Kind.ROCKY, 1, 1.0e15);
         SpaceVector position = planet.positionAt(0);

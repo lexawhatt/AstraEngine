@@ -322,7 +322,7 @@ final class CelestialApiScenario {
     private void verifyObservation(String id) {
         CelestialBody body = controller.currentSystem().bodies().stream().filter(value -> value.id().equals(id)).findFirst().orElseThrow();
         double framing = body.kind() == CelestialBody.Kind.BLACK_HOLE ? 24 : body.ringOuterRatio() > 0 ? 8 : 4;
-        SpaceVector toward = body.positionAt(controller.timeSeconds()).subtract(controller.visualPosition());
+        SpaceVector toward = controller.currentSystem().positionAt(body, controller.timeSeconds()).subtract(controller.visualPosition());
         require(Math.abs(toward.length() / body.radiusMeters() - framing) < 0.2, "Custom body physical framing changed: " + id);
         var look = minecraft.gameRenderer.getMainCamera().getLookVector();
         require(toward.normalized().dot(new SpaceVector(look.x, look.y, look.z)) > 0.995, "Rendered camera does not face custom body " + id);

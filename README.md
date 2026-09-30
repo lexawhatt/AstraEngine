@@ -21,7 +21,8 @@ travel; the map, smooth approach, and rendering use the saved definitions after
 reload and restart.
 
 [Java example and API contract](docs/CELESTIAL_API.md). The current limit is
-64 custom systems with 1-12 bodies each. These are astronomical descriptors;
+64 custom systems with 1-64 bodies each, within a 900-KiB aggregate descriptor
+synchronization budget. Parent-relative orbits support authored moons. These are astronomical descriptors;
 planetary terrain and landing require a separate world integration.
 
 ## Consumer ship rendering
@@ -40,7 +41,7 @@ The scene/GLSL editors and astronomical free camera remain engine tools.
 
 Press **R** in a world: the player stays in a bounded void while the camera
 travels through shader-rendered space. The starting system contains the Sun and
-eight planets with real mean radii and orbital distances. Orbital parameters
+eight planets and 21 major moons with real mean radii and orbital distances. Orbital parameters
 come from NASA tables; initial orbital phases and planetary surfaces are artistic.
 
 - **Mouse**: free rotation through the poles; **Q / E**: roll.
@@ -48,12 +49,15 @@ come from NASA tables; initial orbital phases and planetary surfaces are artisti
 - **Mouse wheel** or **+ / −**: speed ×/÷1.5; **B**: stop.
 - **M**: map and **Approach body**, with smooth alignment and a decelerating
   approach; **B** or the map's **Cancel approach** button cancels it.
+- On the map: **MMB drag** pans, **Wheel** zooms at the cursor, **F** focuses the
+  selected object, and **Home** resets the view. Select **Moon** and press **F**
+  to inspect the Earth-Moon pair; **Approach body** also works for satellites.
 - **M -> Cosmic atlas** or `/astra-flight atlas`: select a galaxy and region;
   **Chart and aim** marks a public destination for its first manual trip.
 - **C**: refresh nearby systems around the current visited system.
 - Press **R** again to return to the position where you enabled the mode.
 
-Procedural systems contain planets, binary stars, rare black holes, and supernova
+Procedural systems contain planets and seeded moons, binary stars, rare black holes, and supernova
 remnants. The map shows nearby systems before a visit; **Aim at system** helps
 with the first manual flight. Arrival unlocks fast travel and reveals the next
 neighborhood. Known systems, visits and virtual position persist. After an
@@ -126,7 +130,9 @@ and the Sun in Rocket Mode display the same state. Sky lighting visually weakens
 while preserving the contribution of block light sources.
 `/astra-render environment off` restores the vanilla sky; `auto` restores Astra's sky.
 
-The supernova has a rising rumble, an impact, and a fading tail. Set its volume
+The supernova expands into seeded gas layers, filaments and knots that cool into
+a dim remnant. Generated remnant systems use the same mature material. The
+supernova has a rising rumble, an impact, and a fading tail. Set its volume
 with `/astra-audio volume 0.75`, or disable it with `/astra-audio enabled false`.
 Space and the solar sky use HDR bloom; adjust its strength with
 `/astra-render bloom-strength 0.65` and exposure with `/astra-render exposure 1`.
@@ -362,6 +368,21 @@ directory. After ordinary travel to a catalog black hole, the fixture feeds fixe
 visual scenes into the live renderer while preserving the server position and
 catalog. These additional renders verify images; they do not measure normal
 flight performance.
+
+The movable map, satellite navigation and shared supernova material have a
+separate phase in a fresh world:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-polish-run -PverifyPhase=celestial-polish
+```
+
+It exercises map Screen handlers and rendered markers for Moon, Europa and Titan,
+MMB pan, cursor-anchored zoom, focus/reset, clipping, reload and resize. Actual
+server approach reaches the Moon. Frozen server evolution samples then feed the
+production Overworld renderer and controlled space-view poses, with bloom on/off.
+Screenshots and scope notes distinguish real navigation from diagnostic draws;
+this is not an OS input, performance or shader-pack sky-integration test.
+For Fabulous, use another fresh directory with `-PverifyGraphics=fabulous`.
 
 Overworld rendering and persistent solar evolution (the first run requires a
 fresh directory; the second continues its saved event):

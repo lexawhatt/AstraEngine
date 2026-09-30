@@ -107,10 +107,11 @@ biological life are outside this atlas feature.
 
 ## Save and request contract
 
-Exploration NBT **v5** adds `universe_version` and retains previous custom
-systems, known/visited lists, exact navigation pose, speed and shared clock.
-Readable v1-v4 saves migrate without changing existing system definitions. Old
-v1-v3 charts infer visits conservatively as before; v4 visits remain exact.
+Exploration NBT **v6** retains `universe_version`, adds `satellite_version`, and
+preserves previous custom systems, known/visited lists, exact navigation pose,
+speed and shared clock.
+Readable v1-v5 saves migrate without changing existing system definitions. Old
+v1-v3 charts infer visits conservatively as before; v4/v5 visits remain exact.
 Unknown atlas versions, dangling identities and empty saved sectors are rejected;
 unreadable existing data is never silently replaced by a new catalog.
 

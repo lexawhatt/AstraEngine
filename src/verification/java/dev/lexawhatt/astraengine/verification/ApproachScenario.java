@@ -388,9 +388,9 @@ final class ApproachScenario {
 
     private void verifyObservation(String id) {
         CelestialBody target = body(id);
-        double distance = target.positionAt(controller.timeSeconds()).distance(controller.snapshot().position());
+        double distance = controller.currentSystem().positionAt(target, controller.timeSeconds()).distance(controller.snapshot().position());
         require(Math.abs(distance / target.radiusMeters() - 4) < 0.2, "Arrival is outside the physical four-radius observation point");
-        SpaceVector toward = target.positionAt(controller.timeSeconds()).subtract(controller.visualPosition()).normalized();
+        SpaceVector toward = controller.currentSystem().positionAt(target, controller.timeSeconds()).subtract(controller.visualPosition()).normalized();
         var look = minecraft.gameRenderer.getMainCamera().getLookVector();
         require(toward.dot(new SpaceVector(look.x, look.y, look.z)) > 0.995, "Actual arrival camera is not aimed at the selected planet");
     }

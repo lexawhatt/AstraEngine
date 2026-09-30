@@ -42,7 +42,7 @@ public final class AstraEngine {
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
         event.registrar("1").playToClient(SystemPayload.TYPE, SystemPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SystemSnapshotReceivedEvent(payload)));
-        event.registrar("1").playToClient(CustomSystemsPayload.TYPE, CustomSystemsPayload.CODEC,
+        event.registrar("2").playToClient(CustomSystemsPayload.TYPE, CustomSystemsPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new CustomSystemsReceivedEvent(payload)));
         event.registrar("6").playToClient(ExplorationPayload.TYPE, ExplorationPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new ExplorationReceivedEvent(payload)));

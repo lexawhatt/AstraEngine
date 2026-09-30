@@ -27,7 +27,7 @@ public final class CosmosGenerator {
     }
 
     /**
-     * Sun and eight planets with NASA fact-sheet mean radii and orbital parameters in SI units.
+     * Sun, eight planets and major moons with NASA fact-sheet radii and orbital parameters in SI units.
      * Initial phases and rendered colors are illustrative. See docs/SOLAR_REFERENCE.md for source precision.
      */
     public static CosmosSystem sol() {
@@ -98,7 +98,7 @@ public final class CosmosGenerator {
                     random.nextDouble() * 0.1, color, atmosphere, inner, outer, random.nextDouble() * 1.5));
             orbitAu *= 1.45 + random.nextDouble() * 0.15;
         }
-        return new CosmosSystem(id, name, seed, kind, position, bodies);
+        return new CosmosSystem(id, name, seed, kind, position, SatelliteGenerator.procedural(bodies, seed, stellarMass));
     }
 
     /** Reconstructs a canonical ID: "sol", or "s_" followed by three signed decimal sector integers. */
@@ -177,7 +177,8 @@ public final class CosmosGenerator {
                         5.8, 0.770, 0.0469, new SpaceVector(0.48, 0.8, 0.86), 0.35f, 1.65f, 2.1f, 97.77),
                 solarPlanet("neptune", "Neptune", CelestialBody.Kind.ICE, 24622, 4514.953, 60189.018,
                         0.2, 1.770, 0.0097, new SpaceVector(0.18, 0.36, 0.82), 0.4f, 1.6f, 2.54f, 28.32));
-        return new CosmosSystem("sol", "Solar System", 0, CosmosSystem.Kind.SINGLE, SpaceVector.ZERO, bodies);
+        return new CosmosSystem("sol", "Solar System", 0, CosmosSystem.Kind.SINGLE, SpaceVector.ZERO,
+                SatelliteGenerator.solar(bodies));
     }
 
     private static CelestialBody solarPlanet(String id, String name, CelestialBody.Kind kind, double radiusKm,

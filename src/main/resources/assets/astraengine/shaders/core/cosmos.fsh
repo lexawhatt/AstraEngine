@@ -259,15 +259,9 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
         }
         color += mix(material.rgb, vec3(1.0, 0.67, 0.26), 0.38) * corona * footprint * 5.0;
         if (Supernova == 1) {
-            vec3 offset = (ray - center) / max(radius, 1e-8);
-            float turbulence = fbm(offset * 0.65 + vec3(Seed * 0.1));
-            float expansion = 12.0 + sin(Time * 0.012) * 0.35;
-            float shell = exp(-pow((ratio - expansion - turbulence * 3.0) / 1.9, 2.0));
-            float filament = pow(1.0 - abs(fbm(offset * 2.2 + vec3(3.2)) - 0.5) * 2.0, 7.0);
-            vec3 remnant = mix(vec3(0.008, 0.31, 0.75), vec3(1.2, 0.024, 0.12),
-                               smoothstep(0.34, 0.62, turbulence));
-            color += remnant * (shell * (0.17 + filament * 0.9)
-                     + exp(-ratio * 0.12) * turbulence * 0.11);
+            // Catalog remnants are mature objects, not a shader-time explosion loop.
+            color += stellarEjectaRadiance(ray, center, min(radius * 14.0, 0.85),
+                                          16.0, parameters.x, pixelAngle);
         }
         if (discCoverage > 0.0) {
             if (radius <= 1.0) {

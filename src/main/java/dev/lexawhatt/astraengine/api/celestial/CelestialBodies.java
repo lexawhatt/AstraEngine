@@ -52,6 +52,7 @@ public final class CelestialBodies {
         private float ringInnerRatio;
         private float ringOuterRatio;
         private double axialTiltRadians;
+        private String parentId = "";
 
         private Builder(String id, String name, CelestialBody.Kind kind, double radiusMeters) {
             this.id = id;
@@ -60,10 +61,16 @@ public final class CelestialBodies {
             this.radiusMeters = radiusMeters;
         }
 
-        /** Sets the semimajor axis in meters and period in seconds; both zero means stationary at the origin. */
+        /** Sets semimajor axis in meters and period in seconds, relative to the parent or the system origin. */
         public Builder orbit(double semimajorAxisMeters, double periodSeconds) {
             orbitMeters = semimajorAxisMeters;
             orbitalPeriodSeconds = periodSeconds;
+            return this;
+        }
+
+        /** Sets a local parent-body ID; empty selects the system origin. System construction validates the chain. */
+        public Builder parent(String bodyId) {
+            parentId = bodyId;
             return this;
         }
 
@@ -118,7 +125,7 @@ public final class CelestialBodies {
         public CelestialBody build() {
             return new CelestialBody(id, name, kind, radiusMeters, orbitMeters, orbitalPeriodSeconds,
                     phaseRadians, inclinationRadians, eccentricity, color, atmosphere, ringInnerRatio,
-                    ringOuterRatio, axialTiltRadians);
+                    ringOuterRatio, axialTiltRadians, parentId);
         }
     }
 }

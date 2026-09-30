@@ -128,10 +128,10 @@ final class CelestialScenario {
             case 7 -> {
                 if (!settled(90) || !controller.snapshot().systemId().equals(BLACK_HOLE)) { return false; }
                 CelestialBody hole = controller.currentSystem().bodies().getFirst();
-                require(Math.abs(controller.snapshot().position().distance(hole.positionAt(controller.timeSeconds()))
+                require(Math.abs(controller.snapshot().position().distance(controller.currentSystem().positionAt(hole, controller.timeSeconds()))
                                 / hole.radiusMeters() - 24) < 0.001,
                         "Ordinary catalog approach did not use its physical 24-radius observation point");
-                verifyLook(hole.positionAt(controller.timeSeconds()).subtract(controller.visualPosition()).normalized());
+                verifyLook(controller.currentSystem().positionAt(hole, controller.timeSeconds()).subtract(controller.visualPosition()).normalized());
                 authoritativePosition = controller.snapshot().position();
                 shot("celestial-01-catalog-approach", false, false);
                 poses = createPoses(controller.currentSystem());
@@ -209,7 +209,7 @@ final class CelestialScenario {
                 require(controller.snapshot().systemId().equals(BLACK_HOLE),
                         "Controlled presentation poses changed the authoritative system");
                 CelestialBody hole = controller.currentSystem().bodies().getFirst();
-                verifyLook(hole.positionAt(controller.timeSeconds()).subtract(controller.visualPosition()).normalized());
+                verifyLook(controller.currentSystem().positionAt(hole, controller.timeSeconds()).subtract(controller.visualPosition()).normalized());
                 shot("celestial-35-returned-production-view", false, false);
                 server(server -> require(server.overworld().getBlockState(HOME_MARKER).is(Blocks.DIAMOND_BLOCK),
                         "Celestial rendering damaged the real home marker"));
@@ -355,7 +355,7 @@ final class CelestialScenario {
         if (pose == null || !active() || event.getStage() != RenderLevelStageEvent.Stage.AFTER_SKY || renderFailure != null) { return; }
         try {
             int count = renderer.draw(event, pose.system(), pose.camera(), 0, controller.exposure());
-            require(count == pose.system().bodies().size(), "Production extraction dropped fixture bodies");
+            require(count == Math.min(12, pose.system().bodies().size()), "Production extraction dropped fixture bodies");
             require(GL11.glGetError() == GL11.GL_NO_ERROR, "Native OpenGL error while rendering " + pose.name());
             poseFrames++;
             controlledFrames++;

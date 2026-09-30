@@ -43,6 +43,12 @@ public final class ObservatoryContent {
                         .rings(1.4f, 2.5f)
                         .axialTiltRadians(0.45)
                         .build())
+                .body(CelestialBodies.planet("nereid_moon", "Nereid Moon",
+                                CelestialBody.Kind.ICE, 1_500_000)
+                        .parent("nereid")
+                        .orbit(450_000_000, 5 * 86_400)
+                        .color(0.72, 0.74, 0.76)
+                        .build())
                 .build();
     }
 
@@ -76,7 +82,8 @@ discovers generated systems; custom content is revealed explicitly through this 
 | `CelestialBodies.planet(id, name, kind, radiusMeters)` | `ROCKY`, `OCEAN`, `GAS_GIANT`, or `ICE` material |
 | `CelestialBodies.star(id, name, radiusMeters)` | Existing stellar shader |
 | `CelestialBodies.blackHole(id, name, radiusMeters)` | Physical horizon radius; existing lensing and accretion disc |
-| `.orbit(meters, seconds)` | Semimajor axis and period; both zero means stationary at the system origin |
+| `.orbit(meters, seconds)` | Parent-relative semimajor axis and period; both zero means stationary at that origin |
+| `.parent(bodyId)` | Local parent identity; empty string (the default) means the system origin |
 | `.phaseRadians(value)` | Initial mean anomaly in `[-2pi, 2pi]` |
 | `.inclinationRadians(value)` | Orbital inclination in `[-pi, pi]` |
 | `.eccentricity(value)` | Elliptical orbit in `[0, 0.3]` |
@@ -94,8 +101,17 @@ Body defaults are stationary, white, without rings, atmosphere, tilt, or
 eccentricity. System kind selects existing template behavior; it does not create
 bodies, derive a physically consistent binary orbit, or start stellar evolution.
 For a black-hole system, choose `CosmosSystem.Kind.BLACK_HOLE` and add a
-`CelestialBodies.blackHole(...)` primary. Planets orbit the system origin;
-parented moon orbits and arbitrary local offsets are not exposed yet.
+`CelestialBodies.blackHole(...)` primary. Bodies without a parent orbit the system
+origin. Moons use the same material builders and name a local parent; nested
+satellites and forward references are supported. System construction rejects
+missing, self-referential and cyclic parents before anything is saved.
+
+`body.positionAt(seconds)` gives a **parent-relative** Kepler offset in meters.
+Use `system.positionAt(body, seconds)` or `system.positionAt(bodyId, seconds)` for
+the resolved system-local position. Parent motion is added at the same instant;
+all orbital planes use the system reference axes, and parent spin/tilt does not
+implicitly rotate a child's orbit. The original body constructor remains available
+and sets an empty parent. Arbitrary local offsets and N-body dynamics are not exposed.
 
 Builders are mutable and must not be shared across threads. Built values own
 immutable body lists; reusing a builder cannot change an earlier result.
@@ -112,14 +128,20 @@ mod's namespace. `sol` and generated `s_x_y_z` IDs remain reserved built-in cont
 Body IDs are local to their system, match `[a-z0-9_-]{1,64}`, and must be unique.
 System and body names must be nonblank and at most 96 characters.
 
-The catalog accepts **64 custom systems**, each with **1-12 bodies**. Discoveries
+The catalog accepts **64 custom systems**, each with **1-64 bodies**, subject to
+an aggregate **900 KiB encoded descriptor snapshot** limit. The byte budget includes
+UTF-8 strings, length prefixes and all numeric fields; unusually long names and
+large systems can reach it before the system-count limit. `create` returns
+`LIMIT_REACHED` before mutation when either limit would be exceeded. All previously
+valid 64-system, 12-body catalogs fit the larger budget. Discoveries
 are private, with **256 systems per player** and **4096 player records**. Full
 catalogs do not evict content or discoveries. Radius is `1..1e12` meters; orbital
 axis and period are `0..1e15` in meters and seconds, respectively. Nonstationary
 orbits require both positive values and a pericenter outside the body's radius.
 All numeric inputs must be finite.
 
-Each galactic coordinate is within `+/-1e6` light-years. Body apoapsis plus its
+Each galactic coordinate is within `+/-1e6` light-years. The sum of a body's apoapsis
+and every ancestor's apoapsis, plus its
 standard observation margin must fit inside the **4096 AU** local-system
 publication envelope, even though manual flight can leave that envelope.
 Validation does not prove that bodies never overlap or that every
@@ -157,12 +179,23 @@ do not retain the live player reference beyond its lifecycle.
 ## Saving, synchronization, and scope
 
 Custom definitions and navigation records share the Overworld's
-`data/astraengine_exploration.dat`, format **v5**. Descriptor encoding is version 1.
-Existing navigation formats v1-v4 migrate without losing position, roll, speed,
-definitions or discovery. Existing v4 visits are retained; for v1-v3 only charted Sol/current are inferred as visited;
+`data/astraengine_exploration.dat`, format **v6**. Descriptor encoding is version 2.
+Existing navigation formats v1-v5 migrate without losing position, roll, speed,
+definitions or discovery. Existing v4/v5 visits are retained; for v1-v3 only charted Sol/current are inferred as visited;
 the other charted systems need a manual visit before fast travel unlocks.
 Malformed definitions, duplicate identities, and missing referenced
 systems fail closed; they are never silently replaced by generated content.
+
+Version-one custom descriptors retain their exact original origin-relative fields
+and body count when read; version two explicitly stores each `parent_id` (including
+an empty parent). Custom content never gains automatically generated satellites.
+Version six separately pins additive satellite generation version 1 alongside the
+unchanged parent and universe generators. Built-in Sol and procedural systems gain
+satellites without moving their existing planets or stars. An unknown future
+satellite version fails closed: reopen with the matching engine version, retaining
+the original save; do not delete the version field or regenerate the catalog.
+Descriptor synchronization requires protocol version 2 on both endpoints; old wire
+descriptors are rejected instead of guessing their missing parent data.
 
 Saved definitions survive departure and restart even if the consumer no longer
 calls `create`. A successful call marks data dirty for normal Minecraft saving;
@@ -182,7 +215,10 @@ promise of binary compatibility across future engine releases.
 
 This API creates astronomical content in shader space. It does not allocate
 dimensions, terrain, walkable planet surfaces, machines, extraction ledgers, or
-new shader materials. The existing alpha/beta resource API and Sol diagnostic
+new shader materials. Up to **12 bodies per frame** are selected from the larger
+catalog using apparent extent and distance, while retaining the primary and nearest
+black-hole lens. Every catalog body stays selectable/navigable even when it is too
+distant to receive a render slot. The existing alpha/beta resource API and Sol diagnostic
 cycle retain their separate contracts. Rendering limits, including one nearest
 black-hole lens per frame, still apply to custom content.
 

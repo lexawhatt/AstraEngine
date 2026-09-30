@@ -31,7 +31,13 @@ final class CelestialRendererProbe {
 
     /** Adds an explicitly controlled presentation draw through the actual production HDR/extraction path. */
     int draw(RenderLevelStageEvent event, CosmosSystem system, SpaceVector cameraMeters, double seconds, float exposure) {
-        renderer.setSolarVisual(SolarVisual.HEALTHY);
+        return draw(event, system, cameraMeters, seconds, exposure, SolarVisual.HEALTHY);
+    }
+
+    /** Uses a sampled authoritative solar presentation without adding a second simulation clock. */
+    int draw(RenderLevelStageEvent event, CosmosSystem system, SpaceVector cameraMeters, double seconds, float exposure,
+            SolarVisual solar) {
+        renderer.setSolarVisual(solar);
         renderer.render(event, system, cameraMeters, seconds, 0, exposure);
         return renderer.bodyCount();
     }

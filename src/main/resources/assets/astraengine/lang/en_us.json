@@ -135,7 +135,7 @@
   "astraengine.map.exposure": "Exposure: %s",
   "astraengine.map.discovered": "Charted / %s",
   "astraengine.map.system": "%s",
-  "astraengine.map.chart_hint": "Top view / Wheel zoom / Markers enlarged",
+  "astraengine.map.chart_hint": "MMB drag / Wheel zoom / F focus / Home reset",
   "astraengine.map.you": "YOU",
   "astraengine.map.scale": "Grid: %s",
   "astraengine.rocket.unavailable": "Rocket mode is unavailable during travel, sleep, mounting, or death.",

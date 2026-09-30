@@ -213,13 +213,8 @@ public final class BodyApproach {
             // full interval, in addition to the geometric bow, before using a linear sweep as a bound.
             double timingAllowance = 0;
             for (CelestialBody obstacle : system.bodies()) {
-                if (obstacle.orbitalPeriodSeconds() == 0) {
-                    continue;
-                }
-                double maximumSpeed = Math.PI * 2 / obstacle.orbitalPeriodSeconds() * obstacle.orbitMeters()
-                        * Math.sqrt((1 + obstacle.eccentricity()) / (1 - obstacle.eccentricity()));
-                double displacement = Math.min(obstacle.orbitMeters() * (1 + obstacle.eccentricity()) * 2,
-                        maximumSpeed * (tick - previousTick) / 20);
+                double displacement = CelestialOrbits.displacementBound(system.bodies(), obstacle,
+                        (tick - previousTick) / 20);
                 timingAllowance = Math.max(timingAllowance, displacement);
             }
             if (!FlightDynamics.clearSegment(previous, next, system.bodies(), startSeconds + previousTick / 20,
@@ -255,7 +250,7 @@ public final class BodyApproach {
     }
 
     private SpaceVector targetDirection(double elapsedTicks) {
-        return body.positionAt(startSeconds + elapsedTicks / 20.0).subtract(position(elapsedTicks));
+        return system.positionAt(body, startSeconds + elapsedTicks / 20.0).subtract(position(elapsedTicks));
     }
 
     private static FlightOrientation turnToward(FlightOrientation from, SpaceVector toward) {

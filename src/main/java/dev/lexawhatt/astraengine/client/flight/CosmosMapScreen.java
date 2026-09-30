@@ -1,6 +1,7 @@
 package dev.lexawhatt.astraengine.client.flight;
 
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
+import dev.lexawhatt.astraengine.cosmos.CelestialOrbits;
 import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
@@ -23,7 +24,9 @@ public final class CosmosMapScreen extends Screen {
     private String selection;
     private String displayedSystem;
     private int page;
-    private double zoom = 1;
+    private final ChartViewport localView = new ChartViewport();
+    private final ChartViewport galacticView = new ChartViewport();
+    private boolean draggingChart;
     private int panelX;
     private int canvasRight;
     private int rows;
@@ -45,6 +48,8 @@ public final class CosmosMapScreen extends Screen {
 
     @Override
     protected void init() {
+        draggingChart = false;
+        markers.clear();
         if (width < 440 || height < 270) {
             addRenderableWidget(Button.builder(text("smaller_ui"), button -> {
                 minecraft.options.guiScale().set(1); minecraft.resizeDisplay();
@@ -56,8 +61,11 @@ public final class CosmosMapScreen extends Screen {
         panelX = width - 212;
         canvasRight = panelX - 12;
         rows = Math.max(2, (height - 226) / 22);
-        addRenderableWidget(Button.builder(text("local"), button -> switchChart(false)).bounds(14, 37, 110, 20).build());
-        addRenderableWidget(Button.builder(text("nearby"), button -> switchChart(true)).bounds(130, 37, 130, 20).build());
+        int tabWidth = (canvasRight - 20) / 2;
+        addRenderableWidget(Button.builder(text("local"), button -> switchChart(false))
+                .bounds(14, 37, tabWidth, 20).build());
+        addRenderableWidget(Button.builder(text("nearby"), button -> switchChart(true))
+                .bounds(20 + tabWidth, 37, tabWidth, 20).build());
         addRenderableWidget(Button.builder(text("atlas"), button -> minecraft.setScreen(new UniverseAtlasScreen(controller)))
                 .bounds(230, 12, 112, 20).build());
         addRenderableWidget(Button.builder(text("close"), button -> onClose()).bounds(width - 72, 12, 58, 20).build());
@@ -103,7 +111,7 @@ public final class CosmosMapScreen extends Screen {
     }
 
     private void switchChart(boolean value) {
-        galactic = value; page = 0; zoom = 1;
+        galactic = value; page = 0; draggingChart = false;
         selection = value ? controller.currentSystem().id() : controller.targetBody();
         rebuildWidgets();
     }
@@ -120,7 +128,8 @@ public final class CosmosMapScreen extends Screen {
     public void tick() {
         if (!controller.currentSystem().id().equals(displayedSystem)) {
             displayedSystem = controller.currentSystem().id();
-            selection = galactic ? displayedSystem : controller.targetBody(); page = 0; zoom = 1;
+            selection = galactic ? displayedSystem : controller.targetBody(); page = 0;
+            localView.reset(); galacticView.reset(); draggingChart = false;
             rebuildWidgets();
         } else if (entries().size() != knownCount && width >= 440 && height >= 270) { rebuildWidgets(); }
         refreshActions();
@@ -156,24 +165,44 @@ public final class CosmosMapScreen extends Screen {
         graphics.enableScissor(14, 65, canvasRight, height - 71);
         renderChart(graphics, mouseX, mouseY);
         graphics.disableScissor();
-        graphics.drawString(font, text("chart_hint"), 20, height - 65, 0xFF7E9EA9);
+        graphics.drawString(font, font.plainSubstrByWidth(text("chart_hint").getString(), canvasRight - 26),
+                20, height - 65, 0xFF7E9EA9);
         renderSelection(graphics);
         graphics.drawCenteredString(font, Component.literal((page + 1) + " / " + Math.max(1, (knownCount + rows - 1) / rows)),
                 panelX + 99, 68 + rows * 22, 0xFFA4BEC8);
         super.render(graphics, mouseX, mouseY, partialTick);
     }
 
+    private ChartViewport view() { return galactic ? galacticView : localView; }
+    private double centerX() { return (14 + canvasRight) * 0.5; }
+    private double centerY() { return (65 + height - 71) * 0.5; }
+    private double extent() { return Math.min(canvasRight - 14, height - 136) * 0.43; }
+
+    private double units() {
+        if (galactic) { return 14; }
+        CosmosSystem system = controller.currentSystem();
+        return system.bodies().stream().mapToDouble(body -> orbitalReach(system, body)).max()
+                .orElse(CosmosGenerator.AU) * 1.1;
+    }
+
+    private double baseScale() { return extent() / Math.max(1, units()); }
+    private double chartX(double x, double scale) { return centerX() + (x - view().centerX()) * scale; }
+    private double chartY(double z, double scale) { return centerY() + (z - view().centerZ()) * scale; }
+
+    private static double orbitalReach(CosmosSystem system, CelestialBody body) {
+        return body.radiusMeters() + CelestialOrbits.maximumDistance(system.bodies(), body);
+    }
+
     private void renderChart(GuiGraphics graphics, int mouseX, int mouseY) {
         markers.clear();
-        int centerX = (14 + canvasRight) / 2, centerY = (65 + height - 71) / 2;
-        double extent = Math.min(canvasRight - 14, height - 136) * 0.43;
-        double units = galactic ? 14 : controller.currentSystem().bodies().stream()
-                .mapToDouble(body -> body.orbitMeters() * (1 + body.eccentricity())).max().orElse(CosmosGenerator.AU) * 1.1;
-        double scale = extent / Math.max(1, units) * zoom;
-        for (int index = -4; index <= 4; index++) {
-            int x = centerX + index * 40, y = centerY + index * 40;
-            graphics.fill(x, 65, x + 1, height - 71, 0xFF10232D);
-            graphics.fill(14, y, canvasRight, y + 1, 0xFF10232D);
+        double scale = view().scale(baseScale());
+        double gridX = 14 + ((chartX(0, scale) - 14) % 40 + 40) % 40;
+        double gridY = 65 + ((chartY(0, scale) - 65) % 40 + 40) % 40;
+        for (double x = gridX; x < canvasRight; x += 40) {
+            graphics.fill((int) x, 65, (int) x + 1, height - 71, 0xFF10232D);
+        }
+        for (double y = gridY; y < height - 71; y += 40) {
+            graphics.fill(14, (int) y, canvasRight, (int) y + 1, 0xFF10232D);
         }
         if (galactic) {
             SpaceVector origin = controller.currentSystem().galaxyPosition();
@@ -186,27 +215,33 @@ public final class CosmosMapScreen extends Screen {
                     default -> 0xFFA8D5F0;
                 };
                 if (!controller.visited(system.id())) { color = 0xFF687D94; }
-                marker(graphics, system.id(), system.name(), centerX + delta.x() * scale, centerY + delta.z() * scale, color);
+                marker(graphics, system.id(), system.name(), chartX(delta.x(), scale), chartY(delta.z(), scale), color);
             }
         } else if (controller.snapshot() != null) {
-            for (CelestialBody body : controller.currentSystem().bodies()) {
-                if (body.orbitMeters() > 0) {
-                    SpaceVector previous = body.positionAt(0);
-                    for (int index = 1; index <= 96; index++) {
-                        SpaceVector next = body.positionAt(body.orbitalPeriodSeconds() * index / 96);
-                        line(graphics, centerX + previous.x() * scale, centerY + previous.z() * scale,
-                                centerX + next.x() * scale, centerY + next.z() * scale, 0xFF23414D);
-                        previous = next;
-                    }
+            CosmosSystem system = controller.currentSystem();
+            double time = controller.timeSeconds();
+            for (CelestialBody body : system.bodies()) {
+                if (body.orbitMeters() <= 0) { continue; }
+                SpaceVector parent = body.parentId().isEmpty() ? SpaceVector.ZERO : system.positionAt(body.parentId(), time);
+                SpaceVector previous = parent.add(body.positionAt(0));
+                for (int index = 1; index <= 96; index++) {
+                    SpaceVector next = parent.add(body.positionAt(body.orbitalPeriodSeconds() * index / 96));
+                    line(graphics, chartX(previous.x(), scale), chartY(previous.z(), scale),
+                            chartX(next.x(), scale), chartY(next.z(), scale),
+                            body.id().equals(selection) ? 0xFF3B7583 : 0xFF23414D);
+                    previous = next;
                 }
-                SpaceVector position = body.positionAt(controller.timeSeconds());
+            }
+            for (CelestialBody body : system.bodies()) {
+                SpaceVector position = system.positionAt(body, time);
                 int color = 0xFF000000 | ((int) (body.color().x() * 200 + 55) << 16)
                         | ((int) (body.color().y() * 200 + 55) << 8) | (int) (body.color().z() * 200 + 55);
-                marker(graphics, body.id(), body.name(), centerX + position.x() * scale, centerY + position.z() * scale, color);
+                marker(graphics, body.id(), body.name(), chartX(position.x(), scale), chartY(position.z(), scale), color);
             }
             SpaceVector position = controller.visualPosition();
-            int x = (int) (centerX + position.x() * scale), y = (int) (centerY + position.z() * scale);
-            if (x >= 14 && x < canvasRight && y >= 65 && y < height - 71) {
+            double px = chartX(position.x(), scale), py = chartY(position.z(), scale);
+            if (insideCanvas(px, py)) {
+                int x = (int) px, y = (int) py;
                 graphics.fill(x - 5, y, x + 6, y + 1, 0xFF64FFD4);
                 graphics.fill(x, y - 5, x + 1, y + 6, 0xFF64FFD4);
                 graphics.drawString(font, text("you"), x - font.width(text("you")) - 8, y + 5, 0xFF64FFD4);
@@ -215,7 +250,34 @@ public final class CosmosMapScreen extends Screen {
         renderLabels(graphics, mouseX, mouseY);
         String scaleLabel = galactic ? String.format(Locale.ROOT, "%.2f ly", 40 / scale)
                 : RocketController.distance(40 / scale);
+        graphics.fill(17, 68, 25 + font.width(text("scale", scaleLabel)), 83, 0xD0050A11);
         graphics.drawString(font, text("scale", scaleLabel), 20, 71, 0xFF9CBEC9);
+    }
+
+    private void focusSelected() {
+        if (galactic) {
+            controller.discoveredSystems().stream().filter(system -> system.id().equals(selection)).findFirst()
+                    .ifPresent(system -> {
+                        SpaceVector delta = system.galaxyPosition().subtract(controller.currentSystem().galaxyPosition());
+                        view().focus(delta.x(), delta.z(), Math.max(1, view().zoom()));
+                    });
+            return;
+        }
+        CosmosSystem system = controller.currentSystem();
+        CelestialBody selected = system.bodies().stream().filter(body -> body.id().equals(selection)).findFirst().orElse(null);
+        if (selected == null) { return; }
+        SpaceVector position = system.positionAt(selected, controller.timeSeconds());
+        double radius = selected.radiusMeters() * 12;
+        if (!selected.parentId().isEmpty()) {
+            radius = Math.max(radius, selected.orbitMeters() * (1 + selected.eccentricity()) * 1.5);
+        }
+        for (CelestialBody child : system.bodies()) {
+            if (child.parentId().equals(selected.id())) {
+                radius = Math.max(radius, (child.orbitMeters() * (1 + child.eccentricity()) + child.radiusMeters()) * 1.35);
+            }
+        }
+        view().focus(position.x(), position.z(), units() / Math.max(1, radius));
+        draggingChart = false;
     }
 
     private void marker(GuiGraphics graphics, String id, String name, double px, double py, int color) {
@@ -258,26 +320,53 @@ public final class CosmosMapScreen extends Screen {
         } else {
             CelestialBody selected = controller.currentSystem().bodies().stream().filter(value -> value.id().equals(selection)).findFirst().orElse(null);
             if (selected != null) { detail = selected.name() + "  /  R " + RocketController.distance(selected.radiusMeters())
-                    + "  /  " + RocketController.distance(selected.positionAt(controller.timeSeconds()).distance(controller.visualPosition())); }
+                    + "  /  " + RocketController.distance(controller.currentSystem().positionAt(selected, controller.timeSeconds()).distance(controller.visualPosition())); }
         }
         graphics.drawString(font, font.plainSubstrByWidth(detail, canvasRight - 22), 20, height - 51, 0xFFE1D3AF);
     }
 
     private void line(GuiGraphics graphics, double x1, double y1, double x2, double y2, int color) {
-        // Bound raster work even when the chart is zoomed far into an orbit.
-        int steps = Math.min(160, (int) Math.ceil(Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1))));
-        for (int index = 0; index <= steps; index++) {
-            double fraction = steps == 0 ? 0 : (double) index / steps;
-            double x = x1 + (x2 - x1) * fraction, y = y1 + (y2 - y1) * fraction;
-            if (x >= 14 && x < canvasRight && y >= 65 && y < height - 71) {
-                graphics.fill((int) x, (int) y, (int) x + 1, (int) y + 1, color);
+        // Clip before rasterization: deeply zoomed satellite views must not draw billion-pixel segments.
+        double dx = x2 - x1, dy = y2 - y1;
+        double start = 0, end = 1;
+        for (int edge = 0; edge < 4; edge++) {
+            double direction = switch (edge) { case 0 -> -dx; case 1 -> dx; case 2 -> -dy; default -> dy; };
+            double distance = switch (edge) {
+                case 0 -> x1 - 14;
+                case 1 -> canvasRight - 1 - x1;
+                case 2 -> y1 - 65;
+                default -> height - 72 - y1;
+            };
+            if (direction == 0) {
+                if (distance < 0) { return; }
+            } else {
+                double crossing = distance / direction;
+                if (direction < 0) { start = Math.max(start, crossing); }
+                else { end = Math.min(end, crossing); }
+                if (start > end) { return; }
             }
         }
+        double left = x1 + dx * start, top = y1 + dy * start;
+        double right = x1 + dx * end, bottom = y1 + dy * end;
+        int steps = Math.min(4096, (int) Math.ceil(Math.max(Math.abs(right - left), Math.abs(bottom - top))));
+        for (int index = 0; index <= steps; index++) {
+            double fraction = steps == 0 ? 0 : (double) index / steps;
+            double x = left + (right - left) * fraction, y = top + (bottom - top) * fraction;
+            if (insideCanvas(x, y)) { graphics.fill((int) x, (int) y, (int) x + 1, (int) y + 1, color); }
+        }
+    }
+
+    private boolean insideCanvas(double x, double y) {
+        return width >= 440 && height >= 270 && x >= 14 && x < canvasRight && y >= 65 && y < height - 71;
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE && insideCanvas(mouseX, mouseY)) {
+            draggingChart = true;
+            return true;
+        }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && insideCanvas(mouseX, mouseY)) {
             Marker closest = markers.stream().filter(marker -> Math.hypot(marker.x - mouseX, marker.y - mouseY) < 12)
                     .min(java.util.Comparator.comparingDouble(marker -> Math.hypot(marker.x - mouseX, marker.y - mouseY))).orElse(null);
             if (closest != null) { selection = closest.id; rebuildWidgets(); return true; }
@@ -286,16 +375,42 @@ public final class CosmosMapScreen extends Screen {
     }
 
     @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (draggingChart && button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE) {
+            view().pan(deltaX, deltaY, baseScale());
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_MIDDLE && draggingChart) {
+            draggingChart = false;
+            return true;
+        }
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
-        if (mouseX >= 14 && mouseX < canvasRight && mouseY >= 65 && mouseY < height - 71) {
-            zoom = Math.clamp(zoom * Math.pow(1.3, vertical), 0.25, 1_000_000); return true;
+        if (insideCanvas(mouseX, mouseY)) {
+            view().zoomAt(vertical, mouseX - centerX(), mouseY - centerY(), baseScale());
+            return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
 
     @Override
+    public void removed() { draggingChart = false; super.removed(); }
+
+    @Override
     public boolean keyPressed(int key, int scanCode, int modifiers) {
         if (key == GLFW.GLFW_KEY_M) { onClose(); return true; }
+        if (width >= 440 && height >= 270) {
+            if (key == GLFW.GLFW_KEY_F) { focusSelected(); return true; }
+            if (key == GLFW.GLFW_KEY_HOME) { view().reset(); draggingChart = false; return true; }
+        }
         return super.keyPressed(key, scanCode, modifiers);
     }
 

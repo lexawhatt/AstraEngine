@@ -101,9 +101,14 @@ gameplay collectors or economy.
 The Overworld and the Sun in [Rocket Mode](COSMOS.md) use the same state and
 shared solar GLSL code. The photosphere, granulation, spots, corona, and bright
 arcs change as the star depletes; pulsations intensify before collapse. A brief
-flash follows, then an expanding envelope, a shock front, and a colored remnant.
+flash follows, then expanding gas layers with irregular edges, knots and fine
+filaments. Warm ejecta cools toward restrained red/blue emission and a dim mature
+remnant. A bounded 6/8/10-sample volume integral at low/balanced/high quality
+replaces the old flat ring-like shell. This is an artistic emission model, without
+hydrodynamic simulation or spectrally resolved radiative transfer.
 The flash age comes from the server phase: ordinary shader animation does not
-repeat the explosion in a loop. In Rocket Mode, apparent size follows the
+repeat the explosion in a loop. Pausing the cycle freezes the ejecta structure;
+seeded remnant systems use its mature material without a periodic expansion. In Rocket Mode, apparent size follows the
 observer's actual distance; the envelope's angular size is bounded for nearby
 cameras.
 

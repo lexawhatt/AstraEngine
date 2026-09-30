@@ -86,11 +86,11 @@ class FlightDynamicsTest {
     @Test
     void observationsKeepScaleFaceTargetsAndExposeLitPlanetHemispheres() {
         CosmosSystem sol = CosmosGenerator.sol();
-        for (String id : List.of("earth", "saturn")) {
+        for (String id : List.of("earth", "saturn", "moon")) {
             CelestialBody planet = sol.bodies().stream().filter(value -> value.id().equals(id)).findFirst().orElseThrow();
             FlightDynamics.Observation observation = FlightDynamics.observation(sol, planet, 100);
-            SpaceVector center = planet.positionAt(100);
-            double radii = id.equals("earth") ? 4 : 8;
+            SpaceVector center = sol.positionAt(planet, 100);
+            double radii = planet.ringOuterRatio() > 0 ? 8 : 4;
             assertEquals(planet.radiusMeters() * radii, observation.position().distance(center), 0.001);
             SpaceVector observerDirection = observation.position().subtract(center).normalized();
             SpaceVector sunDirection = center.multiply(-1).normalized();

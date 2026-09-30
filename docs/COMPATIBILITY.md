@@ -113,6 +113,13 @@ The local original artifact manifest, SHA-512 verification and scenario evidence
 are retained under `Workflow/verification/render-compat-2026-09-30/`. That folder
 is developer-local and is not included in a repository clone or shipped JAR.
 
+The subsequent satellite/map/supernova update repeated the stable Iris/add-on
+`render-compat` phase with the same unmodified pack: 19 captures, 1,196 observed
+shadow stages, zero Astra ship/light collections in shadow passes, and 17
+presented flight frames with live late Cosmos targets. Plain Fancy and Fabulous
+also passed the new `celestial-polish` phase (43 captures each). These checks do
+not add support for Astra stellar events inside a shader pack's Overworld sky.
+
 ## Reproduce the native scenario
 
 Use a new disposable game directory for each version stack and each run. The

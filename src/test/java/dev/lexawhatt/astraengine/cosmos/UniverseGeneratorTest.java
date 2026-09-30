@@ -81,7 +81,7 @@ class UniverseGeneratorTest {
                 assertEquals(system, CosmosGenerator.byId(42, system.id()));
                 assertEquals(galaxy.index(), UniverseGenerator.galaxyIndex(system.id()));
                 assertTrue(UniverseGenerator.isAtlasSystemId(system.id()));
-                assertTrue(system.bodies().size() >= 1 && system.bodies().size() <= 12);
+                assertTrue(system.bodies().size() >= 1 && system.bodies().size() <= CosmosSystem.MAX_BODIES);
                 assertEquals(1, region.influence(region.centerLightYears()));
                 assertTrue(UniverseGenerator.populationDensity(42, galaxy.index(), region.centerLightYears()) >= 0.25);
                 if (region.kind() == CosmicRegion.Kind.QUASAR) {
