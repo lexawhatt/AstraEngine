@@ -64,12 +64,16 @@ it consumes a prepared visual configuration with geometry and transforms/motion.
 The renderer must not interpret propulsion types, fuel economics or engineering
 statistics. The existing astronomical free camera remains an engine tool.
 
-This is the accepted architecture, **not a completed code migration**. The current
-playtest JAR still contains the [diagnostic Rocket Editor](ROCKET_EDITOR.md), its
-workshop and stationary assemblies. Its existing construction API is transitional;
-do not expand it as the long-term AstraEngine consumer boundary. The rendering-only
-replacement contract and transfer of stored blueprints require a separate,
-explicit migration before removing registered content or changing save handling.
+The construction implementation is now removed from AstraEngine. No SolarTech
+project or gameplay replacement is created here. The renderer accepts immutable
+[visual values](SHIP_RENDERING.md); the engine does not supply a catalog, editor,
+engineering calculator, deployment service or constructor network protocol.
+
+Legacy editor blocks/items and assembly entity IDs remain registered solely as
+[inert save archives](ROCKET_EDITOR.md). They retain opaque stored data and have
+no construction UI, gameplay ticking or rendering of old assemblies. Preserving
+these IDs prevents existing data from disappearing during load/save. Actual
+transfer into a future consumer remains a separate migration.
 
 [Seasonal sky](SEASONS.md) uses Minecraft's saved time with a 365-day year and
 20-minute mean solar days. Its current world adapter targets the default Overworld;

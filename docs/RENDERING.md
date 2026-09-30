@@ -322,12 +322,15 @@ surface is lights and environment profiles; arbitrary user-defined render-pass
 graphs, shadow maps, voxel GI and planetary world generation remain future work.
 
 
-## Analytic rocket assemblies
+## Consumer-supplied ship visuals
 
-The [rocket construction renderer](ROCKET_EDITOR.md) shares descriptor geometry
-between the editor preview and deployed stationary assemblies. It intersects
-cylinders, frustums and boxes analytically in GLSL, writing real scene depth at
-`AFTER_BLOCK_ENTITIES` before the opaque-lighting pass. Part identity and module
-behavior do not select the rendering primitive. Nearby multipart collision boxes
-are CPU approximations of the same transforms. Registered programs remain owned
-by Minecraft; the renderer owns only its bounded preview and world-copy targets.
+The [ship visual API](SHIP_RENDERING.md) supplies immutable geometry, materials and
+transforms to one engine-owned renderer. It intersects cylinders, frustums and
+boxes in GLSL and writes scene depth at `AFTER_BLOCK_ENTITIES`, before opaque
+lighting. It also supports bounded GUI preview and analytic visual picking.
+
+Consumers submit frame snapshots through a client collection event; the renderer
+has no construction catalog, engineering statistics, deployment entities or
+persistent ship state. Consumer code owns authoritative movement, synchronization
+and collisions. The same draw path runs in the physically bounded flight world.
+Minecraft owns registered programs; AstraEngine owns preview/world-copy targets.

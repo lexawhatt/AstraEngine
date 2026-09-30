@@ -1,10 +1,11 @@
-# AstraEngine server APIs
+# AstraEngine APIs
 
 This is a provisional engine contract for Minecraft 1.21.1 / NeoForge 21.1.252.
-The `api` package and the immutable `cosmos.CelestialBody`, `CosmosSystem`, and
-`SpaceVector` values, and the public immutable `rocket` construction model form
-the consumer boundary. `server`, `systems`, `network`, and
-`client` contain internal implementation, not a supported integration surface.
+The `api` package and the documented immutable `cosmos` values form the consumer
+boundary. Ship rendering also uses `cosmos.SpaceVector` and `FlightOrientation`.
+The `server`, `systems`, and `network` packages are internal implementation.
+Client extension points are supported only where explicitly documented, including
+the ship collection event, renderer and `AstraEngineClient.shipRenderer()` facade.
 
 For custom planets, stars, black holes, systems, and private discovery, use
 [`AstraCosmos` and the celestial builders](CELESTIAL_API.md). They integrate saved
@@ -110,18 +111,17 @@ visibility and manual targeting. Presentation uses
 travel or extraction API for generated systems.
 
 
-## Rocket construction
+## Ship visualization
 
-This construction surface is transitional and is planned to move to SolarTech.
-AstraEngine will retain a rendering-only ship contract. The current playtest still
-ships the implementation below; see the [accepted extraction decision](ENGINE_SCOPE.md#accepted-rocket-editor-extraction).
+The [ship rendering API](SHIP_RENDERING.md) accepts immutable visual primitives,
+materials, positions and orientations. Consumers supply frame snapshots; the
+engine owns rendering resources, preview and visual picking. It owns no ship
+part catalog, engineering statistics, construction editor, movement simulation
+or new ship networking/persistence contract.
 
-[`AstraRocketEditor`, `RocketEditorHost`, and `RegisterRocketPartsEvent`](ROCKET_EDITOR.md)
-provide a shared editor and immutable definition catalog. Consumer-defined modules
-have typed parameter schemas and namespaced IDs; they do not require a closed
-engine or part enum. Blueprints and stationary shader assemblies are persisted
-by the workshop integration. This construction API does not execute propulsion,
-consume fuel, or connect assembled rockets to the free-camera flight service.
+The former `api.rocket` construction surface is removed. Old stored records are
+retained by [inert compatibility types](ROCKET_EDITOR.md), not an active editor.
+No SolarTech implementation is included in this core-only change.
 
 ## Seasonal sky
 

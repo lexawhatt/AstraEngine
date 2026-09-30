@@ -1,0 +1,1583 @@
+{
+  "vertex": "astraengine:ship_visual",
+  "fragment": "astraengine:ship_visual",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "SceneColor"
+    },
+    {
+      "name": "SceneDepth"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "InverseViewProjection",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ViewProjection",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "AssemblyRotation",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "PreviewMode",
+      "type": "int",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "PartCount",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "SelectedPart",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "MarkerCount",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "GridPlane",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "AssemblyCenter",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "AssemblyRadius",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "PartPositionKind[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[0]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[1]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[2]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[3]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[4]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[5]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[6]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[7]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[8]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[9]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[10]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[11]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[12]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[12]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[12]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[12]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[13]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[13]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[13]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[13]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[14]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[14]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[14]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[14]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[15]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[15]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[15]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[15]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[16]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[16]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[16]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[16]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[17]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[17]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[17]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[17]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[18]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[18]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[18]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[18]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[19]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[19]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[19]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[19]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[20]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[20]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[20]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[20]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[21]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[21]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[21]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[21]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[22]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[22]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[22]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[22]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[23]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[23]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[23]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[23]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[24]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[24]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[24]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[24]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[25]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[25]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[25]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[25]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[26]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[26]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[26]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[26]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[27]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[27]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[27]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[27]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[28]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[28]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[28]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[28]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[29]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[29]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[29]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[29]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[30]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[30]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[30]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[30]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "PartPositionKind[31]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PartSizeMaterial[31]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PartRotationRadii[31]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "PartColor[31]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0.72,
+        0.74,
+        0.78
+      ]
+    },
+    {
+      "name": "MarkerPosition[0]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "MarkerPosition[1]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "MarkerPosition[2]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "MarkerPosition[3]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "MarkerPosition[4]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "MarkerPosition[5]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}

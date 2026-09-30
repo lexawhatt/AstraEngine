@@ -11,8 +11,8 @@ import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarAudioController;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
-import dev.lexawhatt.astraengine.client.rocket.RocketEditorClient;
-import dev.lexawhatt.astraengine.server.rocket.RocketWorkshop;
+import dev.lexawhatt.astraengine.client.ship.ShipRenderer;
+import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
@@ -29,6 +29,18 @@ import net.neoforged.neoforge.common.NeoForge;
 /** Physical-client entry point; all Minecraft rendering dependencies stay behind this boundary. */
 @Mod(value = AstraEngine.MOD_ID, dist = Dist.CLIENT)
 public final class AstraEngineClient {
+    private static final ShipRenderer SHIPS = new ShipRenderer();
+
+    /**
+     * Engine-owned visual renderer for client consumers. Call on the render thread;
+     * readiness follows resource loading. Consumers must not register or close it.
+     * The handle remains stable across reload and disconnect; frame inputs do not.
+     */
+    public static ShipRenderer shipRenderer() {
+        RenderSystem.assertOnRenderThread();
+        return SHIPS;
+    }
+
     /** Registers physical-client rendering, resource lifecycle, and presentation handlers. */
     public AstraEngineClient(IEventBus modEventBus) {
         modEventBus.addListener(this::onClientSetup);
@@ -88,14 +100,14 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(editor::logout);
         NeoForge.EVENT_BUS.addListener(editor::collectLights);
         NeoForge.EVENT_BUS.addListener(editor::hideHud);
-        RocketEditorClient construction = new RocketEditorClient(RocketWorkshop::catalog);
-        modEventBus.addListener(construction.renderer()::registerShaders);
+        modEventBus.addListener(SHIPS::registerShaders);
         modEventBus.addListener((EntityRenderersEvent.RegisterRenderers event) ->
-                event.registerEntityRenderer(RocketWorkshop.ASSEMBLY.get(), NoopRenderer::new));
-        NeoForge.EVENT_BUS.addListener(construction::receive);
-        NeoForge.EVENT_BUS.addListener(construction::tick);
-        NeoForge.EVENT_BUS.addListener(construction::logout);
-        SpaceRenderer renderer = new SpaceRenderer(profiles, options, editor, construction, sky);
+                event.registerEntityRenderer(ArchivedConstruction.ASSEMBLY.get(), NoopRenderer::new));
+        NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {
+            if (RenderSystem.isOnRenderThread()) { SHIPS.close(); }
+            else { RenderSystem.recordRenderCall(SHIPS::close); }
+        });
+        SpaceRenderer renderer = new SpaceRenderer(profiles, options, editor, SHIPS, sky);
         modEventBus.addListener(renderer::registerShaders);
         NeoForge.EVENT_BUS.addListener(renderer::receive);
         NeoForge.EVENT_BUS.addListener(renderer::logout);

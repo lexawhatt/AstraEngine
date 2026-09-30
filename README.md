@@ -24,23 +24,17 @@ reload and restart.
 64 custom systems with 1-12 bodies each. These are astronomical descriptors;
 planetary terrain and landing require a separate world integration.
 
-## Rocket construction editor
+## Consumer ship rendering
 
-The current playtest still includes this editor. Its full construction workflow
-and engineering model will move to SolarTech; AstraEngine will retain ship
-visualization. [Accepted boundary and migration status](docs/ENGINE_SCOPE.md#accepted-rocket-editor-extraction).
+AstraEngine renders consumer-supplied visual assemblies: analytic shapes,
+materials and transforms. It provides world/void drawing, a reusable preview and
+picking through the [ship rendering API](docs/SHIP_RENDERING.md).
 
-Use `/give @s astraengine:rocket_editor`, place the workshop, and right-click in
-creative mode or as an operator. Assemble parts with attachment sides and radial
-symmetry, inspect them in a shader viewport, edit geometry/module parameters, and
-save or deploy a persistent stationary rocket with close collision proxies.
-**Starter** supplies a pod/tank/engine design. Leave open space east of the block.
-
-The catalog accepts consumer-defined parts and typed modules through a native
-registration event. SolarTech can add its own electronic controllers, ion,
-radiation, warp, or wormhole parameters and host the editor from its own block.
-Assembly piloting and resource simulation are not implemented by this editor.
-[Controls, ownership, and Java extension example](docs/ROCKET_EDITOR.md).
+The Rocket Editor, part catalog, construction workflow and engineering
+calculations have been removed from the engine. No SolarTech module is bundled.
+Old editor blocks and assembly records remain as inert data archives for future
+migration; [existing-save behavior](docs/ROCKET_EDITOR.md) explains the limits.
+The scene/GLSL editors and astronomical free camera remain engine tools.
 
 ## Cosmos and Rocket Mode
 
@@ -365,11 +359,22 @@ fresh directory; the second continues its saved event):
 ./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-solar-run -PverifyPhase=solar-restart
 ```
 
+Consumer-supplied ship visuals, preview picking, world depth, reload/resize and
+free-camera flight are exercised without a construction or gameplay mod:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-ships -PverifyPhase=ship-visual
+```
+
+Use a fresh directory. The visual producer exists only in the verification mod;
+production AstraEngine does not spawn a demonstration ship or retain a ship catalog.
+Dedicated GameTests also verify opaque legacy construction data retention.
+
 ## Structure
 
 - `src/main/java/dev/lexawhatt/astraengine/`: common mod code.
 - `src/main/java/dev/lexawhatt/astraengine/client/`: client code.
-- `src/main/java/dev/lexawhatt/astraengine/api/`: server snapshots, extraction, and events.
+- `src/main/java/dev/lexawhatt/astraengine/api/`: public server APIs and immutable visual values.
 - `src/main/resources/assets/astraengine/shaders/`: procedural GLSL background.
 - `src/main/resources/data/astraengine/`: persistent void dimensions.
 - `src/test/` and `src/verification/`: model and game verification.

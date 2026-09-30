@@ -10,7 +10,6 @@ import dev.lexawhatt.astraengine.client.editor.SceneEditorScreen;
 import dev.lexawhatt.astraengine.client.editor.ShaderEditorScreen;
 import dev.lexawhatt.astraengine.client.flight.CosmosMapScreen;
 import dev.lexawhatt.astraengine.client.flight.UniverseAtlasScreen;
-import dev.lexawhatt.astraengine.client.rocket.RocketEditorScreen;
 import dev.lexawhatt.astraengine.network.SystemSnapshotReceivedEvent;
 import dev.lexawhatt.astraengine.server.SystemWorlds;
 import java.nio.file.Files;
@@ -73,7 +72,7 @@ public final class ClientScenario {
     private CelestialApiScenario celestialApiScenario;
     private GalacticScenario galacticScenario;
     private AtlasScenario atlasScenario;
-    private RocketEditorScenario rocketEditorScenario;
+    private ShipVisualScenario shipVisualScenario;
     private SeasonalScenario seasonalScenario;
     private SolarCloudScenario solarCloudScenario;
     private VolumetricScenario volumetricScenario;
@@ -106,7 +105,7 @@ public final class ClientScenario {
             if (opened && !experimentalConfirmationContinued
                     && (phase.equals("cosmos-restart") || phase.equals("solar-restart") || phase.equals("camera-restart")
                             || phase.equals("celestial-api-restart") || phase.equals("galactic-restart") || phase.equals("atlas-restart")
-                            || phase.equals("rocket-editor-restart") || phase.equals("seasonal-restart"))
+                            || phase.equals("seasonal-restart"))
                     && minecraft.player == null && minecraft.getOverlay() == null
                     && minecraft.screen instanceof BackupConfirmScreen screen
                     && screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
@@ -150,13 +149,13 @@ public final class ClientScenario {
                         || phase.equals("celestial-api") || phase.equals("celestial-api-restart")
                         || phase.equals("galactic") || phase.equals("galactic-restart")
                         || phase.equals("atlas") || phase.equals("atlas-restart")
-                        || phase.equals("rocket-editor") || phase.equals("rocket-editor-restart")) {
+                        || phase.equals("ship-visual")) {
                     minecraft.options.guiScale().set(2);
                 }
                 if (phase.equals("create") || phase.equals("lighting") || phase.equals("editor")
                         || phase.equals("cosmos") || phase.equals("solar") || phase.equals("camera") || phase.equals("audio")
                         || phase.equals("celestial") || phase.equals("approach") || phase.equals("celestial-api") || phase.equals("galactic") || phase.equals("atlas")
-                        || phase.equals("rocket-editor") || phase.equals("seasonal") || phase.equals("solar-clouds") || phase.equals("volumetric")) {
+                        || phase.equals("ship-visual") || phase.equals("seasonal") || phase.equals("solar-clouds") || phase.equals("volumetric")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
@@ -184,7 +183,7 @@ public final class ClientScenario {
             boolean celestialPhase = phase.equals("celestial");
             boolean approachPhase = phase.equals("approach");
             boolean atlasPhase = phase.equals("atlas") || phase.equals("atlas-restart");
-            boolean rocketEditorPhase = phase.equals("rocket-editor") || phase.equals("rocket-editor-restart");
+            boolean shipVisualPhase = phase.equals("ship-visual");
             boolean galacticPhase = phase.equals("galactic") || phase.equals("galactic-restart");
             boolean celestialApiPhase = phase.equals("celestial-api") || phase.equals("celestial-api-restart");
             if (minecraft.player == null || minecraft.level == null || minecraft.getOverlay() != null
@@ -194,7 +193,8 @@ public final class ClientScenario {
                                     && minecraft.screen instanceof CosmosMapScreen)
                             && !(atlasPhase && (minecraft.screen instanceof CosmosMapScreen
                                     || minecraft.screen instanceof UniverseAtlasScreen))
-                            && !(rocketEditorPhase && minecraft.screen instanceof RocketEditorScreen))) {
+                            && !(shipVisualPhase && (minecraft.screen instanceof ShipVisualScenario.PreviewScreen
+                                    || minecraft.screen instanceof CosmosMapScreen)))) {
                 return;
             }
             ticks++;
@@ -213,9 +213,9 @@ public final class ClientScenario {
                 if (seasonalScenario.tick()) { finish(); }
                 return;
             }
-            if (rocketEditorPhase) {
-                if (rocketEditorScenario == null) { rocketEditorScenario = new RocketEditorScenario(phase.endsWith("-restart")); }
-                if (rocketEditorScenario.tick()) { finish(); }
+            if (shipVisualPhase) {
+                if (shipVisualScenario == null) { shipVisualScenario = new ShipVisualScenario(); }
+                if (shipVisualScenario.tick()) { finish(); }
                 return;
             }
             if (atlasPhase) {

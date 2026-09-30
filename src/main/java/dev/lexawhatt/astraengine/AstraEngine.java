@@ -15,7 +15,7 @@ import dev.lexawhatt.astraengine.network.SkyProfileReceivedEvent;
 import dev.lexawhatt.astraengine.network.SystemPayload;
 import dev.lexawhatt.astraengine.network.SystemSnapshotReceivedEvent;
 import dev.lexawhatt.astraengine.server.EngineRuntime;
-import dev.lexawhatt.astraengine.server.rocket.RocketWorkshop;
+import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
@@ -35,13 +35,11 @@ public final class AstraEngine {
     public AstraEngine(IEventBus modEventBus) {
         modEventBus.addListener(this::onCommonSetup);
         modEventBus.addListener(this::registerPayloads);
-        RocketWorkshop.register(modEventBus);
-        RocketWorkshop.registerEvents();
+        ArchivedConstruction.register(modEventBus);
         runtime = new EngineRuntime();
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
-        RocketWorkshop.registerPayloads(event);
         event.registrar("1").playToClient(SystemPayload.TYPE, SystemPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SystemSnapshotReceivedEvent(payload)));
         event.registrar("1").playToClient(CustomSystemsPayload.TYPE, CustomSystemsPayload.CODEC,
