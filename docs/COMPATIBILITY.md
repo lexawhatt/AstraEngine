@@ -64,7 +64,7 @@ Run this read-only client command in a world:
 /astra-render compatibility
 ```
 
-It reports loaded Sodium, Iris, Sodium Extra, Reese's Sodium Options and Chloride
+It reports loaded Sodium, Iris, Sodium Extra, Reese's Sodium Options, Chloride and Distant Horizons
 versions, Iris public API revision, actual active-pack state and shadow-pass
 state at the time of the query. Installed versions come from mod metadata, not
 the JAR filename. For example, the official Iris 1.8.12 artifact reports an
@@ -169,6 +169,51 @@ sufficient. Inspect `evidence/`, `render-compatibility-status.txt`,
 For the standalone Sodium/add-on row, prepare another fresh directory containing
 its four mod JARs, omit Iris and the shader pack, and use `-PverifyPhase=ship-visual`.
 The active-pack phase deliberately requires Iris; it is not an absence test.
+
+## Distant Horizons terrain experiment
+
+The independent [highlands prototype](PLANETARY_TERRAIN.md) was verified with
+original **Distant Horizons 3.3.3**, Minecraft 1.21.1 and NeoForge 21.1.252.
+[Exact publisher release](https://modrinth.com/mod/distanthorizons/version/9w34y8ai).
+DH is optional, is not bundled and is not a production compile dependency.
+The separate verification source set uses its public API 7.2 for measurements.
+
+The plain NeoForge experiment passed with native render distance **4 chunks**,
+DH radius **32 chunks**, fixed midday and the real 2048-block generator. Same-pose
+DH ON/OFF/ON captures show the distant mountain slope disappearing and returning;
+the run also observed target-world LOD callbacks and nonclear DH depth. Early
+captures during cold cache/mesh preparation lacked terrain and are retained as
+readiness evidence, not presented as a finished frame. This is a bounded visible
+terrain test, not an FPS qualification or a maximum-distance measurement.
+
+The same visible ON/OFF/ON scenario also passed with the stable add-on stack:
+Sodium 0.6.13, Iris 1.8.12, Sodium Extra 0.6.0, Reese's Options 1.8.3,
+Chloride 1.7.8 and active Complementary Reimagined r5.9.3. The pack retains its
+sky, clouds and fog. The logs retain upstream shader warnings about unavailable
+version-specific uniforms and uninitialized shader values; the scoped terrain
+scenario completed with no captured OpenGL error. This is not a claim that all
+shader-pack features or other dimensions are compatible.
+
+For this custom terrain, select DH's **CHUNKS_ONLY** generation plan. The
+[upstream API contract](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/api/src/main/java/com/seibel/distanthorizons/api/enums/worldGeneration/EDhApiGeneratorPlan.java)
+recommends it where the rough surface approximation would not match a custom
+world generator. Astra does not silently alter the player's DH settings. The
+fixture changes temporary API overrides in a disposable profile and restores them.
+LODs use DH's own derived cache; authoritative terrain and player modifications
+remain in Minecraft's saved chunks.
+
+**This does not establish full Astra sky compatibility.** The highlands currently
+use the host sky. DH has a separate depth buffer, while Astra's late custom sky
+currently tests host depth alone. With Iris, a distant-terrain pixel can therefore
+be mistaken for empty sky and overwritten. The corresponding
+[upstream copy pass](https://gitlab.com/distant-horizons-team/distant-horizons/-/blob/a54dd3eb1df0078e63a71266d042c10d9cda4493/common/src/main/java/com/seibel/distanthorizons/common/render/openGl/postProcessing/copy/GlDhCopyShader.java)
+composites color without making host depth a combined terrain buffer. Custom
+planet skies, Astra terrain-light post effects, distant transparency, reload and
+multiplayer need their own integration checks. Do not infer support for those
+paths from the highlands experiment.
+
+Local original artifacts, hashes, source audit and native evidence are under
+`Workflow/verification/planetary-terrain-2026-09-30/`. They are not shipped in the JAR.
 
 ## Original artifact references
 

@@ -35,6 +35,11 @@ not whole-globe traversal. Existing Overworld is preserved.
 
 [Arrival controls, persistence and current limits](docs/SURFACE_TRAVEL.md).
 
+An independent [highlands prototype](docs/PLANETARY_TERRAIN.md) adds kilometer-scale
+relief in a 2048-block vertical range. Geographic **F3** coordinates are available
+on the prototype and Moon/Earth patches. This is the first terrain-development
+stage; closed planetary traversal and unrestricted world height remain future work.
+
 ## Consumer ship rendering
 
 AstraEngine renders consumer-supplied visual assemblies: analytic shapes,
@@ -77,8 +82,8 @@ point, and the next activation resumes exploration from the saved virtual positi
 Cosmic view distance is independent of chunks: the CPU computes coordinates in
 `double`, and GLSL receives directions and angular sizes. Distant planets really
 are small; navigation markers help locate them. Nebulae, star fields, atmospheres,
-rings with shadows, and accretion disks are procedural. Landing on these planets
-and their voxel worlds are not implemented yet.
+rings with shadows, and accretion disks are procedural. Generated planets do not
+yet have voxel worlds; Sol's Moon and Earth have the bounded landing patches above.
 
 Free flight crosses systems and can leave the Milky Way's spatial procedural
 disk. The **Cosmic atlas** adds eight procedural neighboring galaxies, with

@@ -1,0 +1,12 @@
+{
+  "type": "astraengine:terrain_highlands",
+  "generator": {
+    "type": "astraengine:planetary_terrain",
+    "terrain_version": 1,
+    "seed": 71826152767793,
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "astraengine:terrain_highlands"
+    }
+  }
+}

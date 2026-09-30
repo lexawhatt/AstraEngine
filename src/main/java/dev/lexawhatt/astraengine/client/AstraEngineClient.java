@@ -10,11 +10,14 @@ import dev.lexawhatt.astraengine.client.solar.AstralOverworldEffects;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarAudioController;
 import dev.lexawhatt.astraengine.client.surface.SurfaceEffects;
+import dev.lexawhatt.astraengine.client.surface.SurfaceDebugOverlay;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
 import dev.lexawhatt.astraengine.client.ship.ShipRenderer;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
+import dev.lexawhatt.astraengine.surface.PlanetaryTerrain;
+import java.util.Map;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
@@ -72,6 +75,9 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(options::registerCommands);
         NeoForge.EVENT_BUS.addListener(RenderCompatibility::registerCommands);
         RocketController rocket = new RocketController(options, solar);
+        SurfaceDebugOverlay surfaceDebug = new SurfaceDebugOverlay(Map.of(
+                PlanetaryTerrain.DIMENSION_ID, PlanetaryTerrain.PATCH));
+        NeoForge.EVENT_BUS.addListener(surfaceDebug::debugText);
         NeoForge.EVENT_BUS.addListener(rocket::receiveSurface);
         SurfaceEffects lunarEffects = new SurfaceEffects(rocket.surfaceState(), solar, false);
         SurfaceEffects earthEffects = new SurfaceEffects(rocket.surfaceState(), solar, true);

@@ -98,6 +98,8 @@ presentation uses the existing late composition boundary. Shader-pack results
 must be verified per pack/version, as described in [COMPATIBILITY.md](COMPATIBILITY.md).
 No Distant Horizons or Voxy integration is claimed.
 
-Closed planetary traversal, polar topology, geographic F3 coordinates, kilometre
-relief, expanded world height and distant terrain rendering are the next generation
-step. They require their own storage, coordinate and compatibility contracts.
+F3 now shows Longitude, Latitude and reference Altitude on both patches, while
+reduced-debug mode retains its privacy. A separate
+[highlands prototype](PLANETARY_TERRAIN.md) explores kilometer relief and expanded
+height without modifying these version-one worlds. Closed planetary traversal,
+polar topology and production distant-terrain integration remain subsequent work.

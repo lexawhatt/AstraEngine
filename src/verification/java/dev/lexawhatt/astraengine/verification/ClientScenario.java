@@ -83,6 +83,7 @@ public final class ClientScenario {
     private RenderCompatibilityScenario renderCompatibilityScenario;
     private CelestialPolishScenario celestialPolishScenario;
     private SurfaceScenario surfaceScenario;
+    private TerrainScenario terrainScenario;
     private SurfacePayload latestSurface;
 
     public ClientScenario() {
@@ -94,7 +95,7 @@ public final class ClientScenario {
     private void tick(ClientTickEvent.Post event) {
         if (finished) { return; }
         try {
-            require((System.nanoTime() - startedAt) < (phase.startsWith("surface-") ? 900_000_000_000L
+            require((System.nanoTime() - startedAt) < (phase.startsWith("surface-") || phase.startsWith("terrain-") ? 900_000_000_000L
                     : phase.startsWith("seasonal") || phase.equals("volumetric")
                     || phase.equals("render-compat") || phase.equals("celestial-polish")
                     ? 600_000_000_000L : 240_000_000_000L),
@@ -117,7 +118,7 @@ public final class ClientScenario {
                     && (phase.equals("cosmos-restart") || phase.equals("solar-restart") || phase.equals("camera-restart")
                             || phase.equals("celestial-api-restart") || phase.equals("galactic-restart") || phase.equals("atlas-restart")
                             || phase.equals("seasonal-restart") || phase.equals("surface-restart") || phase.equals("surface-recover")
-                            || phase.equals("surface-upgrade"))
+                            || phase.equals("surface-upgrade") || phase.equals("terrain-restart"))
                     && minecraft.player == null && minecraft.getOverlay() == null
                     && minecraft.screen instanceof BackupConfirmScreen screen
                     && screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
@@ -128,7 +129,8 @@ public final class ClientScenario {
                 } else {
                     String scenario = phase.equals("surface-recover") ? "surface-interrupt"
                             : phase.substring(0, phase.length() - "-restart".length());
-                    String completedPhase = phase.equals("surface-restart") ? "surface-create" : scenario;
+                    String completedPhase = phase.equals("surface-restart") ? "surface-create"
+                            : phase.equals("terrain-restart") ? "terrain-create" : scenario;
                     require(Files.isRegularFile(fixture.resolve("verified-" + completedPhase + ".txt"))
                                     && Files.isRegularFile(fixture.resolve(scenario + "-checkpoint.properties"))
                                     && Files.isRegularFile(fixture.resolve("saves/first-slice/level.dat")),
@@ -168,7 +170,7 @@ public final class ClientScenario {
                         || phase.equals("galactic") || phase.equals("galactic-restart")
                         || phase.equals("atlas") || phase.equals("atlas-restart")
                         || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("celestial-polish")
-                        || phase.startsWith("surface-")) {
+                        || phase.startsWith("surface-") || phase.startsWith("terrain-")) {
                     minecraft.options.guiScale().set(2);
                 }
                 if (phase.equals("create") || phase.equals("lighting") || phase.equals("editor")
@@ -177,7 +179,8 @@ public final class ClientScenario {
                         || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("seasonal")
                         || phase.equals("solar-clouds") || phase.equals("volumetric") || phase.equals("celestial-polish")
                         || phase.equals("surface-create") || phase.equals("surface-cancel") || phase.equals("surface-interrupt")
-                        || phase.equals("surface-failures") || phase.equals("surface-boundaries")) {
+                        || phase.equals("surface-failures") || phase.equals("surface-boundaries")
+                        || phase.equals("terrain-create") || phase.equals("terrain-dh")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
@@ -231,6 +234,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.startsWith("terrain-")) {
+                if (terrainScenario == null) { terrainScenario = new TerrainScenario(phase); }
+                if (terrainScenario.tick()) { finish(); }
+                return;
+            }
             if (surfacePhase) {
                 if (surfaceScenario == null) { surfaceScenario = new SurfaceScenario(phase, latestSurface); }
                 if (surfaceScenario.tick()) { finish(); }

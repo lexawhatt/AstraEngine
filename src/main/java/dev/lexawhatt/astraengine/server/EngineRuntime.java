@@ -65,6 +65,7 @@ public final class EngineRuntime {
         SystemCatalog.get(server);
         ExplorationCatalog.get(server);
         SurfaceBindings.get(server).validate(server);
+        PlanetaryTerrainWorld.validate(server);
         SurfaceWorlds.maintainBorders(server);
         travel = new TravelService(server);
         rocket = new RocketService(server);

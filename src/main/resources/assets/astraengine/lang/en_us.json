@@ -241,5 +241,8 @@
   "astraengine.rocket.surface_failed": "Surface transfer could not complete. Your safe source position was retained.",
   "astraengine.rocket.surface_cancelled": "Surface transfer cancelled.",
   "astraengine.rocket.surface_arrived": "Surface reached. Press R to depart.",
-  "astraengine.rocket.surface_departed": "Departure complete. Free flight restored."
+  "astraengine.rocket.surface_departed": "Departure complete. Free flight restored.",
+  "astraengine.debug.longitude": "Longitude: %s",
+  "astraengine.debug.latitude": "Latitude: %s",
+  "astraengine.debug.altitude": "Altitude: %s above reference"
 }
