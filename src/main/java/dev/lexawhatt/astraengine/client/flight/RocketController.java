@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.lexawhatt.astraengine.client.render.CosmosRenderer;
 import dev.lexawhatt.astraengine.client.render.RenderOptions;
+import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
@@ -477,7 +478,10 @@ public final class RocketController {
 
     /** Flight sky uses its own physical-scale scene and does not depend on the chunk far plane. */
     public void render(RenderLevelStageEvent event) {
-        if (!active() || event.getStage() != RenderLevelStageEvent.Stage.AFTER_SKY) { return; }
+        if (!active() || RenderCompatibility.shadowPass()) { return; }
+        var stage = RenderCompatibility.lateWorldPasses()
+                ? RenderLevelStageEvent.Stage.AFTER_LEVEL : RenderLevelStageEvent.Stage.AFTER_SKY;
+        if (event.getStage() != stage) { return; }
         renderer.setQuality(options.quality().ordinal());
         renderer.setGalaxySeed(snapshot.galaxySeed());
         renderer.setSolarVisual(solar.visual());

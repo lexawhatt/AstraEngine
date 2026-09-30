@@ -12,6 +12,7 @@ import dev.lexawhatt.astraengine.client.solar.SolarAudioController;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
 import dev.lexawhatt.astraengine.client.ship.ShipRenderer;
+import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
@@ -68,6 +69,7 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(solar::registerCommands);
         modEventBus.addListener((RegisterClientReloadListenersEvent event) -> event.registerReloadListener(profiles));
         NeoForge.EVENT_BUS.addListener(options::registerCommands);
+        NeoForge.EVENT_BUS.addListener(RenderCompatibility::registerCommands);
         RocketController rocket = new RocketController(options, solar);
         SolarAudioController audio = new SolarAudioController(solar, rocket);
         NeoForge.EVENT_BUS.addListener(audio::tick);

@@ -6,7 +6,8 @@ import net.neoforged.bus.api.Event;
 
 /**
  * Client render-thread event on NeoForge.EVENT_BUS, once at AFTER_BLOCK_ENTITIES before world
- * lighting. Consumers submit current visual poses through collector(); never retain the event,
+ * lighting, or AFTER_LEVEL after an active Iris pack. Never dispatched in a shadow pass.
+ * Consumers submit current visual poses through collector(); never retain the event,
  * collector or level across frames. Register listeners only from a physical-client entry point.
  * Submission does not create entities, collisions, saved data or authoritative state.
  */

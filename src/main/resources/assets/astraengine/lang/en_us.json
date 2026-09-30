@@ -222,5 +222,15 @@
   "astraengine.season.autumn": "Northern autumn equinox",
   "astraengine.season.winter": "Northern winter solstice",
   "astraengine.render.clouds": "Cloud light shafts: %s / Coverage: %s",
-  "astraengine.compat.construction_archived": "The Rocket Editor was removed from AstraEngine. Existing construction data is retained for future migration."
+  "astraengine.compat.construction_archived": "The Rocket Editor was removed from AstraEngine. Existing construction data is retained for future migration.",
+  "astraengine.compat.render.summary": "Iris: %s / Public API revision: %s / Shader pack active: %s / Shadow pass: %s",
+  "astraengine.compat.render.mod": "%s: %s",
+  "astraengine.compat.render.absent": "not installed",
+  "astraengine.compat.render.available": "available",
+  "astraengine.compat.render.incompatible": "incompatible API",
+  "astraengine.compat.render.unavailable": "unavailable",
+  "astraengine.compat.render.not_installed": "not installed",
+  "astraengine.compat.render.yes": "yes",
+  "astraengine.compat.render.no": "no",
+  "astraengine.compat.render.incompatible_detail": "Custom Astra world passes are suppressed because the installed Iris API could not be used: %s. See the log and install a supported Iris version. Shader settings were not changed."
 }

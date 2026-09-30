@@ -21,7 +21,9 @@ either logical side; constructing one neither creates a world entity nor transmi
 World submission uses `CollectShipsEvent` in `dev.lexawhatt.astraengine.client.ship` on the
 NeoForge game event bus. Register handlers only from a physical-client entry point. The engine
 posts the event on the render thread at `AFTER_BLOCK_ENTITIES`, before its opaque-world lighting
-pass. Offer current poses through `event.collector().add(instance)`. The collector is sealed
+pass, or at `AFTER_LEVEL` after an active Iris shader pack finishes its world composition.
+The event is never dispatched during shadow extraction. Offer current poses through
+`event.collector().add(instance)`. The collector is sealed
 immediately after dispatch; retaining it or the borrowed level across frames is unsupported.
 Stopping submission removes the visual on the next frame. No registration or saved engine
 instance survives a disconnect. Consumers must dispose their own connection-owned snapshots.
@@ -94,6 +96,13 @@ depth-aware engine passes see it. It also runs in the bounded void flight world.
 origins there are physical staging-world blocks, not astronomical meters or light-years;
 consumers must explicitly choose the visual mapping from their virtual flight state.
 Rendering does not add block light, server collision or a player-controllable ship.
+
+With an active Iris pack, ship visuals are depth-aware late overlays. They do not
+participate in the pack's material buffers, shadows, reflections, global illumination
+or temporal history. GUI previews retain their own engine rendering. Active-pack
+verification and exact version limits are tracked in the
+[compatibility guide](COMPATIBILITY.md); ordinary-mode depth checks alone do not
+establish shader-pack support.
 
 ## Verification
 

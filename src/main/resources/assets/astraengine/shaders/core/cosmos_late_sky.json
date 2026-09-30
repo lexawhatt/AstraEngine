@@ -1,0 +1,11 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:late_sky",
+  "attributes": ["Position"],
+  "samplers": [
+    { "name": "SceneColor" },
+    { "name": "SceneDepth" },
+    { "name": "SkyColor" }
+  ],
+  "uniforms": []
+}

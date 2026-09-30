@@ -4,6 +4,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.lexawhatt.astraengine.AstraEngine;
+import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.client.render.FullscreenPass;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.api.ship.ShipBounds;
@@ -151,13 +152,16 @@ public final class ShipRenderer implements AutoCloseable {
     }
 
     /**
-     * Draws at AFTER_BLOCK_ENTITIES before opaque world lighting. Up to four nearest instances
+     * Draws at AFTER_BLOCK_ENTITIES, or AFTER_LEVEL when Iris owns world composition. Up to four nearest instances
      * within 96 blocks use one reusable copied target. Camera-relative subtraction uses doubles;
      * exact analytic intersections replace color and depth only in conservative projected bounds.
      */
     public int renderWorld(RenderLevelStageEvent event) {
         if (event == null) { throw new IllegalArgumentException("Ship world rendering requires a render event"); }
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) { return 0; }
+        if (RenderCompatibility.shadowPass()) { return 0; }
+        var stage = RenderCompatibility.lateWorldPasses()
+                ? RenderLevelStageEvent.Stage.AFTER_LEVEL : RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES;
+        if (event.getStage() != stage) { return 0; }
         worldShipCount = 0;
         worldPartCount = 0;
         Minecraft game = Minecraft.getInstance();

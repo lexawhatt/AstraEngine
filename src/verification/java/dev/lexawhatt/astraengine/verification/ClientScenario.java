@@ -76,6 +76,7 @@ public final class ClientScenario {
     private SeasonalScenario seasonalScenario;
     private SolarCloudScenario solarCloudScenario;
     private VolumetricScenario volumetricScenario;
+    private RenderCompatibilityScenario renderCompatibilityScenario;
 
     public ClientScenario() {
         NeoForge.EVENT_BUS.addListener(this::tick);
@@ -86,6 +87,7 @@ public final class ClientScenario {
         if (finished) { return; }
         try {
             require((System.nanoTime() - startedAt) < (phase.startsWith("seasonal") || phase.equals("volumetric")
+                    || phase.equals("render-compat")
                     ? 600_000_000_000L : 240_000_000_000L),
                     "Native fixture timed out at step " + step);
             if (!opened && !onboardingContinued && minecraft.getOverlay() == null
@@ -149,13 +151,14 @@ public final class ClientScenario {
                         || phase.equals("celestial-api") || phase.equals("celestial-api-restart")
                         || phase.equals("galactic") || phase.equals("galactic-restart")
                         || phase.equals("atlas") || phase.equals("atlas-restart")
-                        || phase.equals("ship-visual")) {
+                        || phase.equals("ship-visual") || phase.equals("render-compat")) {
                     minecraft.options.guiScale().set(2);
                 }
                 if (phase.equals("create") || phase.equals("lighting") || phase.equals("editor")
                         || phase.equals("cosmos") || phase.equals("solar") || phase.equals("camera") || phase.equals("audio")
                         || phase.equals("celestial") || phase.equals("approach") || phase.equals("celestial-api") || phase.equals("galactic") || phase.equals("atlas")
-                        || phase.equals("ship-visual") || phase.equals("seasonal") || phase.equals("solar-clouds") || phase.equals("volumetric")) {
+                        || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("seasonal")
+                        || phase.equals("solar-clouds") || phase.equals("volumetric")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
@@ -183,7 +186,7 @@ public final class ClientScenario {
             boolean celestialPhase = phase.equals("celestial");
             boolean approachPhase = phase.equals("approach");
             boolean atlasPhase = phase.equals("atlas") || phase.equals("atlas-restart");
-            boolean shipVisualPhase = phase.equals("ship-visual");
+            boolean shipVisualPhase = phase.equals("ship-visual") || phase.equals("render-compat");
             boolean galacticPhase = phase.equals("galactic") || phase.equals("galactic-restart");
             boolean celestialApiPhase = phase.equals("celestial-api") || phase.equals("celestial-api-restart");
             if (minecraft.player == null || minecraft.level == null || minecraft.getOverlay() != null
@@ -198,6 +201,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.equals("render-compat")) {
+                if (renderCompatibilityScenario == null) { renderCompatibilityScenario = new RenderCompatibilityScenario(); }
+                if (renderCompatibilityScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.equals("volumetric")) {
                 if (volumetricScenario == null) { volumetricScenario = new VolumetricScenario(); }
                 if (volumetricScenario.tick()) { finish(); }

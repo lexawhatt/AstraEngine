@@ -2,6 +2,7 @@ package dev.lexawhatt.astraengine.client.render;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.lexawhatt.astraengine.AstraEngine;
+import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.client.solar.SolarVisual;
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
@@ -29,6 +30,7 @@ import org.joml.Matrix4f;
 public final class CosmosRenderer implements AutoCloseable {
     private final CatalogStarField catalogStars = new CatalogStarField();
     private final CelestialBloomPipeline bloom = new CelestialBloomPipeline("cosmos");
+    private final LateSkyRenderer lateSky = new LateSkyRenderer("cosmos");
     private RenderOptions options;
     private ShaderInstance shader;
     private int quality = 1;
@@ -43,6 +45,7 @@ public final class CosmosRenderer implements AutoCloseable {
     /** Registers the reload-owned shader; an unavailable program leaves the host's black sky. */
     public void registerShaders(RegisterShadersEvent event) {
         bloom.registerShaders(event);
+        lateSky.registerShaders(event);
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(),
                     ResourceLocation.fromNamespaceAndPath(AstraEngine.MOD_ID, "cosmos"), DefaultVertexFormat.POSITION),
@@ -63,6 +66,7 @@ public final class CosmosRenderer implements AutoCloseable {
     @Override
     public void close() {
         bloom.close();
+        lateSky.close();
         galaxySeed = 0;
         galaxyDefinitions = List.of();
         regionDefinitions = List.of();
@@ -107,13 +111,16 @@ public final class CosmosRenderer implements AutoCloseable {
     public int bodyCount() { return bodyCount; }
 
     /**
-     * Draws only at AFTER_SKY on the render thread. Camera coordinates are virtual
+     * Draws at AFTER_SKY, or after Iris final composition at AFTER_LEVEL. Camera coordinates are virtual
      * system-local meters; time is simulation seconds. Exposure in 0.1..4 affects presentation only.
      * Warp is retained as a compatibility input without transition streaks. Physical body sizes remain unchanged.
      */
     public void render(RenderLevelStageEvent event, CosmosSystem system, SpaceVector cameraMeters,
                        double timeSeconds, float warp, float exposure) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_SKY || shader == null) { return; }
+        if (RenderCompatibility.shadowPass()) { return; }
+        boolean late = RenderCompatibility.lateWorldPasses();
+        var stage = late ? RenderLevelStageEvent.Stage.AFTER_LEVEL : RenderLevelStageEvent.Stage.AFTER_SKY;
+        if (event.getStage() != stage || shader == null) { return; }
         if (system == null || cameraMeters == null || !Double.isFinite(timeSeconds)
                 || !Float.isFinite(warp) || !Float.isFinite(exposure)) {
             throw new IllegalArgumentException("Cosmos rendering requires a finite camera and presentation state");
@@ -168,6 +175,15 @@ public final class CosmosRenderer implements AutoCloseable {
         }
         shader.safeGetUniform("EvolutionIndex").set(evolutionIndex);
         shader.safeGetUniform("NucleusBodyIndex").set(nucleusIndex);
+        if (late) {
+            lateSky.render(() -> drawSky(exposure));
+        } else {
+            lateSky.close();
+            drawSky(exposure);
+        }
+    }
+
+    private void drawSky(float exposure) {
         if (!bloom.render(shader, options, exposure)) {
             shader.safeGetUniform("HdrOutput").set(0);
             try (var state = new FullscreenPass()) { FullscreenPass.draw(shader); }

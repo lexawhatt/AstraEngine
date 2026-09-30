@@ -3,6 +3,7 @@ package dev.lexawhatt.astraengine.client.solar;
 import com.mojang.blaze3d.vertex.PoseStack;
 import dev.lexawhatt.astraengine.client.render.OverworldSkyRenderer;
 import dev.lexawhatt.astraengine.client.render.RenderOptions;
+import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.client.sky.SkyIllumination;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
@@ -110,7 +111,8 @@ public final class AstralOverworldEffects extends DimensionSpecialEffects.Overwo
     }
 
     private boolean active(ClientLevel level) {
-        return level != null && renderer.available() && level.dimension().equals(Level.OVERWORLD)
+        return !RenderCompatibility.shaderPackActive() && !RenderCompatibility.shadowPass()
+                && level != null && renderer.available() && level.dimension().equals(Level.OVERWORLD)
                 && options.astronomicalOverworld();
     }
 }

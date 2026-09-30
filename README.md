@@ -164,8 +164,20 @@ This is an engine prototype with diagnostic commands. Extraction does not yet
 provide FE, items, or materials. Bursts do not deduct energy from machines.
 Arbitrary persistent-world creation for the procedural catalog, a growing horizon,
 a white-hole finale, and ship transfers are not implemented. Lensing affects
-only the shader-rendered background. Compatibility with user shader packs has
-not been verified.
+only the shader-rendered background. Optional renderer integration has explicit
+[shader-pack ownership and verification limits](docs/COMPATIBILITY.md).
+
+## Sodium and Iris
+
+Sodium and Iris are optional. With Iris shaders disabled, Astra uses its ordinary
+rendering. An active shader pack owns Overworld atmosphere and terrain lighting;
+Astra composes its cosmos in other dimensions and consumer visuals after the pack.
+Forced environment previews do not replace the pack's Overworld sky. The pack does not
+automatically display Astra's seasons or stellar events. Production code never
+changes shader settings.
+
+`/astra-render compatibility` reports installed versions and actual pack state.
+[Version matrix, current verification status and feature limits](docs/COMPATIBILITY.md).
 
 ## Lighting and planetary sky
 
@@ -369,6 +381,18 @@ free-camera flight are exercised without a construction or gameplay mod:
 Use a fresh directory. The visual producer exists only in the verification mod;
 production AstraEngine does not spawn a demonstration ship or retain a ship catalog.
 Dedicated GameTests also verify opaque legacy construction data retention.
+
+Optional Iris integration has a separate native phase. Prepare a fresh directory
+with the exact mods, shader pack and Iris configuration described in the
+[compatibility guide](docs/COMPATIBILITY.md#reproduce-the-native-scenario), then run:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-render-compat -PverifyPhase=render-compat -PverifyGraphics=fancy
+```
+
+This fixture has a 600-second deadline and toggles Iris settings only in its
+disposable test directory. It checks pack ownership, toggles, reload and shadow
+isolation, then consumer previews, depth and free-camera flight.
 
 ## Structure
 

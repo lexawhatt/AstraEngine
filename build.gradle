@@ -32,6 +32,10 @@ sourceSets.main.resources {
 
 repositories {
     mavenCentral()
+    maven {
+        url = 'https://api.modrinth.com/maven'
+        content { includeModule('maven.modrinth', 'iris') }
+    }
     // Add here additional repositories if required by some of the dependencies below.
 }
 
@@ -160,6 +164,10 @@ configurations {
 }
 
 dependencies {
+    // Only the public Iris API is referenced, behind a physical-client optional bridge.
+    // The upstream mod is never bundled or required at runtime by AstraEngine.
+    compileOnly('maven.modrinth:iris:t3ruzodq') { transitive = false }
+    verificationCompileOnly('maven.modrinth:iris:t3ruzodq') { transitive = false }
     verificationImplementation sourceSets.main.output
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'

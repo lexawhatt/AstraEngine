@@ -7,13 +7,16 @@ block light, mob spawning, stellar resources or the system's saved evolution.
 The [in-game scene and GLSL editor](EDITOR.md) authors local analytic objects,
 lights and a user-compiled final fragment effect. Its shape pass precedes opaque
 lighting; its optional custom GLSL pass follows final composition. These are
-client drafts, separate from authoritative stellar descriptors.
+client drafts, separate from authoritative stellar descriptors. The ordinary
+pass order below applies without an active Iris shader pack;
+[shader-pack ownership](COMPATIBILITY.md) changes sky, lighting and overlay stages.
 
 The physical-scale [Rocket cosmos renderer](COSMOS.md) owns the flight dimension's
 sky independently. It shares the quality setting, uses meter-based descriptors
-and shares celestial exposure and bloom controls with the Overworld sky. The local geometry-lighting pipeline and analytic
-scene shapes are bypassed there; the explicit GLSL final-effect editor remains
-available. Environment overrides do not replace the Rocket sky.
+and shares celestial exposure and bloom controls with the Overworld sky. The local
+geometry-lighting pipeline and analytic scene shapes are bypassed there. The
+explicit GLSL final-effect editor remains available. Environment overrides do
+not replace the Rocket sky.
 
 ## Try it
 
@@ -130,8 +133,11 @@ These are defaults. Strength accepts 0..4, threshold 0.1..16, radius 0..1, expos
 and exposure, for a direct comparison. `/astra-flight exposure` and the map's
 Exposure button update this same value. Controls are session-local.
 
-The celestial pass finishes before opaque terrain and the HUD, so foreground
-blocks normally occlude its glow and HUD text does not bloom. Resource reload,
+Without an active Iris pack, the celestial pass finishes before opaque terrain
+and the HUD, so foreground blocks normally occlude its glow and HUD text does
+not bloom. With a pack active, cosmos and resource-profile skies use late
+clear-depth composition in other dimensions; the pack owns the Overworld sky even
+when an Astra environment preview is forced. Resource reload,
 resize, quality changes and logout release/recreate owned attachments; Minecraft
 owns registered programs. Missing shaders or failed HDR allocation fall back to
 the direct celestial shader. Strong optical bloom may scatter accretion-disc light
@@ -270,7 +276,11 @@ sky contribution from the client lightmap while preserving the block-source
 contribution. A bounded solar flash follows sky visibility and the Sun's height.
 These changes do not alter server sky/block light, mob spawning or world time.
 With an unavailable sky shader, the sky/fog/lightmap follow their vanilla paths.
-Other mods replacing the same Overworld effects need separate compatibility work.
+With an active Iris pack, Astra yields Overworld sky, clouds, fog, lightmap and
+aerial transport to the pack, including with a forced environment preview.
+The server keeps its seasons and
+stellar state, but the pack does not automatically consume them. Other mods
+replacing the same Overworld effects need separate compatibility work.
 
 The automatic Overworld first computes reduced-resolution cloud/air transport in
 an owned RGBA16F target and composites it into the celestial HDR sky before bloom.
@@ -282,7 +292,7 @@ depth, and releases attachments on reload, resize, logout and deactivation.
 No temporal history or offscreen terrain shadow map is maintained.
 
 The following pass sequence applies to the resource-profile environment layer
-and the first persistent Astra worlds:
+and the first persistent Astra worlds when no Iris pack is active:
 
 1. `AFTER_SKY`: a full-screen shader reconstructs view directions without camera
    translation. It draws stars, planets, sun/remnant, atmosphere and rings. A ray
@@ -316,8 +326,14 @@ is softly compressed to preserve texture detail on strongly lit surfaces. Bloom 
 color and cannot recover clipped HDR energy. The celestial ring shadow is analytic
 and independent of these screen-space limitations.
 
-Iris/shader packs, distant-terrain renderers, arbitrary hardware and extreme scene
-sizes require separate compatibility/performance work. The current extension
+The [Sodium/Iris compatibility guide](COMPATIBILITY.md) records the optional
+integration and its exact version/pack evidence. Active packs own opaque-world
+lighting and profile post-processing; outside the Overworld, Astra draws
+resource-profile skies through a depth mask at `AFTER_LEVEL`, then consumer
+ships/eligible local shapes and the explicit
+GLSL editor effect. These late visuals are not pack materials or shadow casters.
+Distant-terrain renderers, unlisted packs, arbitrary hardware and extreme scene
+sizes require separate compatibility/performance verification. The current extension
 surface is lights and environment profiles; arbitrary user-defined render-pass
 graphs, shadow maps, voxel GI and planetary world generation remain future work.
 
@@ -327,7 +343,9 @@ graphs, shadow maps, voxel GI and planetary world generation remain future work.
 The [ship visual API](SHIP_RENDERING.md) supplies immutable geometry, materials and
 transforms to one engine-owned renderer. It intersects cylinders, frustums and
 boxes in GLSL and writes scene depth at `AFTER_BLOCK_ENTITIES`, before opaque
-lighting. It also supports bounded GUI preview and analytic visual picking.
+lighting. With an active Iris pack, collection and drawing move to `AFTER_LEVEL`
+after pack composition and never run during shadow extraction. It also supports
+bounded GUI preview and analytic visual picking.
 
 Consumers submit frame snapshots through a client collection event; the renderer
 has no construction catalog, engineering statistics, deployment entities or

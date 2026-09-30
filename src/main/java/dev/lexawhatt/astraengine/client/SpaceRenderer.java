@@ -17,6 +17,8 @@ import dev.lexawhatt.astraengine.client.render.SceneShapeRenderer;
 import dev.lexawhatt.astraengine.client.render.OverworldSkyRenderer;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
 import dev.lexawhatt.astraengine.client.ship.ShipRenderer;
+import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
+import dev.lexawhatt.astraengine.client.render.LateSkyRenderer;
 import dev.lexawhatt.astraengine.network.SystemPayload;
 import dev.lexawhatt.astraengine.server.RocketService;
 import dev.lexawhatt.astraengine.network.SystemSnapshotReceivedEvent;
@@ -28,6 +30,7 @@ import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
@@ -49,7 +52,9 @@ public final class SpaceRenderer {
     private final SceneEditor editor;
     private final ShipRenderer ships;
     private final OverworldSkyRenderer overworld;
+    private final LateSkyRenderer lateSky = new LateSkyRenderer("space");
     private Frame frame;
+    private boolean packMode;
 
     /** Owns one client rendering session; profile and option services are injected at registration. */
     public SpaceRenderer(EnvironmentProfiles profiles, RenderOptions options, SceneEditor editor,
@@ -66,6 +71,7 @@ public final class SpaceRenderer {
         frame = null;
         pipeline.registerShaders(event);
         shapes.registerShaders(event);
+        lateSky.registerShaders(event);
         editor.shaders().close();
         try {
             event.registerShader(new ShaderInstance(event.getResourceProvider(),
@@ -93,8 +99,9 @@ public final class SpaceRenderer {
     public void logout(ClientPlayerNetworkEvent.LoggingOut event) {
         latest = null;
         frame = null;
-        if (RenderSystem.isOnRenderThread()) { pipeline.close(); shapes.close(); }
-        else { RenderSystem.recordRenderCall(() -> { pipeline.close(); shapes.close(); }); }
+        packMode = false;
+        if (RenderSystem.isOnRenderThread()) { pipeline.close(); shapes.close(); lateSky.close(); }
+        else { RenderSystem.recordRenderCall(() -> { pipeline.close(); shapes.close(); lateSky.close(); }); }
     }
 
     private boolean visible() {
@@ -105,7 +112,17 @@ public final class SpaceRenderer {
 
     /** Runs sky, opaque lighting and final composition at separate NeoForge stages. */
     public void render(RenderLevelStageEvent event) {
+        if (RenderCompatibility.shadowPass()) { return; }
         Minecraft minecraft = Minecraft.getInstance();
+        if (RenderCompatibility.lateWorldPasses()) {
+            if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) { renderAfterPack(event); }
+            return;
+        }
+        if (packMode) {
+            lateSky.close();
+            packMode = false;
+            frame = null;
+        }
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) { ships.renderWorld(event); }
         if (minecraft.level != null && minecraft.level.dimension().equals(RocketService.FLIGHT)) {
             if (frame != null) {
@@ -136,6 +153,31 @@ public final class SpaceRenderer {
         }
     }
 
+    private void renderAfterPack(RenderLevelStageEvent event) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null) { return; }
+        // Iris has finished its G-buffer/composite pipeline at this supported NeoForge stage.
+        // Opaque lighting, fog and atmospheric bloom remain pack-owned; analytic visuals are late overlays.
+        try (var state = new FullscreenPass()) {
+            minecraft.getMainRenderTarget().bindWrite(true);
+            if (!packMode) { pipeline.close(); }
+            packMode = true;
+            frame = minecraft.level.dimension().equals(RocketService.FLIGHT) ? null : buildFrame(event);
+            if (frame != null && frame.drawSky && shader != null
+                    && !minecraft.level.dimension().equals(Level.OVERWORLD)) {
+                lateSky.render(() -> renderSky(event));
+            } else {
+                lateSky.close();
+            }
+            options.reportLights(0);
+            ships.renderWorld(event);
+            if (frame != null) { shapes.render(event, editor.visibleObjects()); }
+            else { shapes.close(); }
+            overworld.renderAtmosphere(event);
+            editor.shaders().render(event);
+        }
+    }
+
     private Frame buildFrame(RenderLevelStageEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
         EnvironmentProfile profile = minecraft.level == null ? null
@@ -153,6 +195,9 @@ public final class SpaceRenderer {
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         LightVector sun = profile.sunDirection(minecraft.level.getDayTime() % 24000 + partial);
         float daylight = profile.planetary() ? (float) Math.clamp(sun.y() * 4 + 0.1, 0, 1) : 1;
+        if (RenderCompatibility.lateWorldPasses()) {
+            return new Frame(minecraft.level.dimension().location(), profile, sun, daylight, 1, List.of(), drawSky);
+        }
         var position = event.getCamera().getPosition();
         LightVector camera = new LightVector(position.x, position.y, position.z);
         BlockPos eye = BlockPos.containing(position);

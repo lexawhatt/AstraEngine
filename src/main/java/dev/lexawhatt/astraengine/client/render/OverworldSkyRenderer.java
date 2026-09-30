@@ -6,6 +6,7 @@ import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarVisual;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
+import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import java.io.IOException;
 import net.minecraft.client.Camera;
@@ -36,6 +37,7 @@ public final class OverworldSkyRenderer implements AutoCloseable {
     private final RenderOptions options;
     private final SkyStateClient seasons;
     private ShaderInstance shader;
+    private boolean yieldedToShaderPack;
 
     /** Uses the shared server-snapshot presentation and session-local environment controls. */
     public OverworldSkyRenderer(SolarStateClient state, RenderOptions options, SkyStateClient seasons) {
@@ -67,7 +69,9 @@ public final class OverworldSkyRenderer implements AutoCloseable {
 
     /** Called after world composition and before the editor's final effect; preserves terrain depth. */
     public void renderAtmosphere(RenderLevelStageEvent event) {
+        if (RenderCompatibility.shadowPass()) { return; }
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) { return; }
+        if (RenderCompatibility.shaderPackActive()) { yieldToShaderPack(); return; }
         ClientLevel level = Minecraft.getInstance().level;
         if (level == null || !level.dimension().equals(Level.OVERWORLD) || !options.astronomicalOverworld()) {
             try (var saved = new FullscreenPass()) { volumes.close(); }
@@ -86,7 +90,14 @@ public final class OverworldSkyRenderer implements AutoCloseable {
      */
     public boolean render(ClientLevel level, int ticks, float partialTick, Matrix4f modelView, Camera camera,
                           Matrix4f projection, boolean foggy, Runnable setupFog) {
+        if (RenderCompatibility.shadowPass()) { return false; }
         volumes.clearFrame();
+        if (RenderCompatibility.shaderPackActive()) {
+            // The pack owns Overworld atmosphere, fog and lighting. Do not layer two skies.
+            yieldToShaderPack();
+            return false;
+        }
+        yieldedToShaderPack = false;
         if (shader == null || !options.astronomicalOverworld() || !level.dimension().equals(Level.OVERWORLD)) {
             return false;
         }
@@ -161,6 +172,13 @@ public final class OverworldSkyRenderer implements AutoCloseable {
             try (var saved = new FullscreenPass()) { FullscreenPass.draw(shader); }
         }
         return true;
+    }
+
+    private void yieldToShaderPack() {
+        if (!yieldedToShaderPack) {
+            try (var saved = new FullscreenPass()) { close(); }
+            yieldedToShaderPack = true;
+        }
     }
 
     private static double wrappedKm(double worldMeters) {
