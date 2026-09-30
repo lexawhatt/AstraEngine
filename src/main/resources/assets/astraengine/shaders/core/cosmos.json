@@ -55,16 +55,6 @@
       ]
     },
     {
-      "name": "GalaxyObserver",
-      "type": "float",
-      "count": 3,
-      "values": [
-        -0.52,
-        0,
-        0
-      ]
-    },
-    {
       "name": "GalaxySeed",
       "type": "float",
       "count": 1,
@@ -868,6 +858,1911 @@
       "count": 1,
       "values": [
         1
+      ]
+    },
+    {
+      "name": "GalaxyCount",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "RegionCount",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "GalaxyObserver[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -0.52,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyShape[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.014,
+        0.032,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "GalaxyStructure[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        2.3,
+        50000,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyAxisX[0]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisY[0]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisZ[0]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyObserver[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -0.52,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyShape[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.014,
+        0.032,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "GalaxyStructure[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        2.3,
+        50000,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyAxisX[1]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisY[1]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisZ[1]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyObserver[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -0.52,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyShape[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.014,
+        0.032,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "GalaxyStructure[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        2.3,
+        50000,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyAxisX[2]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisY[2]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisZ[2]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyObserver[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -0.52,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyShape[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.014,
+        0.032,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "GalaxyStructure[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        2.3,
+        50000,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyAxisX[3]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisY[3]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisZ[3]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyObserver[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -0.52,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyShape[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.014,
+        0.032,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "GalaxyStructure[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        2.3,
+        50000,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyAxisX[4]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisY[4]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisZ[4]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyObserver[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -0.52,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyShape[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.014,
+        0.032,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "GalaxyStructure[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        2.3,
+        50000,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyAxisX[5]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisY[5]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisZ[5]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyObserver[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -0.52,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyShape[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.014,
+        0.032,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "GalaxyStructure[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        2.3,
+        50000,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyAxisX[6]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisY[6]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisZ[6]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyObserver[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -0.52,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyShape[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.014,
+        0.032,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "GalaxyStructure[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        2.3,
+        50000,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyAxisX[7]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisY[7]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisZ[7]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyObserver[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -0.52,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyShape[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.014,
+        0.032,
+        0,
+        4
+      ]
+    },
+    {
+      "name": "GalaxyStructure[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        2.3,
+        50000,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "GalaxyAxisX[8]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisY[8]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "GalaxyAxisZ[8]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "RegionObserver[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[12]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[12]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[12]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[13]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[13]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[13]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[14]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[14]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[14]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[15]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[15]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[15]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[16]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[16]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[16]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[17]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[17]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[17]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[18]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[18]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[18]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[19]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[19]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[19]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[20]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[20]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[20]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[21]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[21]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[21]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[22]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[22]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[22]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionObserver[23]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "RegionColor[23]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        1,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "RegionStructure[23]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarCount",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[0]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[1]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[2]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[3]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[4]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[5]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[6]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[7]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[8]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[9]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[10]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[11]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[12]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[12]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[13]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[13]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[14]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[14]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[15]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[15]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[16]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[16]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[17]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[17]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[18]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[18]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[19]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[19]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[20]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[20]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[21]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[21]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[22]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[22]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "CatalogStarDirection[23]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CatalogStarColor[23]",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "name": "NucleusBodyIndex",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "NucleusAxis",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
       ]
     }
   ]

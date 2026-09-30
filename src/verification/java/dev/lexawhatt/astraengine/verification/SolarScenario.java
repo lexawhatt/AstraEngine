@@ -5,6 +5,7 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.client.flight.CosmosMapScreen;
 import dev.lexawhatt.astraengine.client.flight.RocketController;
+import dev.lexawhatt.astraengine.client.solar.AstralOverworldEffects;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.cosmos.StellarEvolutionSnapshot;
 import dev.lexawhatt.astraengine.cosmos.StellarEvolutionSnapshot.Phase;
@@ -26,6 +27,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.client.event.RenderFrameEvent;
+import net.neoforged.neoforge.common.NeoForge;
 import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
@@ -52,9 +56,20 @@ final class SolarScenario {
     private boolean ejectaCaptured;
     private boolean lateEjectaCaptured;
     private int wallX;
+    private long renderedFrames;
+    private long capturedVideoFrame = -1;
+    private long approachStartEpoch;
+    private long approachOwnedEpoch;
+    private long approachCompletedFrame = -1;
+    private int approachCompletedTick;
+    private boolean approachObserved;
+    private final Consumer<RenderFrameEvent.Post> frameListener = event -> {
+        if (minecraft.level != null && minecraft.getOverlay() == null) { this.renderedFrames++; }
+    };
 
     SolarScenario(boolean restart) {
         this.restart = restart;
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, frameListener);
         minecraft.options.hideGui = true;
         minecraft.options.fov().set(70);
         AstraEngine.LOGGER.info("ASTRA_SOLAR_GRAPHICS {} transparency={} restart={}",
@@ -70,11 +85,12 @@ final class SolarScenario {
         require(ticks < 2400, "Solar fixture step timed out");
         if (minecraft.level.dimension().equals(Level.OVERWORLD)) { faceCelestial(moonView); }
         if (restart && (snapshot.phase() == Phase.COLLAPSING || snapshot.phase() == Phase.SUPERNOVA)
-                && samplingTicks % 4 == 0 && videoFrames < 160) {
+                && samplingTicks % 4 == 0 && videoFrames < 160 && capturedVideoFrame != renderedFrames) {
             videoFrame();
         }
         boolean complete = restart ? restartTick() : createTick();
         if (!complete && pending.isDone() && samplingTicks % 4 == 0) { server(server -> { }); }
+        if (complete) { NeoForge.EVENT_BUS.unregister(frameListener); }
         return complete;
     }
 
@@ -202,17 +218,41 @@ final class SolarScenario {
                 require(rocket.currentSystem().id().equals("sol"), "Shared solar verification entered a different system");
                 click(Component.translatable("astraengine.map.local").getString());
                 click("Sun");
+                approachStartEpoch = rocket.snapshot().navigationEpoch();
                 click(Component.translatable("astraengine.map.approach").getString());
                 next();
             }
             case 17 -> {
-                if (ticks < 110 || rocket.snapshot().jumpTicks() > 0) { return false; }
+                if (rocket.snapshot().approaching()) {
+                    require(rocket.snapshot().navigationEpoch() != approachStartEpoch
+                                    && rocket.snapshot().approachBodyId().equals("sun"),
+                            "Sun approach did not receive its own navigation ownership");
+                    approachObserved = true;
+                    approachOwnedEpoch = rocket.snapshot().navigationEpoch();
+                    return false;
+                }
+                if (!approachObserved) {
+                    require(ticks < 120, "Map request did not start a Sun approach");
+                    return false;
+                }
+                require(rocket.snapshot().navigationEpoch() != approachOwnedEpoch,
+                        "Completed Sun approach did not release its navigation epoch");
+                if (approachCompletedFrame < 0) {
+                    approachCompletedFrame = renderedFrames;
+                    approachCompletedTick = ticks;
+                    return false;
+                }
+                if (ticks < approachCompletedTick + 20 || renderedFrames < approachCompletedFrame + 8) { return false; }
                 require(snapshot.equals(paused), "Rocket approach changed the paused solar state");
                 SpaceVector towardSun = rocket.currentSystem().bodies().getFirst().positionAt(rocket.timeSeconds())
                         .subtract(rocket.visualPosition()).normalized();
                 var actualLook = minecraft.gameRenderer.getMainCamera().getLookVector();
-                require(towardSun.dot(new SpaceVector(actualLook.x, actualLook.y, actualLook.z).normalized()) > 0.99,
-                        "Shared solar-state camera did not face the approached Sun");
+                double facing = towardSun.dot(new SpaceVector(actualLook.x, actualLook.y, actualLook.z).normalized());
+                double radiusRatio = rocket.currentSystem().bodies().getFirst().positionAt(rocket.timeSeconds())
+                        .distance(rocket.snapshot().position()) / rocket.currentSystem().bodies().getFirst().radiusMeters();
+                require(Math.abs(radiusRatio - 4) < 0.2, "Sun approach missed its four-radius observation point");
+                require(facing > 0.995, "Shared solar-state camera did not settle toward the approached Sun: dot=" + facing
+                        + ", renderedFrames=" + (renderedFrames - approachCompletedFrame));
                 shot("12-shared-solar-state-in-rocket");
                 tap(GLFW.GLFW_KEY_R);
                 next();
@@ -398,6 +438,9 @@ final class SolarScenario {
     }
 
     private SpaceVector sunDirection() {
+        if (minecraft.level.effects() instanceof AstralOverworldEffects effects) {
+            return effects.skyState().sample(minecraft.level, 1).sunDirection();
+        }
         double angle = minecraft.level.getSunAngle(1);
         return new SpaceVector(-Math.sin(angle), Math.cos(angle), 0);
     }
@@ -433,6 +476,7 @@ final class SolarScenario {
     }
 
     private void videoFrame() throws Exception {
+        capturedVideoFrame = renderedFrames;
         if (videoFrames == 0) { videoStarted = System.nanoTime(); }
         String name = String.format(java.util.Locale.ROOT, "solar-sequence/frame-%04d", videoFrames);
         shot(name);

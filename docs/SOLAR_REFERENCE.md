@@ -44,6 +44,8 @@ At physical scale, the Sun subtends approximately 0.533 degrees at 1 AU; most
 distant planets are smaller than a pixel. A close view requires moving the camera
 toward the body. Enlarged map icons help select objects without changing their
 scene radii. Removing chunk-distance culling does not increase angular size.
+The separate [Overworld sky](SEASONS.md) has an explicit apparent Sun multiplier
+(default 3) for visibility; this does not modify the physical cosmos parameters.
 
 Procedural systems outside `sol` are reproduced from the galaxy seed and three
 integer sector coordinates. Each sector spans 4 light-years and contains one
@@ -60,3 +62,10 @@ planetary orbits, approximately within 1-86 AU, several materials, and rings aro
 some gas giants. Binary stars follow circular orbits around a shared center.
 The generator returns only immutable descriptors: it does not allocate dimensions,
 discover objects for a player, or start system evolution.
+
+## Additive universe atlas
+
+The legacy IDs and values above remain unchanged. [Universe atlas version 1](UNIVERSE.md)
+adds `u_` region anchors and density-conditioned `v_` systems in galaxy-relative
+sectors. Galaxy transforms and region descriptors are shared with rendering;
+these additions do not reposition Sol or previously saved `s_` systems.

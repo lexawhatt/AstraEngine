@@ -186,7 +186,8 @@ vec3 blackHoleRadiance(vec3 background, vec3 ray, int index, float pixelAngle) {
     float darkness = 1.0 - smoothstep(shadow - pixelAngle, shadow + pixelAngle, theta);
     vec3 color = mix(background, vec3(0.0), darkness);
     if (along <= 0.0 || radius < pixelAngle * 0.01) { return color; }
-    vec3 normal = diskNormal(BodyLightTilt[index].w);
+    vec3 normal = index == NucleusBodyIndex ? safeUnit(NucleusAxis, vec3(0, 1, 0))
+            : diskNormal(BodyLightTilt[index].w);
     float seed = BodySurface[index].x;
     // A near-horizon observer cannot see an external disk in the captured directions.
     float diskVisibility = 1.0 - smoothstep(0.45, 0.85, radius);

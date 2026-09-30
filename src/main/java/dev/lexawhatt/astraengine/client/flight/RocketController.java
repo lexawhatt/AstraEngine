@@ -11,8 +11,11 @@ import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
 import dev.lexawhatt.astraengine.cosmos.CosmosIds;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
+import dev.lexawhatt.astraengine.cosmos.GalacticNavigation;
+import dev.lexawhatt.astraengine.cosmos.GalaxyDescriptor;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
+import dev.lexawhatt.astraengine.cosmos.UniverseGenerator;
 import dev.lexawhatt.astraengine.network.ExplorationPayload;
 import dev.lexawhatt.astraengine.network.ExplorationReceivedEvent;
 import dev.lexawhatt.astraengine.network.CustomSystemsReceivedEvent;
@@ -68,6 +71,12 @@ public final class RocketController {
     private final FlightCamera flightCamera = new FlightCamera();
     private final Map<String, CosmosSystem> systems = new HashMap<>();
     private String targetSystem = "";
+    private boolean targetGalaxy;
+    private int targetGalaxyIndex;
+    private List<GalaxyDescriptor> galaxyAtlas = List.of();
+    private String pendingAtlasTarget = "";
+    private long pendingAtlasEpoch;
+    private int pendingAtlasTicks;
     private Map<String, CosmosSystem> customSystems = Map.of();
     private ExplorationPayload snapshot;
     private SpaceVector previousPosition = SpaceVector.ZERO;
@@ -86,6 +95,7 @@ public final class RocketController {
     private int speedActionTicks;
     private float smoothing = 0.35f;
     private boolean mapRequested;
+    private boolean atlasRequested;
     private boolean wasActive;
     private CameraType previousCamera;
     private String targetBody = "earth";
@@ -120,17 +130,26 @@ public final class RocketController {
                 throw new IllegalArgumentException("Navigation referenced an unsynchronized custom system: " + id);
             }
         }
-        if (snapshot == null || snapshot.galaxySeed() != incoming.galaxySeed()) { systems.clear(); }
+        if (snapshot == null || snapshot.galaxySeed() != incoming.galaxySeed()) {
+            systems.clear();
+            galaxyAtlas = UniverseGenerator.galaxies(incoming.galaxySeed());
+        }
         boolean wasApproaching = snapshot != null && snapshot.approaching();
+        boolean manualRebase = snapshot != null && snapshot.active() && incoming.active()
+                && !snapshot.systemId().equals(incoming.systemId()) && !snapshot.interstellarJump()
+                && incoming.jumpTicks() == 0;
         boolean guidedChange = snapshot != null && snapshot.active() && incoming.active()
                 && snapshot.systemId().equals(incoming.systemId()) && (wasApproaching || incoming.approaching());
         boolean relocated = snapshot == null || !snapshot.active() || !snapshot.systemId().equals(incoming.systemId())
                 || (snapshot.navigationEpoch() != incoming.navigationEpoch() && !guidedChange)
                 || (snapshot.interstellarJump() && incoming.jumpTicks() == 0);
-        previousPosition = relocated ? incoming.position() : visualPosition();
-        previousOrientation = relocated ? incoming.orientation() : orientation();
-        previousClockSeconds = relocated ? incoming.clockTicks() / 20.0 : timeSeconds();
+        previousPosition = manualRebase ? currentSystem().galaxyPosition().subtract(system(incoming.systemId()).galaxyPosition())
+                .multiply(CosmosGenerator.LIGHT_YEAR).add(visualPosition()) : relocated ? incoming.position() : visualPosition();
+        boolean resetView = relocated && !manualRebase;
+        previousOrientation = resetView ? incoming.orientation() : orientation();
+        previousClockSeconds = resetView ? incoming.clockTicks() / 20.0 : timeSeconds();
         snapshot = incoming;
+        if (incoming.systemId().equals(targetSystem)) { targetSystem = ""; }
         receivedAt = System.nanoTime();
         if (relocated || !incoming.active() || incoming.approaching()) { finishingGuidance = false; }
         else if (wasApproaching) {
@@ -140,17 +159,29 @@ public final class RocketController {
             targetBody = incoming.approachBodyId();
             pendingYawDegrees = 0; pendingPitchDegrees = 0; pendingSpeedSteps = 0;
         }
-        if (relocated && incoming.active() && minecraft.player != null) {
+        if (resetView && incoming.active() && minecraft.player != null) {
             flightCamera.reset(incoming.orientation());
             pendingYawDegrees = 0; pendingPitchDegrees = 0;
-            pendingSpeedSteps = 0;
             minecraft.player.setYRot(incoming.yaw());
             minecraft.player.setXRot(incoming.pitch());
+        }
+        if (relocated && incoming.active()) {
+            // A manual boundary changes the coordinate origin, not the live free-camera heading.
+            pendingSpeedSteps = 0;
             targetBody = currentSystem().bodies().stream()
                     .min(Comparator.comparingDouble(body -> body.positionAt(timeSeconds()).distance(incoming.position())))
                     .map(CelestialBody::id).orElse(currentSystem().bodies().getFirst().id());
         }
         systems.keySet().retainAll(incoming.discoveredSystems());
+        if (!pendingAtlasTarget.isEmpty()) {
+            if (!active() || incoming.navigationEpoch() != pendingAtlasEpoch) {
+                pendingAtlasTarget = "";
+            } else if (incoming.discoveredSystems().contains(pendingAtlasTarget)) {
+                String acknowledged = pendingAtlasTarget;
+                pendingAtlasTarget = "";
+                aimAtSystem(acknowledged);
+            }
+        }
     }
 
     /** Applies a complete private descriptor set on the client thread before its navigation snapshot. */
@@ -216,9 +247,23 @@ public final class RocketController {
         return snapshot != null && snapshot.visitedSystems().contains(id);
     }
 
+    /** Includes returning to the current origin after leaving its arrival envelope in manual flight. */
+    public boolean canJumpTo(String id) {
+        return active() && snapshot.jumpTicks() == 0 && visited(id)
+                && (!snapshot.systemId().equals(id)
+                    || snapshot.position().length() > GalacticNavigation.arrivalRadiusMeters(currentSystem()));
+    }
+
     /** Observer in galactic light-years; local render calculations continue to use double meters. */
     public SpaceVector galaxyPosition() {
         return currentSystem().galaxyPosition().add(visualPosition().multiply(1 / CosmosGenerator.LIGHT_YEAR));
+    }
+
+    private SpaceVector galaxyCenterRelative() {
+        SpaceVector center = galaxyAtlas.isEmpty() ? UniverseGenerator.MILKY_WAY_CENTER_LIGHT_YEARS
+                : galaxyAtlas.get(targetGalaxyIndex).centerLightYears();
+        return center.subtract(currentSystem().galaxyPosition())
+                .multiply(CosmosGenerator.LIGHT_YEAR).subtract(visualPosition());
     }
 
     /** Aims toward a charted system for manual flight. It neither starts movement nor grants a visit. */
@@ -227,7 +272,23 @@ public final class RocketController {
         SpaceVector relative = system(id).galaxyPosition().subtract(currentSystem().galaxyPosition())
                 .multiply(CosmosGenerator.LIGHT_YEAR).subtract(visualPosition());
         if (!aimDirection(relative)) { return false; }
+        pendingAtlasTarget = "";
         targetSystem = id;
+        targetGalaxy = false;
+        return true;
+    }
+
+    /**
+     * Requests visibility of a public atlas anchor, then aims only after a matching server chart acknowledgement.
+     * Client thread, active idle flight only. Refusal leaves navigation unchanged; requests expire after two seconds.
+     */
+    public boolean chartAtlasSystem(String id) {
+        if (!UniverseGenerator.isAtlasSystemId(id) || !active() || snapshot.jumpTicks() != 0) { return false; }
+        if (snapshot.discoveredSystems().contains(id)) { return aimAtSystem(id); }
+        pendingAtlasTarget = id;
+        pendingAtlasEpoch = snapshot.navigationEpoch();
+        pendingAtlasTicks = 40;
+        action(FlightActionPayload.Action.CHART_ATLAS, id);
         return true;
     }
 
@@ -235,6 +296,7 @@ public final class RocketController {
     private boolean aimDirection(SpaceVector relative) {
         if (!active() || snapshot.jumpTicks() > 0 || relative.length() < 1) { return false; }
         SpaceVector direction = relative.normalized();
+        finishingGuidance = false;
         flightCamera.aim(FlightOrientation.fromAngles(Math.toDegrees(Math.atan2(-direction.x(), direction.z())),
                 -Math.toDegrees(Math.asin(Math.clamp(direction.y(), -1, 1))), 0));
         pendingYawDegrees = 0; pendingPitchDegrees = 0;
@@ -273,7 +335,9 @@ public final class RocketController {
     }
 
     public void setTargetBody(String id) {
-        if (currentSystem().bodies().stream().anyMatch(body -> body.id().equals(id))) { targetBody = id; targetSystem = ""; }
+        if (currentSystem().bodies().stream().anyMatch(body -> body.id().equals(id))) {
+            targetBody = id; targetSystem = ""; targetGalaxy = false; pendingAtlasTarget = "";
+        }
     }
 
     public void cycleSmoothing() { smoothing = smoothing >= 0.89f ? 0 : Math.min(0.9f, smoothing + 0.15f); }
@@ -281,6 +345,7 @@ public final class RocketController {
 
     /** Tick-paced input avoids frame-rate-dependent network traffic and simulation. */
     public void tick(ClientTickEvent.Post event) {
+        if (!pendingAtlasTarget.isEmpty() && --pendingAtlasTicks <= 0) { pendingAtlasTarget = ""; }
         while (toggle.consumeClick()) {
             if (minecraft.screen == null) { action(FlightActionPayload.Action.TOGGLE, ""); }
         }
@@ -291,6 +356,10 @@ public final class RocketController {
         if (mapRequested && minecraft.screen == null && minecraft.player != null) {
             mapRequested = false;
             minecraft.setScreen(new CosmosMapScreen(this));
+        }
+        if (atlasRequested && minecraft.screen == null && minecraft.player != null) {
+            atlasRequested = false;
+            minecraft.setScreen(new UniverseAtlasScreen(this));
         }
         if (active()) {
             if (!wasActive) {
@@ -455,9 +524,28 @@ public final class RocketController {
     }
 
     private void targetMarker(GuiGraphics graphics, int width, int height) {
+        if (!targetSystem.isEmpty() && snapshot.discoveredSystems().contains(targetSystem)) {
+            CosmosSystem target = system(targetSystem);
+            SpaceVector relative = target.galaxyPosition().subtract(currentSystem().galaxyPosition())
+                    .multiply(CosmosGenerator.LIGHT_YEAR).subtract(visualPosition());
+            drawTargetMarker(graphics, width, height, relative, target.name());
+            graphics.drawCenteredString(minecraft.font, text(visited(target.id()) ? "target_visited" : "target_unvisited"),
+                    width / 2, height - 65, 0xFFEED4AA);
+            return;
+        }
+        if (targetGalaxy) {
+            String name = galaxyAtlas.isEmpty() ? text("galaxy_center").getString()
+                    : galaxyAtlas.get(targetGalaxyIndex).name();
+            drawTargetMarker(graphics, width, height, galaxyCenterRelative(), name);
+            return;
+        }
         CelestialBody body = currentSystem().bodies().stream().filter(value -> value.id().equals(targetBody)).findFirst().orElse(null);
-        if (body == null || viewProjection == null) { return; }
-        SpaceVector relative = body.positionAt(timeSeconds()).subtract(visualPosition());
+        if (body == null) { return; }
+        drawTargetMarker(graphics, width, height, body.positionAt(timeSeconds()).subtract(visualPosition()), body.name());
+    }
+
+    private void drawTargetMarker(GuiGraphics graphics, int width, int height, SpaceVector relative, String name) {
+        if (viewProjection == null) { return; }
         double length = relative.length();
         if (length < 1) { return; }
         SpaceVector direction = relative.multiply(1 / length);
@@ -469,14 +557,30 @@ public final class RocketController {
         int color = 0xAAEABF76;
         graphics.fill(x - 5, y - 5, x + 5, y - 4, color); graphics.fill(x - 5, y + 4, x + 5, y + 5, color);
         graphics.fill(x - 5, y - 5, x - 4, y + 5, color); graphics.fill(x + 4, y - 5, x + 5, y + 5, color);
-        graphics.drawCenteredString(minecraft.font, Component.literal(body.name() + " / " + distance(length)), x, y + 9, 0xFFEED4AA);
+        graphics.drawCenteredString(minecraft.font, Component.literal(name + " / " + distance(length)), x, y + 9, 0xFFEED4AA);
     }
 
     public void registerCommands(RegisterClientCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("astra-flight")
                 .executes(context -> { action(FlightActionPayload.Action.TOGGLE, ""); return 1; })
                 .then(Commands.literal("map").executes(context -> { mapRequested = true; return 1; }))
+                .then(Commands.literal("atlas").executes(context -> { atlasRequested = true; return 1; }))
                 .then(Commands.literal("scan").executes(context -> { action(FlightActionPayload.Action.SCAN, ""); return 1; }))
+                .then(Commands.literal("speed")
+                        .then(Commands.literal("local").executes(context -> setSpeed(FlightDynamics.LOCAL_MAX_SPEED) ? 1 : 0))
+                        .then(Commands.literal("interstellar").executes(context -> setSpeed(CosmosGenerator.LIGHT_YEAR) ? 1 : 0))
+                        .then(Commands.literal("galactic").executes(context -> setSpeed(FlightDynamics.MAX_SPEED) ? 1 : 0))
+                        .then(Commands.argument("metersPerSecond",
+                                DoubleArgumentType.doubleArg(FlightDynamics.MIN_SPEED, FlightDynamics.MAX_SPEED))
+                        .executes(context -> setSpeed(DoubleArgumentType.getDouble(context, "metersPerSecond")) ? 1 : 0)))
+                .then(Commands.literal("galaxy").then(Commands.literal("aim").executes(context -> {
+                    if (!active() || galaxyAtlas.isEmpty()) { return 0; }
+                    SpaceVector observer = galaxyPosition();
+                    targetGalaxyIndex = galaxyAtlas.stream().min(Comparator.comparingDouble(
+                            galaxy -> galaxy.centerLightYears().distance(observer))).orElseThrow().index();
+                    if (!aimDirection(galaxyCenterRelative())) { return 0; }
+                    targetSystem = ""; targetGalaxy = true; pendingAtlasTarget = ""; return 1;
+                })))
                 .then(Commands.literal("smoothness").then(Commands.argument("value", FloatArgumentType.floatArg(0, 0.95f))
                         .executes(context -> { smoothing = FloatArgumentType.getFloat(context, "value"); return 1; })))
                 .then(Commands.literal("exposure").then(Commands.argument("value", FloatArgumentType.floatArg(0.1f, 4))
@@ -485,6 +589,8 @@ public final class RocketController {
 
     public void logout(ClientPlayerNetworkEvent.LoggingOut event) {
         restoreCamera(); snapshot = null; systems.clear(); customSystems = Map.of(); previousPosition = SpaceVector.ZERO;
+        targetSystem = ""; targetGalaxy = false; pendingAtlasTarget = ""; pendingAtlasTicks = 0; atlasRequested = false;
+        galaxyAtlas = List.of(); targetGalaxyIndex = 0;
         forward = 0; strafe = 0; vertical = 0; sequence = 0; wasActive = false; mapRequested = false;
         flightCamera.reset(FlightOrientation.IDENTITY); pendingYawDegrees = 0; pendingPitchDegrees = 0; pendingSpeedSteps = 0;
         previousOrientation = FlightOrientation.IDENTITY; finishingGuidance = false;

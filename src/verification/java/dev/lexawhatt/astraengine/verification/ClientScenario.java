@@ -9,6 +9,8 @@ import dev.lexawhatt.astraengine.api.SystemSnapshot;
 import dev.lexawhatt.astraengine.client.editor.SceneEditorScreen;
 import dev.lexawhatt.astraengine.client.editor.ShaderEditorScreen;
 import dev.lexawhatt.astraengine.client.flight.CosmosMapScreen;
+import dev.lexawhatt.astraengine.client.flight.UniverseAtlasScreen;
+import dev.lexawhatt.astraengine.client.rocket.RocketEditorScreen;
 import dev.lexawhatt.astraengine.network.SystemSnapshotReceivedEvent;
 import dev.lexawhatt.astraengine.server.SystemWorlds;
 import java.nio.file.Files;
@@ -69,6 +71,12 @@ public final class ClientScenario {
     private CelestialScenario celestialScenario;
     private ApproachScenario approachScenario;
     private CelestialApiScenario celestialApiScenario;
+    private GalacticScenario galacticScenario;
+    private AtlasScenario atlasScenario;
+    private RocketEditorScenario rocketEditorScenario;
+    private SeasonalScenario seasonalScenario;
+    private SolarCloudScenario solarCloudScenario;
+    private VolumetricScenario volumetricScenario;
 
     public ClientScenario() {
         NeoForge.EVENT_BUS.addListener(this::tick);
@@ -78,7 +86,9 @@ public final class ClientScenario {
     private void tick(ClientTickEvent.Post event) {
         if (finished) { return; }
         try {
-            require((System.nanoTime() - startedAt) < 240_000_000_000L, "Native fixture timed out at step " + step);
+            require((System.nanoTime() - startedAt) < (phase.startsWith("seasonal") || phase.equals("volumetric")
+                    ? 600_000_000_000L : 240_000_000_000L),
+                    "Native fixture timed out at step " + step);
             if (!opened && !onboardingContinued && minecraft.getOverlay() == null
                     && minecraft.screen instanceof AccessibilityOnboardingScreen screen) {
                 Button proceed = screen.children().stream().filter(Button.class::isInstance).map(Button.class::cast)
@@ -95,7 +105,8 @@ public final class ClientScenario {
             }
             if (opened && !experimentalConfirmationContinued
                     && (phase.equals("cosmos-restart") || phase.equals("solar-restart") || phase.equals("camera-restart")
-                            || phase.equals("celestial-api-restart"))
+                            || phase.equals("celestial-api-restart") || phase.equals("galactic-restart") || phase.equals("atlas-restart")
+                            || phase.equals("rocket-editor-restart") || phase.equals("seasonal-restart"))
                     && minecraft.player == null && minecraft.getOverlay() == null
                     && minecraft.screen instanceof BackupConfirmScreen screen
                     && screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
@@ -134,13 +145,18 @@ public final class ClientScenario {
                 if (phase.equals("editor") || phase.equals("editor-restart")
                         || phase.equals("cosmos") || phase.equals("cosmos-restart")
                         || phase.equals("solar") || phase.equals("solar-restart")
+                        || phase.equals("seasonal") || phase.equals("seasonal-restart")
                         || phase.equals("camera") || phase.equals("camera-restart") || phase.equals("celestial") || phase.equals("approach")
-                        || phase.equals("celestial-api") || phase.equals("celestial-api-restart")) {
+                        || phase.equals("celestial-api") || phase.equals("celestial-api-restart")
+                        || phase.equals("galactic") || phase.equals("galactic-restart")
+                        || phase.equals("atlas") || phase.equals("atlas-restart")
+                        || phase.equals("rocket-editor") || phase.equals("rocket-editor-restart")) {
                     minecraft.options.guiScale().set(2);
                 }
                 if (phase.equals("create") || phase.equals("lighting") || phase.equals("editor")
                         || phase.equals("cosmos") || phase.equals("solar") || phase.equals("camera") || phase.equals("audio")
-                        || phase.equals("celestial") || phase.equals("approach") || phase.equals("celestial-api")) {
+                        || phase.equals("celestial") || phase.equals("approach") || phase.equals("celestial-api") || phase.equals("galactic") || phase.equals("atlas")
+                        || phase.equals("rocket-editor") || phase.equals("seasonal") || phase.equals("solar-clouds") || phase.equals("volumetric")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
@@ -167,15 +183,51 @@ public final class ClientScenario {
             boolean cameraPhase = phase.equals("camera") || phase.equals("camera-restart");
             boolean celestialPhase = phase.equals("celestial");
             boolean approachPhase = phase.equals("approach");
+            boolean atlasPhase = phase.equals("atlas") || phase.equals("atlas-restart");
+            boolean rocketEditorPhase = phase.equals("rocket-editor") || phase.equals("rocket-editor-restart");
+            boolean galacticPhase = phase.equals("galactic") || phase.equals("galactic-restart");
             boolean celestialApiPhase = phase.equals("celestial-api") || phase.equals("celestial-api-restart");
             if (minecraft.player == null || minecraft.level == null || minecraft.getOverlay() != null
                     || (minecraft.screen != null && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
                             || minecraft.screen instanceof ShaderEditorScreen))
-                            && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || approachPhase || celestialApiPhase)
-                                    && minecraft.screen instanceof CosmosMapScreen))) {
+                            && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || approachPhase || celestialApiPhase || galacticPhase)
+                                    && minecraft.screen instanceof CosmosMapScreen)
+                            && !(atlasPhase && (minecraft.screen instanceof CosmosMapScreen
+                                    || minecraft.screen instanceof UniverseAtlasScreen))
+                            && !(rocketEditorPhase && minecraft.screen instanceof RocketEditorScreen))) {
                 return;
             }
             ticks++;
+            if (phase.equals("volumetric")) {
+                if (volumetricScenario == null) { volumetricScenario = new VolumetricScenario(); }
+                if (volumetricScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.equals("solar-clouds")) {
+                if (solarCloudScenario == null) { solarCloudScenario = new SolarCloudScenario(); }
+                if (solarCloudScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.equals("seasonal") || phase.equals("seasonal-restart")) {
+                if (seasonalScenario == null) { seasonalScenario = new SeasonalScenario(phase.endsWith("-restart")); }
+                if (seasonalScenario.tick()) { finish(); }
+                return;
+            }
+            if (rocketEditorPhase) {
+                if (rocketEditorScenario == null) { rocketEditorScenario = new RocketEditorScenario(phase.endsWith("-restart")); }
+                if (rocketEditorScenario.tick()) { finish(); }
+                return;
+            }
+            if (atlasPhase) {
+                if (atlasScenario == null) { atlasScenario = new AtlasScenario(phase.endsWith("-restart")); }
+                if (atlasScenario.tick()) { finish(); }
+                return;
+            }
+            if (galacticPhase) {
+                if (galacticScenario == null) { galacticScenario = new GalacticScenario(phase.endsWith("-restart")); }
+                if (galacticScenario.tick()) { finish(); }
+                return;
+            }
             if (celestialApiPhase) {
                 if (celestialApiScenario == null) { celestialApiScenario = new CelestialApiScenario(phase.endsWith("-restart")); }
                 if (celestialApiScenario.tick()) { finish(); }

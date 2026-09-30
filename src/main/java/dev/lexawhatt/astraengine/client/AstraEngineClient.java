@@ -9,7 +9,12 @@ import dev.lexawhatt.astraengine.client.render.OverworldSkyRenderer;
 import dev.lexawhatt.astraengine.client.solar.AstralOverworldEffects;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarAudioController;
+import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
+import dev.lexawhatt.astraengine.client.rocket.RocketEditorClient;
+import dev.lexawhatt.astraengine.server.rocket.RocketWorkshop;
+import net.minecraft.client.renderer.entity.NoopRenderer;
+import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraft.resources.ResourceLocation;
@@ -31,14 +36,20 @@ public final class AstraEngineClient {
         EnvironmentProfiles profiles = new EnvironmentProfiles();
         RenderOptions options = new RenderOptions(profiles);
         SolarStateClient solar = new SolarStateClient();
-        OverworldSkyRenderer sky = new OverworldSkyRenderer(solar, options);
+        SkyStateClient seasons = new SkyStateClient();
+        NeoForge.EVENT_BUS.addListener(seasons::receive);
+        NeoForge.EVENT_BUS.addListener(seasons::tick);
+        NeoForge.EVENT_BUS.addListener(seasons::logout);
+        OverworldSkyRenderer sky = new OverworldSkyRenderer(solar, options, seasons);
         modEventBus.addListener(sky::registerShaders);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {
             if (RenderSystem.isOnRenderThread()) { sky.close(); }
             else { RenderSystem.recordRenderCall(sky::close); }
         });
+        AstralOverworldEffects overworld = new AstralOverworldEffects(sky, solar, options, seasons);
         modEventBus.addListener((RegisterDimensionSpecialEffectsEvent event) -> event.register(
-                BuiltinDimensionTypes.OVERWORLD_EFFECTS, new AstralOverworldEffects(sky, solar, options)));
+                BuiltinDimensionTypes.OVERWORLD_EFFECTS, overworld));
+        NeoForge.EVENT_BUS.addListener(overworld::fogColor);
         NeoForge.EVENT_BUS.addListener(solar::receive);
         NeoForge.EVENT_BUS.addListener(solar::hud);
         NeoForge.EVENT_BUS.addListener(solar::logout);
@@ -77,7 +88,14 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(editor::logout);
         NeoForge.EVENT_BUS.addListener(editor::collectLights);
         NeoForge.EVENT_BUS.addListener(editor::hideHud);
-        SpaceRenderer renderer = new SpaceRenderer(profiles, options, editor);
+        RocketEditorClient construction = new RocketEditorClient(RocketWorkshop::catalog);
+        modEventBus.addListener(construction.renderer()::registerShaders);
+        modEventBus.addListener((EntityRenderersEvent.RegisterRenderers event) ->
+                event.registerEntityRenderer(RocketWorkshop.ASSEMBLY.get(), NoopRenderer::new));
+        NeoForge.EVENT_BUS.addListener(construction::receive);
+        NeoForge.EVENT_BUS.addListener(construction::tick);
+        NeoForge.EVENT_BUS.addListener(construction::logout);
+        SpaceRenderer renderer = new SpaceRenderer(profiles, options, editor, construction, sky);
         modEventBus.addListener(renderer::registerShaders);
         NeoForge.EVENT_BUS.addListener(renderer::receive);
         NeoForge.EVENT_BUS.addListener(renderer::logout);

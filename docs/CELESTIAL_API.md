@@ -61,9 +61,12 @@ mean the saved definition matches the submitted content. A conflict requires
 an explicit content decision; it does not replace the existing system. Do not
 grant discovery as if conflicting creation succeeded.
 
-After discovery, press **R**, then **M**, select Aurora and **Jump to system**.
-Select Nereid and **Approach body** to watch the automatic flight toward its rings.
-Creation alone does not reveal content or move anyone. Nearby-sector scanning
+After discovery, press **R**, then **M**, select Aurora and **Aim at system**.
+Set `/astra-flight speed interstellar` and hold **W** for the first manual visit.
+Arrival unlocks future **Jump to system** requests. Select Nereid and **Approach
+body** to watch the automatic flight toward its rings.
+Creation alone does not reveal content or move anyone. Discovery grants chart
+visibility; it does not record a visit or unlock fast travel. Nearby-sector scanning
 discovers generated systems; custom content is revealed explicitly through this API.
 
 ## Body and system builders
@@ -85,7 +88,7 @@ discovers generated systems; custom content is revealed explicitly through this 
 | `.seed(long)` | Deterministic visual seed, default zero |
 | `.kind(kind)` | `SINGLE`, `BINARY`, `BLACK_HOLE`, or `SUPERNOVA`; default `SINGLE` |
 | `.galaxyPositionLightYears(x, y, z)` | Galactic position in light-years, default origin |
-| `.body(body)` | Adds a body; the first body is the primary and interstellar arrival target |
+| `.body(body)` | Adds a body; the first body is the primary and fast-travel observation target |
 
 Body defaults are stationary, white, without rings, atmosphere, tilt, or
 eccentricity. System kind selects existing template behavior; it does not create
@@ -117,10 +120,15 @@ orbits require both positive values and a pericenter outside the body's radius.
 All numeric inputs must be finite.
 
 Each galactic coordinate is within `+/-1e6` light-years. Body apoapsis plus its
-standard observation margin must fit inside the existing **4096 AU** navigation
-sphere. Validation does not prove that bodies never overlap or that every
+standard observation margin must fit inside the **4096 AU** local-system
+publication envelope, even though manual flight can leave that envelope.
+Validation does not prove that bodies never overlap or that every
 approach route is possible; the navigation system can refuse an obstructed route.
 Body scale is not inflated for visibility. See [coordinates and rendering](COSMOS.md).
+
+A first visit requires crossing into the charted system's arrival region from
+outside. Systems whose regions already contain the observer require leaving and
+reentering; overlapping regions do not repeatedly transfer a stationary observer.
 
 ## Server operations and events
 
@@ -132,8 +140,8 @@ creation request or public server command that grants arbitrary creation rights.
 | Operation | Result |
 | --- | --- |
 | `create(server, descriptor)` | `CREATED`, `ALREADY_EXISTS`, `CONFLICT`, or `LIMIT_REACHED` |
-| `find(server, id)` | `Optional<CosmosSystem>`; empty for a valid absent custom ID; built-in IDs resolve using the server's seed |
-| `discover(player, id)` | `DISCOVERED`, `ALREADY_KNOWN`, `UNKNOWN_SYSTEM`, or `LIMIT_REACHED` |
+| `find(server, id)` | `Optional<CosmosSystem>`; empty for a valid absent custom ID or unpopulated atlas sector; built-ins resolve using the server's seed |
+| `discover(player, id)` | Chart visibility only: `DISCOVERED`, `ALREADY_KNOWN`, `UNKNOWN_SYSTEM`, or `LIMIT_REACHED` |
 
 An exact creation replay is idempotent, including after restart. Same ID with
 different fields returns `CONFLICT` without mutation. There is no replace/delete
@@ -149,9 +157,11 @@ do not retain the live player reference beyond its lifecycle.
 ## Saving, synchronization, and scope
 
 Custom definitions and navigation records share the Overworld's
-`data/astraengine_exploration.dat`, format **v3**. Descriptor encoding is version 1.
-Existing navigation formats v1/v2 migrate without losing position, roll, speed,
-or discovery. Malformed definitions, duplicate identities, and missing referenced
+`data/astraengine_exploration.dat`, format **v5**. Descriptor encoding is version 1.
+Existing navigation formats v1-v4 migrate without losing position, roll, speed,
+definitions or discovery. Existing v4 visits are retained; for v1-v3 only charted Sol/current are inferred as visited;
+the other charted systems need a manual visit before fast travel unlocks.
+Malformed definitions, duplicate identities, and missing referenced
 systems fail closed; they are never silently replaced by generated content.
 
 Saved definitions survive departure and restart even if the consumer no longer

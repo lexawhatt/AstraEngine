@@ -1,0 +1,60 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:atmosphere_compose",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "SceneColor"
+    },
+    {
+      "name": "SceneDepth"
+    },
+    {
+      "name": "Transport"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "InverseViewProjection",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "TransportSize",
+      "type": "float",
+      "count": 2,
+      "values": [
+        640,
+        360
+      ]
+    },
+    {
+      "name": "Exposure",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
+    }
+  ]
+}

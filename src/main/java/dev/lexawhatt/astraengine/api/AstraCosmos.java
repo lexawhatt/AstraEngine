@@ -52,7 +52,7 @@ public final class AstraCosmos {
 
     /**
      * Resolves an immutable descriptor without changing discovery or loading dimension chunks.
-     * Valid absent custom IDs return empty; malformed/null IDs throw. Built-in IDs resolve through
+     * Valid absent custom IDs and empty universe sectors return empty; malformed/null IDs throw. Built-in IDs resolve through
      * this server's generator seed. The descriptor remains valid after the server stops.
      */
     public static Optional<CosmosSystem> find(MinecraftServer server, String id) {
@@ -65,7 +65,7 @@ public final class AstraCosmos {
      * Charts a system for this player without moving them, recording a visit, or unlocking fast travel.
      * Manual flight into a charted system unlocks fast travel. Consumers must check their own permissions.
      * A new discovery is saved normally and emits CosmosDiscoveryEvent after the in-memory mutation;
-     * other results emit no event. Missing valid custom IDs return UNKNOWN_SYSTEM. Null/malformed
+     * other results emit no event. Missing custom IDs and empty universe sectors return UNKNOWN_SYSTEM. Null/malformed
      * inputs throw and calls from outside the player's server thread throw IllegalStateException.
      */
     public static DiscoverResult discover(ServerPlayer player, String id) {

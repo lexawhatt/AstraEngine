@@ -40,6 +40,7 @@ final class CelestialApiScenario {
     private final boolean restart;
     private CompletableFuture<?> pending = CompletableFuture.completedFuture(null);
     private RocketController controller;
+    private ManualSystemVisit manualVisit;
     private CosmosSystem expectedRing;
     private CosmosSystem expectedHole;
     private CosmosSystem expectedHidden;
@@ -65,7 +66,12 @@ final class CelestialApiScenario {
 
     boolean tick() throws Exception {
         if (!pending.isDone()) { return false; }
-        pending.join(); ticks++;
+        pending.join();
+        if (manualVisit != null) {
+            if (!manualVisit.tick()) { return false; }
+            manualVisit = null;
+        }
+        ticks++;
         require(ticks < 1600, "Celestial API fixture step timed out");
         return restart ? restartTick() : createTick();
     }
@@ -84,6 +90,9 @@ final class CelestialApiScenario {
             case 2 -> {
                 if (!(minecraft.screen instanceof CosmosMapScreen map) || ticks < 10) { return false; }
                 controller = map.controller(); verifyClientDescriptors();
+                require(!controller.snapshot().visitedSystems().contains(expectedRing.id())
+                                && !controller.snapshot().visitedSystems().contains(expectedHole.id()),
+                        "Consumer discovery incorrectly unlocked fast travel before a visit");
                 if (!chartSelected) {
                     minecraft.options.hideGui = false;
                     click("nearby"); chartSelected = true; ticks = 0; return false;
@@ -98,7 +107,7 @@ final class CelestialApiScenario {
             }
             case 4 -> {
                 if (!(minecraft.screen instanceof CosmosMapScreen)) { return false; }
-                selectSystem(expectedRing); click("jump"); next();
+                navigate(expectedRing); next();
             }
             case 5 -> {
                 if (!arrived(CelestialApiFixtures.RING_SYSTEM, 100)) { return false; }
@@ -125,7 +134,7 @@ final class CelestialApiScenario {
             }
             case 10 -> {
                 if (!(minecraft.screen instanceof CosmosMapScreen)) { return false; }
-                selectSystem(expectedHole); click("jump"); next();
+                navigate(expectedHole); next();
             }
             case 11 -> {
                 if (!arrived(CelestialApiFixtures.HOLE_SYSTEM, 100)) { return false; }
@@ -330,6 +339,7 @@ final class CelestialApiScenario {
         checkpoint.setProperty("system", state.systemId()); checkpoint.setProperty("position", state.position().toString());
         checkpoint.setProperty("orientation", state.orientation().toString()); checkpoint.setProperty("speed", Double.toString(state.speedMetersPerSecond()));
         checkpoint.setProperty("discoveries", String.join(",", state.discoveredSystems()));
+        checkpoint.setProperty("visited", String.join(",", state.visitedSystems()));
     }
 
     private void verifySavedNavigation() {
@@ -337,11 +347,19 @@ final class CelestialApiScenario {
         require(state.systemId().equals(checkpoint.getProperty("system")) && state.position().toString().equals(checkpoint.getProperty("position"))
                         && state.orientation().toString().equals(checkpoint.getProperty("orientation"))
                         && Double.toString(state.speedMetersPerSecond()).equals(checkpoint.getProperty("speed"))
-                        && String.join(",", state.discoveredSystems()).equals(checkpoint.getProperty("discoveries")),
+                        && String.join(",", state.discoveredSystems()).equals(checkpoint.getProperty("discoveries"))
+                        && String.join(",", state.visitedSystems()).equals(checkpoint.getProperty("visited")),
                 "Restart changed exact custom-system navigation or private discoveries");
     }
 
     private void selectSystem(CosmosSystem system) { click("nearby"); selectEntry(system.name()); }
+    private void navigate(CosmosSystem system) {
+        selectSystem(system);
+        if (!controller.snapshot().visitedSystems().contains(system.id())) {
+            ((CosmosMapScreen) minecraft.screen).onClose();
+            manualVisit = new ManualSystemVisit(controller, system.id(), true);
+        } else { click("jump"); }
+    }
     private void selectBody(String id) {
         click("local"); selectEntry(controller.currentSystem().bodies().stream().filter(body -> body.id().equals(id)).findFirst().orElseThrow().name());
     }
@@ -388,6 +406,7 @@ final class CelestialApiScenario {
         Path directory = minecraft.gameDirectory.toPath().resolve("evidence"); Files.createDirectories(directory);
         Files.writeString(directory.resolve(restart ? "celestial-api-restart-scope.txt" : "celestial-api-scope.txt"),
                 "Consumer-created star, ringed planet and black-hole descriptors use the public Java creation/discovery API.\n"
+                + "First visits use actual map aim, numeric speed and held W, followed by unlocked return jumps for observation.\n"
                 + "Native map, jump, approach, camera and rendering paths have no presentation or position overrides.\n"
                 + "One undiscovered descriptor remains absent from the client cache. Exact originals are retained in the checkpoint.\n"
                 + "Restart=" + restart + ", create API calls=" + creationCalls + ", graphics=" + minecraft.options.graphicsMode().get() + ".\n"

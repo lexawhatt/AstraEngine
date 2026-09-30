@@ -30,8 +30,8 @@ Walk into an enclosed, unlit space: the planetary profile darkens the view;
 the flashlight follows the camera and illuminates the visible wall/floor with a
 soft cone. `environment auto` restores automatic environment selection;
 `environment off` disables Astra sky/lighting/composition. In the normal Overworld,
-auto now uses the dedicated [solar sky](SOLAR_SKY.md): a physically sized healthy
-Sun, atmosphere, procedural Moon and the shared server-authored Sol event.
+auto now uses the dedicated [solar sky](SOLAR_SKY.md): a [seasonal atmosphere](SEASONS.md), procedural clouds and Moon, a more visible
+Overworld Sun, and the shared server-authored Sol event.
 `environment off` restores vanilla Overworld sky/fog/lightmap behavior; it does
 not pause the server's solar cycle. Explicit named previews remain available.
 
@@ -68,13 +68,54 @@ A local source can illuminate visible geometry even when its range does not
 reach the camera. Sources beyond the view radius plus their own range are culled.
 Budgets bound work; they are not a promise of a particular frame rate.
 
+## Spatial galaxies and regions
+
+The [universe atlas](UNIVERSE.md) supplies immutable galaxy transforms and named
+region geometry to the same celestial pass as the body renderer. Different
+oriented spiral, elliptical and irregular galaxies coexist in one coordinate
+space. Emission/absorbing nebulae, stellar clusters, remnant shells and quasar
+regions use those descriptors instead of following the camera as sky decorations.
+Nuclear stellar light and structured dust replace the earlier smooth core.
+
+Shared galactic coordinates are light-years; local body projection stays in
+camera-relative meters. Public atlas geometry is derived from the saved seed
+and generation version, while visits/navigation remain server-owned. The
+renderer does not spawn worlds, mutate the catalog or unlock travel. The
+supermassive black hole remains a physical-scale local body. Unresolved stellar
+emission is a bounded representation, not every individual star in the galaxy.
+
+All nine galaxy bounds are considered. Low/balanced/high quality uses 12/20/28
+samples for an intersected disk and 10/14/18 for its nuclear population. Named
+regions are ranked by angular importance, faded at the selection boundary and
+limited to 12/18/24; intersected volumes use 12/18/24 samples. Remnant shells use
+two analytic surfaces, and quasar jets use an analytic transverse integral to
+avoid separated sampling bands. Local statistical stars traverse at most 40
+spatial cells. These bounds do not establish a frame-rate guarantee.
+
+The unresolved quasar core fades out near its local system, where the physical
+black hole and disk supply the close view. Jet integration excludes a launch
+cavity and uses only forward ray segments; entering the nucleus does not turn
+the distant core's glow into an all-sky white field.
+
+A connection-owned cache queries at most 27 nearby system descriptors per
+four-light-year cell and draws up to 24 actual catalog star points. Legacy
+points use the absolute Sol-centered 64-light-year zone, fading over four
+light-years at its boundary; outside it, the shared galaxy population supplies
+points. Selection depends on absolute position, so rebasing a flight origin does
+not replace the neighborhood. Named cluster density also applies outside the
+main galactic disk. Unresolved light and statistical stars represent the rest
+of the population. Volume composition is approximately ordered from far to
+near; this is artistic radiative transfer, not a full physical light solver.
+
 ## Celestial HDR and bloom
 
 Rocket cosmos and the automatic Overworld sky render into owned linear RGBA16F
 attachments. A soft-knee bright extract feeds a 4/5/6-level downsample/upsample
 pyramid at low/balanced/high quality. Composition applies exposure once, preserves
 emission hue through a highlight shoulder, and converts the result for display.
-The physical disc size stays unchanged; the glow is an image-space optical effect.
+Physical catalog radii stay unchanged. The Overworld has an explicit apparent
+Sun scale (default 3); Rocket Mode retains physical angular sizes. Bloom is a
+separate image-space optical effect.
 
 ```text
 /astra-render bloom true
@@ -221,13 +262,24 @@ and no contact-shadow march because visible surfaces already lie on camera rays.
 
 The automatic Overworld solar sky uses `DimensionSpecialEffects.renderSky`,
 replacing the host celestial draw rather than adding a second Sun after it.
-Minecraft retains clouds, weather and terrain. The registered Overworld effect
+Minecraft retains precipitation, weather scheduling and terrain. Procedural
+[volumetric clouds and shafts](SEASONS.md#volumetric-clouds-and-light-shafts) replace
+the block-cloud draw while automatic sky is active. The registered Overworld effect
 also adjusts visual fog and, when lighting is enabled, subtracts the diminished
 sky contribution from the client lightmap while preserving the block-source
 contribution. A bounded solar flash follows sky visibility and the Sun's height.
 These changes do not alter server sky/block light, mob spawning or world time.
 With an unavailable sky shader, the sky/fog/lightmap follow their vanilla paths.
 Other mods replacing the same Overworld effects need separate compatibility work.
+
+The automatic Overworld first computes reduced-resolution cloud/air transport in
+an owned RGBA16F target and composites it into the celestial HDR sky before bloom.
+At `AFTER_LEVEL`, a second RGBA16F transport target integrates only up to copied
+opaque scene depth, then composes with depth-aware reconstruction before the local
+GLSL editor effect. Sky pixels are excluded from this second composition. The
+renderer owns these two targets plus a full-size color/depth copy, preserves host
+depth, and releases attachments on reload, resize, logout and deactivation.
+No temporal history or offscreen terrain shadow map is maintained.
 
 The following pass sequence applies to the resource-profile environment layer
 and the first persistent Astra worlds:
@@ -268,3 +320,14 @@ Iris/shader packs, distant-terrain renderers, arbitrary hardware and extreme sce
 sizes require separate compatibility/performance work. The current extension
 surface is lights and environment profiles; arbitrary user-defined render-pass
 graphs, shadow maps, voxel GI and planetary world generation remain future work.
+
+
+## Analytic rocket assemblies
+
+The [rocket construction renderer](ROCKET_EDITOR.md) shares descriptor geometry
+between the editor preview and deployed stationary assemblies. It intersects
+cylinders, frustums and boxes analytically in GLSL, writing real scene depth at
+`AFTER_BLOCK_ENTITIES` before the opaque-lighting pass. Part identity and module
+behavior do not select the rendering primitive. Nearby multipart collision boxes
+are CPU approximations of the same transforms. Registered programs remain owned
+by Minecraft; the renderer owns only its bounded preview and world-copy targets.

@@ -146,7 +146,7 @@ public final class CelestialBloomPipeline implements AutoCloseable {
     }
 
     /** Extra state beyond FullscreenPass: explicit gamma, unrestricted viewport and all color channels. */
-    private static final class ColorState implements AutoCloseable {
+    static final class ColorState implements AutoCloseable {
         private final boolean scissor = GL11.glIsEnabled(GL11.GL_SCISSOR_TEST);
         private final boolean srgb = GL11.glIsEnabled(GL30.GL_FRAMEBUFFER_SRGB);
         private final boolean[] mask = new boolean[4];
@@ -157,7 +157,7 @@ public final class CelestialBloomPipeline implements AutoCloseable {
         private final int equationRgb = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_RGB);
         private final int equationAlpha = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_ALPHA);
 
-        private ColorState() {
+        ColorState() {
             try (MemoryStack stack = MemoryStack.stackPush()) {
                 ByteBuffer values = stack.malloc(4);
                 GL11.glGetBooleanv(GL11.GL_COLOR_WRITEMASK, values);

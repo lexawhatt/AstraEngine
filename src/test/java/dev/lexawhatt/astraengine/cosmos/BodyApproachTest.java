@@ -32,7 +32,7 @@ class BodyApproachTest {
             double remaining = frame.state().position().distance(arrival.position());
             assertTrue(remaining <= priorDistance + 0.01);
             priorDistance = remaining;
-            assertTrue(frame.state().velocity().length() <= FlightDynamics.MAX_SPEED);
+            assertTrue(frame.state().velocity().length() <= FlightDynamics.LOCAL_MAX_SPEED);
             assertTrue(frame.orientation().forward().dot(sun.positionAt(tick / 20.0)
                     .subtract(frame.state().position()).normalized()) > 0.999999);
         }
@@ -51,7 +51,7 @@ class BodyApproachTest {
                 BodyApproach.Frame next = route.frame(tick);
                 assertTrue(FlightDynamics.clearSegment(previous.state().position(), next.state().position(),
                         sol.bodies(), startSeconds + (tick - 1) / 20.0, startSeconds + tick / 20.0), target.id());
-                assertTrue(next.state().velocity().length() <= FlightDynamics.MAX_SPEED);
+                assertTrue(next.state().velocity().length() <= FlightDynamics.LOCAL_MAX_SPEED);
                 previous = next;
             }
             FlightDynamics.Observation predicted = FlightDynamics.observation(sol, target,
@@ -112,7 +112,7 @@ class BodyApproachTest {
         CelestialBody star = stationary();
         CosmosSystem system = new CosmosSystem("test", "Test", 1, CosmosSystem.Kind.SINGLE,
                 SpaceVector.ZERO, List.of(star));
-        SpaceVector start = new SpaceVector(0, 0, -FlightDynamics.MAX_POSITION * 0.9);
+        SpaceVector start = new SpaceVector(0, 0, -FlightDynamics.LOCAL_RADIUS * 0.9);
         BodyApproach route = plan(system, star, start, FlightOrientation.IDENTITY, 0);
         assertTrue(route.durationTicks() > 240);
         assertTrue(route.durationTicks() <= BodyApproach.MAX_TICKS);
@@ -120,10 +120,14 @@ class BodyApproachTest {
         for (int tick = 1; tick <= route.durationTicks(); tick++) {
             BodyApproach.Frame frame = route.frame(tick);
             maxSpeed = Math.max(maxSpeed, frame.state().velocity().length());
-            assertTrue(frame.state().position().length() <= FlightDynamics.MAX_POSITION);
+            assertTrue(frame.state().position().length() <= FlightDynamics.LOCAL_RADIUS);
         }
-        assertTrue(maxSpeed <= FlightDynamics.MAX_SPEED);
-        assertTrue(maxSpeed > FlightDynamics.MAX_SPEED * 0.8);
+        assertTrue(maxSpeed <= FlightDynamics.LOCAL_MAX_SPEED);
+        assertTrue(maxSpeed > FlightDynamics.LOCAL_MAX_SPEED * 0.8);
+        FlightDynamics.State galactic = new FlightDynamics.State(
+                new SpaceVector(0, 0, -FlightDynamics.MAX_POSITION * 0.9), SpaceVector.ZERO);
+        assertTrue(BodyApproach.plan(system, star, galactic, FlightOrientation.IDENTITY, 0).isEmpty(),
+                "A galactic-distance approach must refuse the duration instead of overflowing its tick count");
     }
 
     @Test

@@ -9,8 +9,10 @@ the server owns the player's virtual position, discoveries, and stellar evolutio
 | Systems and bodies | Identity, seeds, parameters, and generation | Which systems a gameplay scenario needs |
 | Evolution | Celestial state, depletion, stages, and events | Machines that affect bodies, rewards, and balance |
 | Visual scene | Celestial bodies, lighting, shaders, lensing, effects, and sound | Custom visual objects and scene content |
+| Planetary sky | Orbital/rotation geometry, seasons, atmosphere and visual sky lighting | Biome/crop/snow rules and gameplay responses to seasons |
 | Navigation | Virtual position, aiming, routes, safe stopping, and transitions | Travel availability and cost; possible ship and fuel rules |
 | Worlds and persistence | Permanent identity, world bindings, and recovery after leaving | Station content, machines, inventories, and structures |
+| Ship presentation | Render consumer-supplied visual geometry, transforms and motion through an engine API | Part catalog, assembly/editor UI, engineering statistics, resources, crafting and progression |
 | Tools | Free camera, exploration map, scene editor, and GLSL editor | Gameplay UI and progression for the consumer mod |
 
 Smooth planetary approach belongs to the engine: it turns object selection into
@@ -18,6 +20,16 @@ camera movement. Approaching a body does not require a SolarTech engine block,
 recipe, or fuel. Gameplay ship rules need a separate contract that is still to be
 defined. The current Rocket mode is a free camera for exploring and inspecting
 the cosmos.
+
+Chart visibility and a recorded visit are separate engine states. First manual
+arrival unlocks fast travel and reveals neighboring systems; consumers can reveal
+custom content through the API but cannot use discovery to grant a visit. Manual
+flight crosses system boundaries while the real player stays in the void.
+
+Procedural system/body descriptors and spatial galactic environments are
+implemented. The versioned [cosmic atlas](UNIVERSE.md) supplies nine galaxies and named
+nebula, cluster, remnant and nucleus regions with navigable anchors;
+the shader background is not a complete navigable census of astronomical objects.
 
 The player physically occupies a bounded void world. Interplanetary movement
 changes virtual coordinates and the celestial view. Landing, walking on a surface,
@@ -41,3 +53,25 @@ classes and network packets are not a stable SolarTech API. Consumer integration
 must first define permissions, movement limits, and result handling.
 
 See [cosmos controls and scale](COSMOS.md) and [rendering](RENDERING.md).
+
+
+## Accepted Rocket Editor extraction
+
+The Rocket Editor belongs to SolarTech. SolarTech owns its complete construction
+workflow, part catalog and parameters, assembly persistence, crafting, and
+mass/thrust/TWR/delta-v/energy calculations. AstraEngine retains ship visualization:
+it consumes a prepared visual configuration with geometry and transforms/motion.
+The renderer must not interpret propulsion types, fuel economics or engineering
+statistics. The existing astronomical free camera remains an engine tool.
+
+This is the accepted architecture, **not a completed code migration**. The current
+playtest JAR still contains the [diagnostic Rocket Editor](ROCKET_EDITOR.md), its
+workshop and stationary assemblies. Its existing construction API is transitional;
+do not expand it as the long-term AstraEngine consumer boundary. The rendering-only
+replacement contract and transfer of stored blueprints require a separate,
+explicit migration before removing registered content or changing save handling.
+
+[Seasonal sky](SEASONS.md) uses Minecraft's saved time with a 365-day year and
+20-minute mean solar days. Its current world adapter targets the default Overworld;
+the pure ephemeris/profile API is reusable. Seasonal presentation does not override
+Minecraft's sleep eligibility, spawning or authoritative block-light rules.

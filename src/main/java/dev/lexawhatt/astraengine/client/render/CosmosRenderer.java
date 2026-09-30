@@ -5,8 +5,13 @@ import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.client.solar.SolarVisual;
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
+import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
+import dev.lexawhatt.astraengine.cosmos.GalaxyDescriptor;
+import dev.lexawhatt.astraengine.cosmos.UniverseGenerator;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
 import net.minecraft.resources.ResourceLocation;
@@ -22,12 +27,17 @@ import org.joml.Matrix4f;
  * Minecraft owns registered shader disposal.
  */
 public final class CosmosRenderer implements AutoCloseable {
+    private final CatalogStarField catalogStars = new CatalogStarField();
     private final CelestialBloomPipeline bloom = new CelestialBloomPipeline("cosmos");
     private RenderOptions options;
     private ShaderInstance shader;
     private int quality = 1;
     private int bodyCount;
     private long galaxySeed;
+    private List<GalaxyDescriptor> galaxyDefinitions = List.of();
+    private List<UniverseFrame.RegionSource> regionDefinitions = List.of();
+    private int galaxyCount;
+    private int regionCount;
     private SolarVisual solar = SolarVisual.HEALTHY;
 
     /** Registers the reload-owned shader; an unavailable program leaves the host's black sky. */
@@ -51,7 +61,15 @@ public final class CosmosRenderer implements AutoCloseable {
 
     /** Releases owned HDR/bloom buffers, leaving registered shader disposal to Minecraft. */
     @Override
-    public void close() { bloom.close(); galaxySeed = 0; }
+    public void close() {
+        bloom.close();
+        galaxySeed = 0;
+        galaxyDefinitions = List.of();
+        regionDefinitions = List.of();
+        catalogStars.clear();
+        galaxyCount = 0;
+        regionCount = 0;
+    }
 
     /** Sets the procedural detail budget: 0 low, 1 balanced, 2 high. Render thread only. */
     public void setQuality(int value) {
@@ -67,8 +85,23 @@ public final class CosmosRenderer implements AutoCloseable {
 
     /** Sets the current connection's galaxy seed on the render thread; system changes never reseed the background. */
     public void setGalaxySeed(long value) {
+        if (!galaxyDefinitions.isEmpty() && galaxySeed == value) { return; }
         galaxySeed = value;
+        catalogStars.clear();
+        galaxyDefinitions = UniverseGenerator.galaxies(value);
+        List<UniverseFrame.RegionSource> regions = new ArrayList<>();
+        for (GalaxyDescriptor galaxy : galaxyDefinitions) {
+            UniverseGenerator.regions(value, galaxy.index()).forEach(region ->
+                    regions.add(new UniverseFrame.RegionSource(galaxy, region)));
+        }
+        regionDefinitions = List.copyOf(regions);
     }
+
+    /** Number of spatial galaxy descriptors extracted for the latest frame. */
+    public int galaxyCount() { return galaxyCount; }
+
+    /** Number of named regions retained by the latest bounded, smoothly weighted extraction. */
+    public int regionCount() { return regionCount; }
 
     /** Number of bodies extracted for the latest sky frame, including subpixel physical discs. */
     public int bodyCount() { return bodyCount; }
@@ -89,10 +122,7 @@ public final class CosmosRenderer implements AutoCloseable {
         shader.safeGetUniform("InverseViewProjection").set(new Matrix4f(event.getProjectionMatrix()).mul(view).invert());
         shader.safeGetUniform("Time").set((float) (timeSeconds % 65536.0));
         shader.safeGetUniform("Seed").set((float) Math.floorMod(system.seed(), 4096));
-        GalacticFrame galaxy = GalacticFrame.extract(system, cameraMeters, galaxySeed);
-        shader.safeGetUniform("GalaxyObserver").set((float) galaxy.observerRadii().x(),
-                (float) galaxy.observerRadii().y(), (float) galaxy.observerRadii().z());
-        shader.safeGetUniform("GalaxySeed").set(galaxy.backgroundSeed());
+        uploadUniverse(system, cameraMeters);
         shader.safeGetUniform("Exposure").set(Math.clamp(exposure, 0.1f, 4));
         shader.safeGetUniform("Detail").set(quality + 3);
         shader.safeGetUniform("Supernova").set(system.kind() == CosmosSystem.Kind.SUPERNOVA ? 1 : 0);
@@ -105,12 +135,20 @@ public final class CosmosRenderer implements AutoCloseable {
         shader.safeGetUniform("BodyCount").set(bodyCount);
         shader.safeGetUniform("LensIndex").set(celestialFrame.lensIndex());
         int evolutionIndex = -1;
+        int nucleusIndex = -1;
+        boolean atlasNucleus = UniverseGenerator.isAtlasSystemId(system.id()) && system.id().endsWith("_0");
+        if (atlasNucleus) {
+            uploadVector("NucleusAxis", galaxyDefinitions.get(UniverseGenerator.galaxyIndex(system.id())).orientation().up());
+        }
         shader.safeGetUniform("Evolution").set(solar.depletion(), solar.collapse(), solar.explosionSeconds(), solar.remnant());
         shader.safeGetUniform("SolarLight").set(solar.luminosity(), solar.flash(), solar.radiusScale(), 0.0f);
         for (int i = 0; i < bodyCount; i++) {
             CelestialFrame.Body frame = frames.get(i);
             CelestialBody body = frame.descriptor();
             if (system.id().equals("sol") && body.id().equals("sun")) { evolutionIndex = i; }
+            if (atlasNucleus && body.id().equals("primary") && body.kind() == CelestialBody.Kind.BLACK_HOLE) {
+                nucleusIndex = i;
+            }
             SpaceVector color = body.color();
             SpaceVector light = lightDirection(system, frame.position(), body.id(), timeSeconds);
             float seed = Math.floorMod(body.id().hashCode() ^ (int) system.seed(), 1024);
@@ -129,10 +167,63 @@ public final class CosmosRenderer implements AutoCloseable {
                     / rotationSeconds * Math.PI * 2));
         }
         shader.safeGetUniform("EvolutionIndex").set(evolutionIndex);
+        shader.safeGetUniform("NucleusBodyIndex").set(nucleusIndex);
         if (!bloom.render(shader, options, exposure)) {
             shader.safeGetUniform("HdrOutput").set(0);
             try (var state = new FullscreenPass()) { FullscreenPass.draw(shader); }
         }
+    }
+
+    private void uploadUniverse(CosmosSystem system, SpaceVector cameraMeters) {
+        if (galaxyDefinitions.isEmpty()) { setGalaxySeed(galaxySeed); }
+        SpaceVector observer = system.galaxyPosition().add(cameraMeters.multiply(1.0 / CosmosGenerator.LIGHT_YEAR));
+        UniverseFrame frame = UniverseFrame.extract(galaxyDefinitions, regionDefinitions, observer, quality);
+        galaxyCount = frame.galaxies().size();
+        regionCount = frame.regions().size();
+        shader.safeGetUniform("GalaxySeed").set(UniverseFrame.shaderSeed(galaxySeed));
+        shader.safeGetUniform("GalaxyCount").set(galaxyCount);
+        shader.safeGetUniform("RegionCount").set(regionCount);
+        for (int index = 0; index < galaxyCount; index++) {
+            UniverseFrame.Galaxy galaxy = frame.galaxies().get(index);
+            GalaxyDescriptor descriptor = galaxy.descriptor();
+            SpaceVector origin = galaxy.observerRadii();
+            shader.safeGetUniform("GalaxyObserver[" + index + "]").set((float) origin.x(), (float) origin.y(),
+                    (float) origin.z(), galaxy.seed());
+            shader.safeGetUniform("GalaxyShape[" + index + "]").set(
+                    (float) (descriptor.thicknessLightYears() / descriptor.radiusLightYears()),
+                    (float) (descriptor.coreRadiusLightYears() / descriptor.radiusLightYears()),
+                    (float) descriptor.kind().ordinal(), (float) descriptor.armCount());
+            shader.safeGetUniform("GalaxyStructure[" + index + "]").set((float) descriptor.armTwist(),
+                    (float) descriptor.radiusLightYears(), descriptor.activeNucleus() ? 1.0f : 0.0f, 1.0f);
+            uploadVector("GalaxyAxisX[" + index + "]", descriptor.orientation().left());
+            uploadVector("GalaxyAxisY[" + index + "]", descriptor.orientation().up());
+            uploadVector("GalaxyAxisZ[" + index + "]", descriptor.orientation().forward());
+        }
+        List<CatalogStarField.Star> stars = catalogStars.extract(galaxySeed, system, observer, galaxyDefinitions);
+        shader.safeGetUniform("CatalogStarCount").set(stars.size());
+        for (int index = 0; index < stars.size(); index++) {
+            CatalogStarField.Star star = stars.get(index);
+            SpaceVector direction = star.direction();
+            SpaceVector color = star.color();
+            shader.safeGetUniform("CatalogStarDirection[" + index + "]").set((float) direction.x(),
+                    (float) direction.y(), (float) direction.z(), star.intensity());
+            uploadVector("CatalogStarColor[" + index + "]", color);
+        }
+        for (int index = 0; index < regionCount; index++) {
+            UniverseFrame.Region region = frame.regions().get(index);
+            SpaceVector origin = region.observerRadii();
+            SpaceVector color = region.descriptor().color();
+            shader.safeGetUniform("RegionObserver[" + index + "]").set((float) origin.x(), (float) origin.y(),
+                    (float) origin.z(), (float) region.descriptor().kind().ordinal());
+            shader.safeGetUniform("RegionColor[" + index + "]").set((float) color.x(), (float) color.y(),
+                    (float) color.z(), (float) region.descriptor().strength() * region.visibility());
+            shader.safeGetUniform("RegionStructure[" + index + "]").set(region.seed(), (float) region.galaxySlot(),
+                    (float) region.descriptor().radiusLightYears(), 0.0f);
+        }
+    }
+
+    private void uploadVector(String name, SpaceVector vector) {
+        shader.safeGetUniform(name).set((float) vector.x(), (float) vector.y(), (float) vector.z());
     }
 
     private SpaceVector lightDirection(CosmosSystem system, SpaceVector position, String id, double seconds) {

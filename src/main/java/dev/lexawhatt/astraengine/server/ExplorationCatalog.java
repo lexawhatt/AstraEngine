@@ -10,6 +10,7 @@ import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
+import dev.lexawhatt.astraengine.cosmos.UniverseGenerator;
 import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -61,7 +62,7 @@ public final class ExplorationCatalog extends SavedData {
 
     /** Resolves a canonical system ID; absent custom IDs and malformed inputs throw without mutation. */
     public CosmosSystem system(String id) {
-        return findSystem(id).orElseThrow(() -> new IllegalArgumentException("Unknown custom cosmos system: " + id));
+        return findSystem(id).orElseThrow(() -> new IllegalArgumentException("Unknown cosmos system: " + id));
     }
 
     /** Resolves saved custom content or this catalog's built-in generation; valid absent custom IDs return empty. */
@@ -70,7 +71,7 @@ public final class ExplorationCatalog extends SavedData {
         if (CosmosIds.isCustom(id)) {
             return Optional.ofNullable(customSystems.get(id));
         }
-        return Optional.of(CosmosGenerator.byId(galaxySeed, id));
+        return UniverseGenerator.find(galaxySeed, id);
     }
 
     /** Immutable descriptor list in creation/save order; no caller can alter the owning saved catalog. */
@@ -151,7 +152,7 @@ public final class ExplorationCatalog extends SavedData {
         }
         int added = 0;
         CosmosSystem current = system(pilot.systemId);
-        for (CosmosSystem neighbor : CosmosGenerator.nearby(galaxySeed, current.galaxyPosition(), 1)) {
+        for (CosmosSystem neighbor : UniverseGenerator.nearby(galaxySeed, current, 1)) {
             if (pilot.discover(neighbor.id())) {
                 added++;
             }
@@ -212,6 +213,7 @@ public final class ExplorationCatalog extends SavedData {
         public long revision() { return revision; }
         /** Charted destinations, including unvisited systems which cannot yet be fast-travel targets. */
         public List<String> discoveredSystems() { return List.copyOf(discovered); }
+        int discoveredCount() { return discovered.size(); }
         /** Systems reached by manual arrival, plus conservative Sol/current migration anchors. */
         public List<String> visitedSystems() { return List.copyOf(visited); }
         void navigate(FlightDynamics.State state, FlightOrientation orientation) {
@@ -251,7 +253,7 @@ public final class ExplorationCatalog extends SavedData {
         }
     }
 
-    /** Strict version-four codec; older charts remain known but only Sol/current count as proven visits. */
+    /** Strict version-five codec; atlas generation is pinned independently of unchanged legacy system generation. */
     public static ExplorationCatalog decode(CompoundTag root) {
         if (root == null) { throw new IllegalArgumentException("An exploration save compound is required"); }
         require(root, Tag.TAG_INT, "version", "generator_version");
@@ -259,9 +261,15 @@ public final class ExplorationCatalog extends SavedData {
         require(root, Tag.TAG_LIST, "players");
         require(root, Tag.TAG_BYTE, "landing");
         int version = root.getInt("version");
-        if ((version < 1 || version > 4) || root.getInt("generator_version") != CosmosGenerator.VERSION
+        if ((version < 1 || version > 5) || root.getInt("generator_version") != CosmosGenerator.VERSION
                 || root.getLong("clock_ticks") < 0 || root.getLong("clock_ticks") > 1_000_000_000_000L) {
             throw new IllegalArgumentException("Unsupported or invalid exploration format");
+        }
+        if (version >= 5) {
+            require(root, Tag.TAG_INT, "universe_version");
+            if (root.getInt("universe_version") != UniverseGenerator.VERSION) {
+                throw new IllegalArgumentException("Unsupported saved universe atlas version");
+            }
         }
         ExplorationCatalog catalog = new ExplorationCatalog(root.getLong("seed"));
         catalog.clockTicks = root.getLong("clock_ticks"); catalog.landingInitialized = root.getBoolean("landing");
@@ -312,8 +320,18 @@ public final class ExplorationCatalog extends SavedData {
                 throw new IllegalArgumentException("Invalid saved discovery list");
             }
             List<String> names = discoveries.stream().map(Tag::getAsString).toList();
+            if (version < 5 && names.stream().anyMatch(UniverseGenerator::isUniverseId)) {
+                throw new IllegalArgumentException("Atlas identities require exploration format version five");
+            }
             for (String name : names) { catalog.system(name); }
             catalog.system(tag.getString("system"));
+            SpaceVector position = new SpaceVector(tag.getDouble("x"), tag.getDouble("y"), tag.getDouble("z"));
+            SpaceVector velocity = new SpaceVector(tag.getDouble("vx"), tag.getDouble("vy"), tag.getDouble("vz"));
+            if (version < 4 && (speed > FlightDynamics.LOCAL_MAX_SPEED
+                    || position.length() > FlightDynamics.LOCAL_RADIUS * 1.000001
+                    || velocity.length() > FlightDynamics.LOCAL_MAX_SPEED * 1.000001)) {
+                throw new IllegalArgumentException("Legacy exploration state exceeds its local navigation bounds");
+            }
             List<String> visited;
             if (version >= 4) {
                 require(tag, Tag.TAG_LIST, "visited");
@@ -327,18 +345,18 @@ public final class ExplorationCatalog extends SavedData {
                 visited = names.stream().filter(name -> name.equals("sol") || name.equals(tag.getString("system")))
                         .toList();
             }
-            Pilot pilot = new Pilot(tag.getString("system"), new SpaceVector(tag.getDouble("x"), tag.getDouble("y"),
-                    tag.getDouble("z")), new SpaceVector(tag.getDouble("vx"), tag.getDouble("vy"), tag.getDouble("vz")),
-                    speed, orientation, names, visited, tag.getLong("revision"));
+            Pilot pilot = new Pilot(tag.getString("system"), position, velocity, speed, orientation, names, visited,
+                    tag.getLong("revision"));
             if (catalog.pilots.putIfAbsent(id, pilot) != null) { throw new IllegalArgumentException("Duplicate saved pilot"); }
         }
-        if (version < 4) { catalog.setDirty(); }
+        if (version < 5) { catalog.setDirty(); }
         return catalog;
     }
 
     @Override
     public CompoundTag save(CompoundTag root, HolderLookup.Provider registries) {
-        root.putInt("version", 4); root.putInt("generator_version", CosmosGenerator.VERSION);
+        root.putInt("version", 5); root.putInt("generator_version", CosmosGenerator.VERSION);
+        root.putInt("universe_version", UniverseGenerator.VERSION);
         root.putLong("seed", galaxySeed); root.putLong("clock_ticks", clockTicks); root.putBoolean("landing", landingInitialized);
         ListTag descriptors = new ListTag();
         for (CosmosSystem descriptor : customSystems.values()) {

@@ -178,7 +178,7 @@ public final class EngineGameTests {
                     new InvalidTransition(true, 120, "sol/"),
                     new InvalidTransition(true, 120, "sol/earth/moon"),
                     new InvalidTransition(true, 81, "s_1_0_0"),
-                    new InvalidTransition(true, 80, "sol")}) {
+                    new InvalidTransition(true, 80, "s_2_0_0")}) {
                 writeTransition(buffer, invalid.active(), invalid.ticks(), invalid.target(), 51);
                 boolean rejected = false;
                 try { ExplorationPayload.CODEC.decode(buffer); }
@@ -195,7 +195,8 @@ public final class EngineGameTests {
         for (int component = 0; component < 6; component++) { buffer.writeDouble(0); }
         buffer.writeBoolean(active); buffer.writeDouble(100);
         buffer.writeDouble(0); buffer.writeDouble(0); buffer.writeDouble(0); buffer.writeDouble(1);
-        buffer.writeVarInt(ticks); buffer.writeUtf(target, 128);
+        buffer.writeVarInt(ticks); buffer.writeUtf(target, 129);
+        buffer.writeVarInt(2); buffer.writeUtf("sol", 64); buffer.writeUtf("s_1_0_0", 64);
         buffer.writeVarInt(2); buffer.writeUtf("sol", 64); buffer.writeUtf("s_1_0_0", 64);
         buffer.writeLong(99); buffer.writeLong(epoch);
     }
@@ -220,7 +221,7 @@ public final class EngineGameTests {
             entry.putDouble("vx", 17.5); entry.putDouble("vy", -2.75); entry.putDouble("vz", 9.125);
             entry.putFloat("yaw", -177.125f + gear); entry.putFloat("pitch", 89.9f - gear);
             entry.putInt("speed", gear); entry.putLong("revision", 900 + gear);
-            for (String key : new String[]{"qx", "qy", "qz", "qw", "speed_mps"}) { entry.remove(key); }
+            for (String key : new String[]{"qx", "qy", "qz", "qw", "speed_mps", "visited"}) { entry.remove(key); }
             ListTag discoveries = new ListTag();
             discoveries.add(StringTag.valueOf("sol")); discoveries.add(StringTag.valueOf("s_1_0_0"));
             entry.put("discovered", discoveries); entries.add(entry);
@@ -228,7 +229,7 @@ public final class EngineGameTests {
         legacy.put("players", entries);
         ExplorationCatalog migrated = ExplorationCatalog.decode(legacy);
         CompoundTag current = migrated.save(new CompoundTag(), server.registryAccess());
-        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 3, "Legacy save was not marked for v3 migration");
+        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 5, "Legacy save was not marked for v5 migration");
         helper.assertTrue(current.getLong("seed") == legacy.getLong("seed")
                 && current.getLong("clock_ticks") == legacy.getLong("clock_ticks") && current.getBoolean("landing"),
                 "Migration changed catalog identity, active time or landing ownership");

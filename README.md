@@ -16,12 +16,31 @@ progression rules belong to the gameplay layer.
 Consumer mods can create persistent systems with rocky, ocean, gas, or ice planets,
 stars, and black holes through `AstraCosmos` and the `CelestialBodies` /
 `CelestialSystems` builders. Configure physical radii, orbits, colors, atmospheres,
-and rings, then grant discovery to selected players. Their map, jumps, smooth
-approach, and rendering use the saved definitions after reload and restart.
+and rings, then reveal them to selected players. Manual first visits unlock fast
+travel; the map, smooth approach, and rendering use the saved definitions after
+reload and restart.
 
 [Java example and API contract](docs/CELESTIAL_API.md). The current limit is
 64 custom systems with 1-12 bodies each. These are astronomical descriptors;
 planetary terrain and landing require a separate world integration.
+
+## Rocket construction editor
+
+The current playtest still includes this editor. Its full construction workflow
+and engineering model will move to SolarTech; AstraEngine will retain ship
+visualization. [Accepted boundary and migration status](docs/ENGINE_SCOPE.md#accepted-rocket-editor-extraction).
+
+Use `/give @s astraengine:rocket_editor`, place the workshop, and right-click in
+creative mode or as an operator. Assemble parts with attachment sides and radial
+symmetry, inspect them in a shader viewport, edit geometry/module parameters, and
+save or deploy a persistent stationary rocket with close collision proxies.
+**Starter** supplies a pod/tank/engine design. Leave open space east of the block.
+
+The catalog accepts consumer-defined parts and typed modules through a native
+registration event. SolarTech can add its own electronic controllers, ion,
+radiation, warp, or wormhole parameters and host the editor from its own block.
+Assembly piloting and resource simulation are not implemented by this editor.
+[Controls, ownership, and Java extension example](docs/ROCKET_EDITOR.md).
 
 ## Cosmos and Rocket Mode
 
@@ -35,12 +54,16 @@ come from NASA tables; initial orbital phases and planetary surfaces are artisti
 - **Mouse wheel** or **+ / −**: speed ×/÷1.5; **B**: stop.
 - **M**: map and **Approach body**, with smooth alignment and a decelerating
   approach; **B** or the map's **Cancel approach** button cancels it.
-- **C**: scan nearby systems.
+- **M -> Cosmic atlas** or `/astra-flight atlas`: select a galaxy and region;
+  **Chart and aim** marks a public destination for its first manual trip.
+- **C**: refresh nearby systems around the current visited system.
 - Press **R** again to return to the position where you enabled the mode.
 
 Procedural systems contain planets, binary stars, rare black holes, and supernova
-remnants. The map shows discovered systems only; discoveries and virtual position
-persist. After an interrupted flight, the real player returns to the departure
+remnants. The map shows nearby systems before a visit; **Aim at system** helps
+with the first manual flight. Arrival unlocks fast travel and reveals the next
+neighborhood. Known systems, visits and virtual position persist. After an
+interrupted flight, the real player returns to the departure
 point, and the next activation resumes exploration from the saved virtual position.
 
 Cosmic view distance is independent of chunks: the CPU computes coordinates in
@@ -48,6 +71,19 @@ Cosmic view distance is independent of chunks: the CPU computes coordinates in
 are small; navigation markers help locate them. Nebulae, star fields, atmospheres,
 rings with shadows, and accretion disks are procedural. Landing on these planets
 and their voxel worlds are not implemented yet.
+
+Free flight crosses systems and can leave the Milky Way's spatial procedural
+disk. The **Cosmic atlas** adds eight procedural neighboring galaxies, with
+spiral, elliptical and irregular structures. Their nuclei, nebulae, star clusters
+and supernova remnants have named destinations and shared spatial descriptors.
+One active galaxy has a quasar nucleus with jets. The core's stellar population
+and dust replace the previous smooth luminous spot. Transit has no radial lines
+or ribbons. [Atlas contents, controls and limits](docs/UNIVERSE.md).
+
+Use `/astra-flight speed interstellar` for the first system visit, or
+`/astra-flight speed galactic` for an external galaxy view. `/astra-flight galaxy aim`
+turns toward the nearest galaxy center without moving the observer. Full controls and scope are
+in the [cosmos guide](docs/COSMOS.md).
 
 Black holes bend the star field and light from distant bodies. A layered hot disk
 curves above and below the dark silhouette and changes with the viewing angle;
@@ -59,10 +95,26 @@ one, find a black-hole system on the map and select its primary object →
 
 ## Overworld Sun and supernova
 
-In the ordinary Overworld, `environment auto` shows a shader-rendered Sun with an
-angular diameter of approximately 0.533°, an atmosphere, sunsets, stars, and a
-procedural Moon. The star retains its full resource by default. An operator can
-start gradual diagnostic extraction:
+In the ordinary Overworld, `environment auto` shows an atmospheric sky with
+volumetric clouds and cloud-shadowed light shafts, orbital seasons, a rotating
+star field and a Milky Way visible
+under low light pollution. A year is **365 days**; each mean solar day is
+**20 minutes at 20 TPS**. Winter days are shorter and summer days longer. The
+Overworld Sun is displayed at **3x angular size** with atmospheric glow; physical
+Sol dimensions in space remain unchanged.
+
+```text
+/astra season set winter
+/astra season status
+/astra season sun-size 3
+/astra season pollution 0
+/astra-render shafts true
+/astra-render cloud-cover 0.65
+```
+
+[Seasonal sky, clock rules and API](docs/SEASONS.md). Terrain, precipitation,
+spawning and sleep rules remain Minecraft-owned. The star retains its full
+resource by default. An operator can start gradual diagnostic extraction:
 
 ```text
 /astra sun demo 60
@@ -264,6 +316,33 @@ The first phase needs a fresh directory. It creates content through the public A
 uses the real map and approach controls, and checks resource reload and cancellation.
 The second reads the same saved world, compares exact definitions/navigation, and
 checks custom content under Fabulous graphics. Both preserve a real-world block marker.
+
+Manual interstellar discovery, locked/unlocked travel, external galaxy views,
+and exact saved navigation have a separate two-launch scenario:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-galactic-run -PverifyPhase=galactic
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-galactic-run -PverifyPhase=galactic-restart -PverifyGraphics=fabulous
+```
+
+The first phase uses a fresh world, real map aiming and movement controls; it
+checks a forged unvisited jump, swept arrival, neighborhood expansion, unlocked
+return, a stable physical anchor, galaxy views from outside, and resource reload.
+The restart phase uses the same directory and verifies exact chart/visit/pose
+persistence without granting visits. Neither scenario is a frame-time benchmark.
+
+Galaxy atlas, public chart requests, real first visits, nebula/remnant interiors,
+central black holes, a second active galaxy and exact persistence:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-universe-run -PverifyPhase=atlas
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-universe-run -PverifyPhase=atlas-restart -PverifyGraphics=fabulous
+```
+
+Use a fresh directory for the first phase and the same directory for restart.
+The scenario uses actual atlas widgets and held flight controls, rejects forged
+unvisited jumps, inspects region edges and reload, and retains real-world blocks.
+It does not alter authoritative position or grant visits through fixture state.
 
 A separate phase in a fresh world checks lensing, disk orientations, small angular
 sizes, overlaps, and reload/resize:

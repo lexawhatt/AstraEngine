@@ -51,6 +51,9 @@ final class CosmosScenario {
     private final boolean restart;
     private CompletableFuture<?> pending = CompletableFuture.completedFuture(null);
     private RocketController controller;
+    private ManualSystemVisit manualVisit;
+    private String selectedSystem;
+    private boolean completedManualVisit;
     private SpaceVector movementStart;
     private Properties checkpoint;
     private long pausedClock;
@@ -70,6 +73,10 @@ final class CosmosScenario {
     boolean tick() throws Exception {
         if (!pending.isDone()) { return false; }
         pending.join();
+        if (manualVisit != null) {
+            if (!manualVisit.tick()) { return false; }
+            manualVisit = null; completedManualVisit = true;
+        }
         ticks++;
         require(ticks < 1200, "Step timed out");
         return restart ? restartTick() : createTick();
@@ -91,8 +98,9 @@ final class CosmosScenario {
                 if (!(minecraft.screen instanceof CosmosMapScreen map)) { return false; }
                 controller = map.controller();
                 if (controller.snapshot() == null || ticks < 15) { return false; }
-                require(controller.snapshot().discoveredSystems().equals(List.of("sol")),
-                        "A new pilot must know only Sol before a scan");
+                require(controller.snapshot().discoveredSystems().size() == 27
+                                && controller.snapshot().visitedSystems().equals(List.of("sol")),
+                        "A new pilot must chart the neighborhood with only Sol visited");
                 require(!map.isPauseScreen(), "Cosmos map pauses the integrated server");
                 shot("01-map-initial");
                 map.onClose();
@@ -117,7 +125,8 @@ final class CosmosScenario {
                     entryChecks = 1; ticks = 0; return false;
                 }
                 require(controller.snapshot().jumpTicks() == 0
-                                && controller.snapshot().discoveredSystems().equals(List.of("sol")),
+                                && controller.snapshot().discoveredSystems().size() == 27
+                                && controller.snapshot().visitedSystems().equals(List.of("sol")),
                         "Uncharted jump changed navigation or discovered an unauthorized system");
                 if (entryChecks == 1) {
                     require(controller.snapshot().speedMetersPerSecond() == 100, "New pilot started at an unexpected speed");
@@ -230,8 +239,14 @@ final class CosmosScenario {
             }
             case 14 -> {
                 if (ticks < 12) { return false; }
-                require(controller.snapshot().jumpTicks() > 0, "System jump did not expose its transit window");
-                shot("08-interstellar-transit");
+                if (completedManualVisit) {
+                    require(controller.snapshot().visitedSystems().contains(NEIGHBOR), "Manual first visit did not unlock the neighbor");
+                    shot("08-manual-interstellar-arrival");
+                    completedManualVisit = false;
+                } else {
+                    require(controller.snapshot().jumpTicks() > 0, "System jump did not expose its transit window");
+                    shot("08-interstellar-transit");
+                }
                 next();
             }
             case 15 -> {
@@ -479,6 +494,7 @@ final class CosmosScenario {
         checkpoint.setProperty("y", Double.toString(pilot.position().y()));
         checkpoint.setProperty("z", Double.toString(pilot.position().z()));
         checkpoint.setProperty("discoveries", String.join(",", pilot.discoveredSystems()));
+        checkpoint.setProperty("visited", String.join(",", pilot.visitedSystems()));
         checkpoint.setProperty("clock", Long.toString(catalog.clockTicks()));
         checkpoint.setProperty("speed_mps", Double.toString(pilot.speedMetersPerSecond()));
         checkpoint.setProperty("movement_meters", Double.toString(movementMeters));
@@ -489,6 +505,7 @@ final class CosmosScenario {
         ServerPlayer player = server.getPlayerList().getPlayers().getFirst();
         ExplorationCatalog catalog = ExplorationCatalog.get(server);
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
+        require(String.join(",", pilot.visitedSystems()).equals(checkpoint.getProperty("visited")), "Persisted visits changed");
         require(pilot.systemId().equals(checkpoint.getProperty("system")), "Saved virtual system was lost");
         require(pilot.position().distance(savedPosition()) < 0.01, "Saved virtual position was lost");
         require(String.join(",", pilot.discoveredSystems()).equals(checkpoint.getProperty("discoveries")),
@@ -527,6 +544,7 @@ final class CosmosScenario {
     private void selectSystem(String id) {
         require(controller.snapshot().discoveredSystems().contains(id), "Fixture attempted to select an undiscovered system");
         CosmosSystem system = controller.system(id);
+        selectedSystem = id;
         click("nearby");
         selectEntry(system.name());
     }
@@ -542,7 +560,12 @@ final class CosmosScenario {
         throw new IllegalStateException("Cosmos map pagination did not reach " + name);
     }
 
-    private void click(String key) { clickByLabel(Component.translatable("astraengine.map." + key).getString()); }
+    private void click(String key) {
+        if (key.equals("jump") && selectedSystem != null && !controller.snapshot().visitedSystems().contains(selectedSystem)) {
+            closeMap(); manualVisit = new ManualSystemVisit(controller, selectedSystem, true); return;
+        }
+        clickByLabel(Component.translatable("astraengine.map." + key).getString());
+    }
 
     private void clickByLabel(String label) {
         require(minecraft.screen instanceof CosmosMapScreen, "Cosmos map is not active for widget selection");

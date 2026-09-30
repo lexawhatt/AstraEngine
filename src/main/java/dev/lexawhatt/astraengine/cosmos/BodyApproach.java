@@ -112,10 +112,11 @@ public final class BodyApproach {
                 double minimumSeconds = curveDerivative * maximumProgressDerivative(proposed.logarithm)
                         / FlightDynamics.LOCAL_MAX_SPEED;
                 double travelSeconds = Math.max(7 + proposed.logarithm * 0.35, minimumSeconds * 1.001);
-                int required = AIM_TICKS + (int) Math.ceil(travelSeconds * 20);
-                if (required > MAX_TICKS) {
+                double requiredTicks = AIM_TICKS + Math.ceil(travelSeconds * 20);
+                if (requiredTicks > MAX_TICKS) {
                     break;
                 }
+                int required = (int) requiredTicks;
                 if (duration < required) {
                     duration = required;
                     continue;

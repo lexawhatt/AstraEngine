@@ -12,9 +12,14 @@ import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 @Mod("astraengine_verify")
 public final class VerificationMod {
     public VerificationMod(IEventBus bus) {
+        bus.addListener(RocketVerificationParts::register);
         bus.addListener((RegisterGameTestsEvent event) -> {
             event.register(EngineGameTests.class);
             event.register(CelestialApiGameTests.class);
+            event.register(GalacticGameTests.class);
+            event.register(AtlasGameTests.class);
+            event.register(RocketWorkshopGameTests.class);
+            event.register(SeasonalSkyGameTests.class);
             if (Boolean.getBoolean("neoforge.gameTestServer")) {
                 try {
                     GlobalTestReporter.replaceWith(new JUnitLikeTestReporter(new File("gametest-results.xml")));

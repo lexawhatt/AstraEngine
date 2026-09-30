@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "astraengine:block/rocket_editor"
+    }
+  }
+}

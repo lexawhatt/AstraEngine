@@ -63,7 +63,7 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
                 navigationEpoch);
     }
 
-    /** Compatibility adapter for former gear/yaw/pitch callers; network semantics use version five. */
+    /** Compatibility adapter for former gear/yaw/pitch callers; network semantics use version six. */
     public ExplorationPayload(long galaxySeed, long clockTicks, String systemId, SpaceVector position,
             SpaceVector velocity, boolean active, int speedIndex, float yaw, float pitch, int jumpTicks,
             String jumpTarget, List<String> discoveredSystems, long revision, long navigationEpoch) {
@@ -88,7 +88,7 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
         if (ticks == 0) { return target.isEmpty(); }
         if (!active || target.isEmpty()) { return false; }
         int separator = target.indexOf('/');
-        if (separator < 0) { return ticks <= 80 && validId(target) && !system.equals(target); }
+        if (separator < 0) { return ticks <= 80 && validId(target); }
         return target.substring(0, separator).equals(system)
                 && target.substring(separator + 1).matches("[a-z0-9_-]{1,64}");
     }

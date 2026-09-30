@@ -14,7 +14,9 @@ import dev.lexawhatt.astraengine.client.render.FullscreenPass;
 import dev.lexawhatt.astraengine.client.render.RenderOptions;
 import dev.lexawhatt.astraengine.client.render.WorldLightingPipeline;
 import dev.lexawhatt.astraengine.client.render.SceneShapeRenderer;
+import dev.lexawhatt.astraengine.client.render.OverworldSkyRenderer;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
+import dev.lexawhatt.astraengine.client.rocket.RocketEditorClient;
 import dev.lexawhatt.astraengine.network.SystemPayload;
 import dev.lexawhatt.astraengine.server.RocketService;
 import dev.lexawhatt.astraengine.network.SystemSnapshotReceivedEvent;
@@ -45,13 +47,18 @@ public final class SpaceRenderer {
     private final WorldLightingPipeline pipeline = new WorldLightingPipeline();
     private final SceneShapeRenderer shapes = new SceneShapeRenderer();
     private final SceneEditor editor;
+    private final RocketEditorClient construction;
+    private final OverworldSkyRenderer overworld;
     private Frame frame;
 
     /** Owns one client rendering session; profile and option services are injected at registration. */
-    public SpaceRenderer(EnvironmentProfiles profiles, RenderOptions options, SceneEditor editor) {
+    public SpaceRenderer(EnvironmentProfiles profiles, RenderOptions options, SceneEditor editor,
+                         RocketEditorClient construction, OverworldSkyRenderer overworld) {
         this.profiles = profiles;
         this.options = options;
         this.editor = editor;
+        this.construction = construction;
+        this.overworld = overworld;
     }
 
     /** Shader replacement is owned by Minecraft's reload lifecycle, including disposal of old instances. */
@@ -99,12 +106,17 @@ public final class SpaceRenderer {
     /** Runs sky, opaque lighting and final composition at separate NeoForge stages. */
     public void render(RenderLevelStageEvent event) {
         Minecraft minecraft = Minecraft.getInstance();
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY) { construction.collectWorld(event); }
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_BLOCK_ENTITIES) { construction.renderWorld(event); }
         if (minecraft.level != null && minecraft.level.dimension().equals(RocketService.FLIGHT)) {
             if (frame != null) {
                 try (var state = new FullscreenPass()) { pipeline.close(); shapes.close(); }
                 frame = null;
             }
-            if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) { editor.shaders().render(event); }
+            if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+                overworld.renderAtmosphere(event);
+                editor.shaders().render(event);
+            }
             return;
         }
         if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_SKY) {
@@ -119,7 +131,10 @@ public final class SpaceRenderer {
                 pipeline.compose(frame.profile, options);
             }
         }
-        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) { editor.shaders().render(event); }
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+            overworld.renderAtmosphere(event);
+            editor.shaders().render(event);
+        }
     }
 
     private Frame buildFrame(RenderLevelStageEvent event) {

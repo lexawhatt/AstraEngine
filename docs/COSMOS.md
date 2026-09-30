@@ -17,8 +17,10 @@ coordinates.
 3. Press **M**, select `Saturn` in the current-system list, and click
    **Approach body**. The camera aims at Saturn and flies smoothly to a viewing
    distance that shows its rings; the planet's physical size stays unchanged.
-4. Press **C** or **Scan nearby systems** on the map. Under **Discovered systems**,
-   select a discovered system and click **Jump to system**.
+4. Open **Known systems**. Nearby systems are charted immediately, but unvisited
+   destinations have fast travel disabled. Select one and **Aim at system**, use
+   `/astra-flight speed interstellar`, then hold **W** to fly there manually.
+   Entry records the visit, reveals its neighbors, and unlocks **Jump to system**.
 5. **R** or **Leave Rocket mode** returns to the original location in the real world.
 
 These controls are available to ordinary players on an AstraEngine server.
@@ -33,7 +35,7 @@ or structures on procedural planets.
 | Enter / leave Rocket mode | R |
 | Open map | M |
 | Close map | M / Escape / Close |
-| Scan neighboring systems | C |
+| Refresh the current visited system's neighborhood | C |
 | Yaw / pitch | Mouse |
 | Move forward / sideways relative to camera | W, S / A, D |
 | Move up / down | Space / Shift |
@@ -55,13 +57,14 @@ ship mode remains future work. Gravity, fuel, and relativistic dynamics are not
 modeled.
 
 Initial speed is **100 m/s**. One wheel step multiplies or divides it by **1.5**;
-the supported range is **1 m/s to 10 AU/s**. The HUD shows actual and selected
+the supported range is **1 m/s to 10000 light-years/s**. The HUD shows actual and selected
 speed. Fractional wheel input accumulates; long bursts apply at most one step
 per four client ticks. Map approach provides a convenient way to reach objects
 across interplanetary distances.
 
-The server confines movement to a sphere of radius **4096 AU** around the current
-system center. Swept movement checks stop the camera before a body even at high
+The virtual flight envelope extends **one million light-years** from the current
+system origin. The physical player stays in the same small void. Swept movement
+checks stop the camera before a body even at high
 speed. The protection radius is `1.03 * body radius + 10 km`; this is a navigation
 barrier, not a collision with a voxel surface.
 
@@ -70,7 +73,13 @@ Client commands provide the main actions and precise settings:
 ```text
 /astra-flight
 /astra-flight map
+/astra-flight atlas
 /astra-flight scan
+/astra-flight speed local
+/astra-flight speed interstellar
+/astra-flight speed galactic
+/astra-flight speed 1000000
+/astra-flight galaxy aim
 /astra-flight smoothness 0.72
 /astra-flight exposure 1.0
 /astra-render quality balanced
@@ -84,6 +93,13 @@ the client session and do not change celestial parameters.
 a separate astronomical sky. Exposure is shared with `/astra-render exposure`;
 the Exposure button and flight command change the same value.
 
+Speed presets are `local` = 10 AU/s, `interstellar` = 1 light-year/s, and
+`galactic` = 10000 light-years/s. A numeric value is meters per second. They are
+inspection-camera speeds, not a physical spacecraft simulation. Requests are
+validated by the server and only affect the sender's active free-flight session.
+Automatic local approach retains its previous speed envelope; raising manual
+speed does not turn approach into an interstellar autopilot.
+
 ## Map and discoveries
 
 **Current system** shows bodies and orbits from above in the XZ plane. A cross
@@ -94,16 +110,34 @@ and shows distance to the body's center. **Approach body** starts automatic flig
 to an observation point. Large symbolic map markers do not enlarge bodies in the
 flight scene.
 
-**Discovered systems** contains only systems discovered by this player, sorted
+**Known systems** contains this player's charted systems, sorted
 by distance from the current system. Scanning discovers the current sector and
-all adjacent sectors, including diagonals: at most 27 positions per request.
-Repeated scans do not duplicate discoveries. A new record knows only `sol`,
-whose nine bodies are available on the local map. Visiting a discovered system
-exposes all its bodies; individual planetary discovery is not implemented.
+all adjacent sectors around the current visited system, including diagonals:
+at most 27 positions per neighborhood. A new pilot knows Sol and its neighbors;
+only Sol starts visited. Repeated refreshes neither duplicate entries nor record
+visits. Gray markers denote unvisited systems; the selected entry explains whether
+fast travel is unlocked. **Aim at system** turns the view toward it without moving
+the camera. Hold the movement keys to make the actual trip.
+
+The server checks the whole manual movement segment for entry into a charted
+system, so a high-speed step cannot skip the arrival sphere. Its radius is
+1.5 times the outermost orbital/collision extent, clamped to **64-4096 AU**.
+Entry requires an outside-to-inside crossing. A custom system whose region
+already contains the observer requires leaving and reentering; overlapping
+regions do not repeatedly transfer the observer.
+At entry, the same reached position is expressed relative to the destination;
+heading is retained, motion stops, and selected speed is capped at **10 AU/s**.
+There is no teleport to the star's observation point. The visit unlocks fast
+travel and reveals that system's neighborhood. Local **Approach body** can then
+take the camera to a closer observation point. Individual planetary discovery
+is not implemented. **Cosmic atlas** lists public galaxies and regions; **Chart
+and aim** reveals their destination systems without granting visits. Their
+subsequent neighborhood queries use the new galaxy-relative population.
 
 Consumer mods can [create custom systems](CELESTIAL_API.md) with persistent
 planet, star, and black-hole definitions. These appear after the consumer grants
 discovery to the player; nearby-sector scanning does not reveal custom content.
+That API grants visibility, not a visit or permission to skip the first manual trip.
 The same map and flight controls work for both custom and generated systems.
 
 **Approach body** smoothly turns the camera toward the selected body, follows a
@@ -126,10 +160,14 @@ cannot find a safe route, the request is rejected. A new obstruction during
 flight stops the route without teleporting through the body. This is not a
 surface landing.
 
-**Jump to system** is available for a discovered system other than the current
-one. It retains a separate void transit lasting **80 server ticks**, or four
+**Jump to system** is available only after that player has visited its arrival
+region in manual flight. The server rejects unvisited destinations even if a
+client forges the request. Returning to the current system origin is allowed
+after flying outside its arrival region. Fast travel retains a separate void
+transit lasting **80 server ticks**, or four
 seconds at 20 TPS. The system and observation point change at the end. During
 approach or interstellar transit, navigation requests cannot start a second route.
+Transit has no radial lines or animated ribbons.
 
 Discoveries are personal: at most **256 systems per player** and **4096 player
 records** in the world catalog. Once the list is full, scans do not evict prior
@@ -170,8 +208,15 @@ unlimited computation or unlimited render distance for ordinary blocks.
 
 ## Procedural generation and appearance
 
-Generator version 1 uses the galaxy seed and a canonical sector ID. Results do
-not depend on visit order. Each four-light-year sector contains one system;
+System/body descriptors are procedural, including rare black holes and visual
+supernova remnants. The Milky Way now has a spatial procedural disk, bulge, spiral
+arms, and dust. The [cosmic atlas](UNIVERSE.md) adds eight seeded galaxies and
+63 named nuclei, nebulae, clusters and remnant regions with navigable systems.
+The same descriptors guide the renderer and density-conditioned local population.
+Unresolved background stars are not one-to-one entries in the navigation catalog.
+
+The original system generator version 1 uses the seed and a canonical sector ID.
+Results do not depend on visit order. Each legacy four-light-year sector contains one system;
 `sol` is fixed at the origin. Template weights are **78% single-star, 18% binary,
 2% black-hole, and 2% visual supernova-remnant systems**. These are gameplay
 weights, not real astronomical frequencies. A new system has 2-9 planets, with
@@ -199,8 +244,9 @@ dark silhouette; viewing angle changes their shape, while rotation determines
 brightness asymmetry. Nearly edge-on views retain a small visual disc thickness.
 Bloom spreads its light without changing the object's physical radius.
 
-To inspect one, select a discovered black-hole system on the map and use
-**Jump to system**. **Approach body** for its primary places the camera at
+To inspect one, select a charted black-hole system and use **Aim at system**
+for its first manual visit; later trips can use **Jump to system**.
+**Approach body** for its primary places the camera at
 24 horizon radii. Q/E provide rolled views of the disc. Compare the image with
 and without glow using `/astra-render bloom false|true`.
 
@@ -233,6 +279,27 @@ bloom levels. HDR controls and limits are described in the
 [rendering documentation](RENDERING.md); full global illumination and physical
 ray tracing are not implemented.
 
+## Viewing the Milky Way from outside
+
+The sky uses the observer's galactic position and one stable galaxy seed, so
+changing the current system does not choose a different galaxy background.
+Inside the disk it surrounds the observer; far outside, the same structure appears
+as a finite spiral with a bright central bulge and dark dust lanes. The local star
+field fades away outside the disk instead of following the camera forever.
+
+The artistic disk is 100000 light-years across, with Sol 26000 light-years from
+its center. These approximate scales follow [NASA's Milky Way overview](https://science.nasa.gov/universe/exoplanets/our-milky-way-galaxy-how-big-is-space/)
+and [JPL's galactic-center description](https://www.jpl.nasa.gov/news/stars-gather-in-downtown-milky-way/).
+Its particular spiral arms, dust, colors and coordinate orientation are authored
+procedural content, not an observational reconstruction or a stellar census.
+
+To inspect the external view in Rocket mode, run `/astra-flight galaxy aim`,
+then `/astra-flight speed galactic`. This selects the nearest galaxy center.
+Hold **Space** for several seconds to rise
+away from the disk, stop with **B**, and run `/astra-flight galaxy aim` again.
+The command only aims at the center. It never moves the player or marks any
+system visited. A visited system's fast jump can bring the observer back.
+
 ## State ownership and persistence
 
 The server owns virtual position and velocity, the selected system, discoveries,
@@ -244,10 +311,15 @@ The client interpolates received positions and camera orientation without creati
 an independent trajectory. An open map does not pause the server.
 
 The catalog is saved in the main world's `data/astraengine_exploration.dat`.
-Format **v3** adds up to 64 immutable custom system definitions alongside quaternion
-orientation, including roll, and speed in m/s. Readable v1/v2 records migrate while
-retaining position, discoveries, and exact speed; malformed data is rejected.
-Navigation snapshots use protocol v4, actions v2, controls v3, and custom
+Format **v5** pins the universe atlas version and retains private visited IDs,
+known IDs, up to 64 immutable
+custom system definitions, quaternion orientation, and speed in m/s. Readable
+v1-v4 records retain their exact prior position, known systems, definitions and
+speed. Existing v4 visits remain exact. For v1-v3, only charted Sol and the current
+system are inferred as visited on migration:
+an old scan is not proof of physical travel. Old neighbors stay on the map, and
+the current neighborhood is refreshed on login. Malformed data is rejected.
+Navigation snapshots use protocol v6, actions v4, controls v3, numeric speed v1, and custom
 definitions v1, so client and server need matching mod versions. Only a player's
 discovered custom definitions are sent, before navigation refers to them; client
 resource reload retains them and logout clears them. The catalog contains format

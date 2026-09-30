@@ -2,7 +2,8 @@
 
 This is a provisional engine contract for Minecraft 1.21.1 / NeoForge 21.1.252.
 The `api` package and the immutable `cosmos.CelestialBody`, `CosmosSystem`, and
-`SpaceVector` values form the consumer boundary. `server`, `systems`, `network`, and
+`SpaceVector` values, and the public immutable `rocket` construction model form
+the consumer boundary. `server`, `systems`, `network`, and
 `client` contain internal implementation, not a supported integration surface.
 
 For custom planets, stars, black holes, systems, and private discovery, use
@@ -103,6 +104,27 @@ They do not silently allocate or reset worlds. See [COSMOS.md](COSMOS.md).
 IDs, immutable custom definitions, virtual flight position, orientation and an occupied-only orbital clock.
 `RocketService` owns transient flight sessions and return/recovery points.
 C2S actions and controls are requests for the sending player's own session;
-only validated discovered systems can be jump destinations. Presentation uses
+only visited systems can be fast-jump destinations; a discovery grants chart
+visibility and manual targeting. Presentation uses
 `ExplorationPayload` snapshots. These internals are not yet a frozen SolarTech
 travel or extraction API for generated systems.
+
+
+## Rocket construction
+
+This construction surface is transitional and is planned to move to SolarTech.
+AstraEngine will retain a rendering-only ship contract. The current playtest still
+ships the implementation below; see the [accepted extraction decision](ENGINE_SCOPE.md#accepted-rocket-editor-extraction).
+
+[`AstraRocketEditor`, `RocketEditorHost`, and `RegisterRocketPartsEvent`](ROCKET_EDITOR.md)
+provide a shared editor and immutable definition catalog. Consumer-defined modules
+have typed parameter schemas and namespaced IDs; they do not require a closed
+engine or part enum. Blueprints and stationary shader assemblies are persisted
+by the workshop integration. This construction API does not execute propulsion,
+consume fuel, or connect assembled rockets to the free-camera flight service.
+
+## Seasonal sky
+
+[AstraSky and the pure planetary ephemeris](SEASONS.md#consumer-api) configure
+server-owned Overworld seasons, latitude, atmosphere presentation, light pollution
+and apparent solar size without changing physical celestial descriptors.

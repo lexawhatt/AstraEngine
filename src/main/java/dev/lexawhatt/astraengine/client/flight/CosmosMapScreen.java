@@ -10,11 +10,12 @@ import java.util.List;
 import java.util.Locale;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
-/** Non-pausing chart of server-discovered objects; visual markers do not alter physical body sizes. */
+/** Non-pausing chart of visible objects with server-owned visit/fast-travel eligibility. */
 public final class CosmosMapScreen extends Screen {
     private final RocketController controller;
     private final List<Marker> markers = new ArrayList<>();
@@ -57,6 +58,8 @@ public final class CosmosMapScreen extends Screen {
         rows = Math.max(2, (height - 226) / 22);
         addRenderableWidget(Button.builder(text("local"), button -> switchChart(false)).bounds(14, 37, 110, 20).build());
         addRenderableWidget(Button.builder(text("nearby"), button -> switchChart(true)).bounds(130, 37, 130, 20).build());
+        addRenderableWidget(Button.builder(text("atlas"), button -> minecraft.setScreen(new UniverseAtlasScreen(controller)))
+                .bounds(230, 12, 112, 20).build());
         addRenderableWidget(Button.builder(text("close"), button -> onClose()).bounds(width - 72, 12, 58, 20).build());
         List<Entry> entries = entries();
         knownCount = entries.size();
@@ -73,7 +76,9 @@ public final class CosmosMapScreen extends Screen {
         addRenderableWidget(Button.builder(Component.literal(">"), button -> { page++; rebuildWidgets(); })
                 .bounds(width - 42, navigationY, 28, 20).build()).active = (page + 1) * rows < entries.size();
         target = addRenderableWidget(Button.builder(text("target"), button -> {
-            controller.setTargetBody(selection); onClose();
+            if (galactic) { controller.aimAtSystem(selection); }
+            else { controller.setTargetBody(selection); }
+            onClose();
         }).bounds(panelX, height - 143, 198, 20).build());
         navigate = addRenderableWidget(Button.builder(text(galactic ? "jump" : "approach"), button -> {
             if (controller.snapshot() != null && controller.snapshot().approaching()) {
@@ -127,8 +132,12 @@ public final class CosmosMapScreen extends Screen {
         boolean approaching = controller.active() && controller.snapshot().approaching();
         boolean selected = entries().stream().anyMatch(entry -> entry.id.equals(selection));
         navigate.setMessage(text(approaching ? "cancel_approach" : galactic ? "jump" : "approach"));
-        navigate.active = approaching || (idle && selected && (!galactic || !selection.equals(controller.currentSystem().id())));
-        target.active = !galactic && selected;
+        navigate.active = approaching || (idle && selected && (!galactic
+                || controller.canJumpTo(selection)));
+        navigate.setTooltip(galactic && selected && !controller.visited(selection)
+                ? Tooltip.create(text("unvisited")) : null);
+        target.setMessage(text(galactic ? "aim_system" : "target"));
+        target.active = selected && (!galactic || idle);
         scan.active = idle;
         mode.setMessage(text(controller.active() ? "leave" : "enter"));
     }
@@ -176,6 +185,7 @@ public final class CosmosMapScreen extends Screen {
                     case BINARY -> 0xFFE6D493;
                     default -> 0xFFA8D5F0;
                 };
+                if (!controller.visited(system.id())) { color = 0xFF687D94; }
                 marker(graphics, system.id(), system.name(), centerX + delta.x() * scale, centerY + delta.z() * scale, color);
             }
         } else if (controller.snapshot() != null) {
@@ -242,7 +252,8 @@ public final class CosmosMapScreen extends Screen {
             CosmosSystem selected = controller.discoveredSystems().stream().filter(value -> value.id().equals(selection)).findFirst().orElse(null);
             if (selected != null) {
                 detail = selected.name() + "  /  " + String.format(Locale.ROOT, "%.2f ly", selected.galaxyPosition()
-                        .distance(controller.currentSystem().galaxyPosition()));
+                        .distance(controller.galaxyPosition())) + "  /  "
+                        + text(controller.visited(selected.id()) ? "visited" : "unvisited").getString();
             }
         } else {
             CelestialBody selected = controller.currentSystem().bodies().stream().filter(value -> value.id().equals(selection)).findFirst().orElse(null);

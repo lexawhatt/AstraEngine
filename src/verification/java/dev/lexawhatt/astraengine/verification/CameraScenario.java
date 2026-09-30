@@ -49,6 +49,7 @@ final class CameraScenario {
     private final boolean restart;
     private CompletableFuture<?> pending = CompletableFuture.completedFuture(null);
     private RocketController controller;
+    private ManualSystemVisit manualVisit;
     private FlightOrientation expectedOrientation;
     private FlightOrientation beforeRoll;
     private SpaceVector movementStart;
@@ -80,6 +81,10 @@ final class CameraScenario {
                 "Flight input opened an unexpected screen: " + minecraft.screen);
         if (!pending.isDone()) { return false; }
         pending.join();
+        if (manualVisit != null) {
+            if (!manualVisit.tick()) { return false; }
+            manualVisit = null;
+        }
         ticks++;
         require(ticks < 1600, "Camera fixture step timed out");
         if (restart && minecraft.level.dimension().equals(Level.OVERWORLD) && step >= 5) { faceSun(); }
@@ -284,7 +289,7 @@ final class CameraScenario {
             }
             case 24 -> {
                 if (ticks < 12 || !controller.snapshot().discoveredSystems().contains(NEIGHBOR)) { return false; }
-                controller.action(FlightActionPayload.Action.JUMP_SYSTEM, NEIGHBOR);
+                manualVisit = new ManualSystemVisit(controller, NEIGHBOR, true);
                 next();
             }
             case 25 -> {
@@ -296,7 +301,7 @@ final class CameraScenario {
                 if (ticks < 12 || !controller.snapshot().discoveredSystems().contains(BLACK_HOLE)) { return false; }
                 require(controller.system(BLACK_HOLE).kind() == CosmosSystem.Kind.BLACK_HOLE,
                         "Fixture's discovered black-hole descriptor changed");
-                controller.action(FlightActionPayload.Action.JUMP_SYSTEM, BLACK_HOLE);
+                manualVisit = new ManualSystemVisit(controller, BLACK_HOLE, true);
                 next();
             }
             case 27 -> {
@@ -591,6 +596,7 @@ final class CameraScenario {
         checkpoint.setProperty("qw", Double.toString(pilot.orientation().w()));
         checkpoint.setProperty("speed", Double.toString(pilot.speedMetersPerSecond()));
         checkpoint.setProperty("discoveries", String.join(",", pilot.discoveredSystems()));
+        checkpoint.setProperty("visited", String.join(",", pilot.visitedSystems()));
         checkpoint.setProperty("clock", Long.toString(catalog.clockTicks()));
     }
 
@@ -598,6 +604,7 @@ final class CameraScenario {
         ServerPlayer player = player(server);
         ExplorationCatalog catalog = ExplorationCatalog.get(server);
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
+        require(String.join(",", pilot.visitedSystems()).equals(checkpoint.getProperty("visited")), "Persisted visits changed");
         require(pilot.systemId().equals(checkpoint.getProperty("system")), "Persisted system changed");
         require(pilot.position().equals(savedPosition()), "Persisted double position changed");
         require(pilot.orientation().equals(savedOrientation()), "Persisted quaternion changed");

@@ -45,6 +45,7 @@ final class CelestialScenario {
     private final StringBuilder metadata = new StringBuilder("capture\tscene\tvirtual_camera_meters\tview_quaternion\tbloom\tquality\tbodies\tnote\n");
     private CompletableFuture<?> pending = CompletableFuture.completedFuture(null);
     private RocketController controller;
+    private ManualSystemVisit manualVisit;
     private CelestialRendererProbe renderer;
     private RuntimeException renderFailure;
     private List<Pose> poses = List.of();
@@ -75,6 +76,10 @@ final class CelestialScenario {
         if (renderFailure != null) { throw renderFailure; }
         if (!pending.isDone()) { return false; }
         pending.join();
+        if (manualVisit != null) {
+            if (!manualVisit.tick()) { return false; }
+            manualVisit = null;
+        }
         ticks++;
         require(ticks < 1200, "Celestial fixture step timed out");
         switch (step) {
@@ -105,7 +110,7 @@ final class CelestialScenario {
             }
             case 4 -> {
                 if (ticks < 10 || !controller.snapshot().discoveredSystems().contains(NEIGHBOR)) { return false; }
-                controller.action(FlightActionPayload.Action.JUMP_SYSTEM, NEIGHBOR);
+                manualVisit = new ManualSystemVisit(controller, NEIGHBOR, true);
                 next();
             }
             case 5 -> {
@@ -117,7 +122,7 @@ final class CelestialScenario {
                 if (ticks < 10 || !controller.snapshot().discoveredSystems().contains(BLACK_HOLE)) { return false; }
                 require(controller.system(BLACK_HOLE).kind() == CosmosSystem.Kind.BLACK_HOLE,
                         "The known procedural black-hole fixture changed");
-                controller.action(FlightActionPayload.Action.JUMP_SYSTEM, BLACK_HOLE);
+                manualVisit = new ManualSystemVisit(controller, BLACK_HOLE, true);
                 next();
             }
             case 7 -> {

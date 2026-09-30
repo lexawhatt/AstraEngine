@@ -3,16 +3,20 @@
 In the ordinary Overworld, `/astra-render environment auto` enables the
 AstraEngine sky: a round Sun, an atmosphere, sunsets, stars, and a procedural Moon.
 It replaces the vanilla celestial bodies without adding a second, square Sun.
-Minecraft retains control of clouds, precipitation, terrain, and the day/night cycle.
+Minecraft retains control of precipitation, terrain and the saved day/night clock.
 
-The healthy Sun has an angular diameter of approximately **0.533°**, using the
-ratio of the solar radius to a distance of 1 AU, as defined by the
-[Sol reference parameters](SOLAR_REFERENCE.md). Its disk is much smaller than the
-vanilla Sun; the soft glow surrounding it does not increase its physical radius.
-Its direction follows Minecraft's day/night cycle, rather than an astronomical
-calculation for the current date and latitude. The Moon uses Minecraft's phases
-and a procedural surface; its motion is also approximate, with no separate lunar
-orbit model.
+The [seasonal sky](SEASONS.md) now derives the solar path from a Kepler orbit,
+axial rotation and observer latitude. The default year is 365 Minecraft days,
+with 20-minute mean solar days at 20 TPS and shorter winter daylight.
+Procedural clouds replace vanilla clouds while this sky is active.
+
+The physical Sun has an angular diameter of approximately **0.533 degrees** at
+1 AU, using the [Sol reference parameters](SOLAR_REFERENCE.md). At the author's
+request, the default Overworld display scale is **3**, about **1.6 degrees**,
+with a soft atmospheric aureole. `/astra season sun-size 1` restores physical
+apparent size. This explicit presentation setting leaves the Sol catalog and
+Rocket Mode unchanged. The Moon retains host phases and approximate opposite-Sun
+motion without a separate lunar orbit.
 
 Nothing depletes automatically. An operator can start a separate diagnostic cycle:
 gradual resource extraction, stellar expansion and instability, collapse, a
@@ -103,6 +107,12 @@ repeat the explosion in a loop. In Rocket Mode, apparent size follows the
 observer's actual distance; the envelope's angular size is bounded for nearby
 cameras.
 
+The Overworld atmosphere scales clouds and reflected moonlight by the same
+linear stellar luminosity used for world skylight. After the initial flash,
+the Overworld's solar-disc brightness boost fades for the ejecta, avoiding an
+overexposed remnant above an otherwise dark world. The shared server phase and
+the space-view material are unchanged.
+
 As the star weakens, it changes the atmosphere, fog color, and client-side sky
 light contribution on real blocks. Lightmap correction reduces the sky component
 while preserving the separate contribution of block light sources: torches should
@@ -167,7 +177,7 @@ snapshots and does not change the star's phase or resource.
   shader packs requires separate verification.
 
 This scenario does not create planetary surfaces, a physical shock wave, damage,
-orbital changes, destruction, or a usable energy economy. Additional profiles,
+changes to the Sol catalog orbits, destruction, or a usable energy economy. Additional profiles,
 screen-space lighting, and their limits are covered in the
 [rendering documentation](RENDERING.md).
 

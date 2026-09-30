@@ -103,6 +103,9 @@ public final class CosmosGenerator {
 
     /** Reconstructs a canonical ID: "sol", or "s_" followed by three signed decimal sector integers. */
     public static CosmosSystem byId(long galaxySeed, String id) {
+        if (UniverseGenerator.isUniverseId(id)) {
+            return UniverseGenerator.byId(galaxySeed, id);
+        }
         if ("sol".equals(id)) {
             return SOL;
         }

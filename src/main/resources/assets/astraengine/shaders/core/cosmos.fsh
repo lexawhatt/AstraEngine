@@ -5,7 +5,20 @@ uniform int HdrOutput;
 uniform vec2 ScreenSize;
 uniform float Time;
 uniform float Seed;
-uniform vec3 GalaxyObserver;
+uniform int GalaxyCount;
+uniform int RegionCount;
+uniform int CatalogStarCount;
+uniform vec4 CatalogStarDirection[24];
+uniform vec3 CatalogStarColor[24];
+uniform vec4 GalaxyObserver[9];
+uniform vec4 GalaxyShape[9];
+uniform vec4 GalaxyStructure[9];
+uniform vec3 GalaxyAxisX[9];
+uniform vec3 GalaxyAxisY[9];
+uniform vec3 GalaxyAxisZ[9];
+uniform vec4 RegionObserver[24];
+uniform vec4 RegionColor[24];
+uniform vec4 RegionStructure[24];
 uniform float GalaxySeed;
 uniform float Exposure;
 uniform int Detail;
@@ -13,6 +26,8 @@ uniform int Supernova;
 uniform int BodyCount;
 uniform int EvolutionIndex;
 uniform int LensIndex;
+uniform int NucleusBodyIndex;
+uniform vec3 NucleusAxis;
 uniform float BodyDistanceRatio[12];
 uniform vec4 Evolution;
 uniform vec4 SolarLight;
@@ -95,8 +110,8 @@ vec3 stars(vec3 ray, float scale, float density, float gain) {
 
 #moj_import <astraengine:galaxy.glsl>
 
-vec3 universe(vec3 ray) {
-    return galacticSky(ray);
+vec3 universe(vec3 ray, float pixelAngle) {
+    return galacticSky(ray, pixelAngle);
 }
 
 vec3 surfaceCoordinates(vec3 n, float tilt, float spin) {
@@ -329,7 +344,7 @@ void main() {
         }
     }
     // Compute background derivatives before divergent body paths.
-    vec3 color = universe(sourceRay);
+    vec3 color = universe(sourceRay, pixelAngle);
     if (!lens) {
         for (int i = 0; i < 12; i++) {
             if (i >= BodyCount) { break; }

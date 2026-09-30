@@ -14,8 +14,13 @@ public final class CosmosIds {
         return id != null && id.length() <= 64 && id.matches("[a-z0-9_.-]+:[a-z0-9_.-]+");
     }
 
-    /** Returns whether an ID is Sol or a canonical generated sector with signed 32-bit coordinates. */
+    /** Returns whether an ID is a legacy built-in or a canonical universe landmark/sector identity. */
     public static boolean isBuiltin(String id) {
+        return isLegacyBuiltin(id) || UniverseGenerator.isUniverseId(id);
+    }
+
+    /** Sol and original absolute s-sector syntax, kept separate from additive universe generation. */
+    public static boolean isLegacyBuiltin(String id) {
         if ("sol".equals(id)) {
             return true;
         }

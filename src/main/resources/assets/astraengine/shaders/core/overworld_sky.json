@@ -4,7 +4,11 @@
   "attributes": [
     "Position"
   ],
-  "samplers": [],
+  "samplers": [
+    {
+      "name": "CloudTransport"
+    }
+  ],
   "uniforms": [
     {
       "name": "InverseViewProjection",
@@ -145,6 +149,73 @@
       "count": 1,
       "values": [
         1
+      ]
+    },
+    {
+      "name": "SkyNorth",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "SkyEast",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "SkyPole",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "AtmosphereParams",
+      "type": "float",
+      "count": 4,
+      "values": [
+        1,
+        0.48,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "CloudOffset",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "CloudWind",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "VolumeEnabled",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
       ]
     }
   ]

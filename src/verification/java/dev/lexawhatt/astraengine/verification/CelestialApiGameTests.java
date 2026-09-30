@@ -55,8 +55,11 @@ public final class CelestialApiGameTests {
         helper.assertTrue(catalog.discover(owner, ring.id()) == AstraCosmos.DiscoverResult.DISCOVERED, "Private discovery did not grant custom content");
         helper.assertTrue(catalog.discover(owner, ring.id()) == AstraCosmos.DiscoverResult.ALREADY_KNOWN, "Discovery replay consumed capacity");
         helper.assertTrue(catalog.discover(owner, "verification:absent") == AstraCosmos.DiscoverResult.UNKNOWN_SYSTEM, "Missing system was discovered");
-        helper.assertTrue(catalog.player(other).discoveredSystems().equals(List.of("sol")), "Private discovery leaked to another pilot");
-        for (int index = 1; index <= 254; index++) {
+        helper.assertTrue(catalog.player(other).discoveredSystems().size() == 27
+                        && !catalog.player(other).discoveredSystems().contains(ring.id()), "Private discovery leaked to another pilot");
+        helper.assertTrue(catalog.player(owner).visitedSystems().equals(List.of("sol")),
+                "Public discovery granted an unearned fast-travel visit");
+        for (int index = 1000; catalog.player(owner).discoveredSystems().size() < 256; index++) {
             helper.assertTrue(catalog.discover(owner, "s_" + index + "_0_0") == AstraCosmos.DiscoverResult.DISCOVERED,
                     "Private discovery stopped below its documented capacity");
         }
@@ -177,24 +180,26 @@ public final class CelestialApiGameTests {
         pilot.putDouble("speed_mps", 137.25); pilot.putLong("revision", 712);
         pilot.putString("system", "s_-1_2_0");
         ListTag discoveries = new ListTag(); discoveries.add(StringTag.valueOf("sol")); discoveries.add(StringTag.valueOf("s_-1_2_0"));
-        pilot.put("discovered", discoveries);
+        pilot.put("discovered", discoveries); pilot.remove("visited");
         ListTag players = new ListTag(); players.add(pilot);
         CompoundTag legacy = saved.copy(); legacy.putInt("version", 2); legacy.remove("custom_systems");
         legacy.put("players", players); legacy.putLong("clock_ticks", 81234); legacy.putBoolean("landing", true);
         ExplorationCatalog migrated = ExplorationCatalog.decode(legacy);
         CompoundTag current = migrated.save(new CompoundTag(), server.registryAccess());
-        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 3 && current.getList("custom_systems", Tag.TAG_COMPOUND).isEmpty(),
-                "Legacy v2 did not migrate to v3 with an empty custom catalog");
-        helper.assertTrue(current.getList("players", Tag.TAG_COMPOUND).equals(players)
+        helper.assertTrue(migrated.isDirty() && current.getInt("version") == 5 && current.getList("custom_systems", Tag.TAG_COMPOUND).isEmpty(),
+                "Legacy v2 did not migrate to v5 with an empty custom catalog");
+        CompoundTag expectedPilot = pilot.copy(); expectedPilot.put("visited", discoveries.copy());
+        ListTag expectedPlayers = new ListTag(); expectedPlayers.add(expectedPilot);
+        helper.assertTrue(current.getList("players", Tag.TAG_COMPOUND).equals(expectedPlayers)
                         && current.getLong("seed") == legacy.getLong("seed") && current.getLong("clock_ticks") == 81234 && current.getBoolean("landing"),
                 "V2 migration changed exact pilot pose, identity, discovery, time or landing ownership");
 
         CosmosSystem ring = CelestialApiFixtures.ringSystem();
         ListTag custom = new ListTag(); custom.add(CosmosDescriptorCodec.encode(ring));
         CompoundTag populated = current.copy(); populated.put("custom_systems", custom);
-        helper.assertTrue(ExplorationCatalog.decode(populated).system(ring.id()).equals(ring), "V3 did not restore the exact custom descriptor");
+        helper.assertTrue(ExplorationCatalog.decode(populated).system(ring.id()).equals(ring), "V5 did not restore the exact custom descriptor");
         CompoundTag missing = populated.copy(); missing.remove("custom_systems");
-        rejects(helper, () -> ExplorationCatalog.decode(missing), "Missing mandatory v3 custom catalog");
+        rejects(helper, () -> ExplorationCatalog.decode(missing), "Missing mandatory v5 custom catalog");
         CompoundTag duplicates = populated.copy(); duplicates.getList("custom_systems", Tag.TAG_COMPOUND).add(CosmosDescriptorCodec.encode(ring));
         rejects(helper, () -> ExplorationCatalog.decode(duplicates), "Duplicate custom catalog identity");
         CompoundTag malformedList = populated.copy(); ListTag strings = new ListTag(); strings.add(StringTag.valueOf("invalid"));

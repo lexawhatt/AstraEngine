@@ -67,6 +67,7 @@ public final class EngineRuntime {
         travel = new TravelService(server);
         rocket = new RocketService(server);
         solar = new SolarEvolutionService(server, rocket);
+        SkyState.get(server);
         AstraEngine.LOGGER.info("AstraEngine systems ready: alpha and beta; empty systems pause");
     }
 
@@ -82,6 +83,7 @@ public final class EngineRuntime {
             if (travel != null) { travel.recover(player); }
             if (rocket != null) { rocket.recover(player); }
             if (solar != null) { solar.send(player); }
+            SkyService.send(player);
         }
     }
 
@@ -154,6 +156,7 @@ public final class EngineRuntime {
                     return 1;
                 }))
                 .then(SolarEvolutionService.commands())
+                .then(SkyService.commands())
                 .then(Commands.literal("status").executes(context -> {
                     for (String id : SystemWorlds.SYSTEM_IDS) {
                         SystemSnapshot snapshot = AstraSystems.snapshot(context.getSource().getServer(), id);

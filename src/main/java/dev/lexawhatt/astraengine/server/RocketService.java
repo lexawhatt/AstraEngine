@@ -1,16 +1,18 @@
 package dev.lexawhatt.astraengine.server;
 
+import dev.lexawhatt.astraengine.api.AstraCosmos.DiscoverResult;
 import dev.lexawhatt.astraengine.cosmos.BodyApproach;
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
-import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
 import dev.lexawhatt.astraengine.cosmos.CosmosIds;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
+import dev.lexawhatt.astraengine.cosmos.GalacticNavigation;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.network.ExplorationPayload;
 import dev.lexawhatt.astraengine.network.CustomSystemsPayload;
 import dev.lexawhatt.astraengine.network.FlightActionPayload;
 import dev.lexawhatt.astraengine.network.FlightControlPayload;
+import dev.lexawhatt.astraengine.network.FlightSpeedPayload;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -76,10 +78,7 @@ public final class RocketService implements AutoCloseable {
 
     /** Applies only one discrete own-player action per four ticks, rejecting uncharted destinations. */
     public void action(ServerPlayer player, FlightActionPayload payload) {
-        int tick = server.getTickCount();
-        Integer last = lastAction.get(player.getUUID());
-        if (last != null && tick - last >= 0 && tick - last < 4) { return; }
-        lastAction.put(player.getUUID(), tick);
+        if (!acceptAction(player)) { return; }
         if (payload.action() == FlightActionPayload.Action.TOGGLE) { toggle(player); return; }
         Session session = sessions.get(player.getUUID());
         if (session == null || !session.entered || !isFlightWorld(player) || !player.isAlive()) { return; }
@@ -91,17 +90,31 @@ public final class RocketService implements AutoCloseable {
         }
         if (session.jumpTicks > 0) { return; }
         switch (payload.action()) {
-            case SCAN -> {
-                CosmosSystem current = currentSystem(catalog, pilot, session);
-                int added = 0;
-                for (CosmosSystem system : CosmosGenerator.nearby(catalog.galaxySeed(), current.galaxyPosition(), 1)) {
-                    if (pilot.discover(system.id())) { added++; }
+            case CHART_ATLAS -> {
+                // The request type accepts only public atlas anchors, never private custom definitions.
+                var result = catalog.discover(player.getUUID(), payload.target());
+                if (result == DiscoverResult.LIMIT_REACHED) {
+                    message(player, "chart_full");
                 }
+            }
+            case SCAN -> {
+                int added = catalog.revealNeighbors(pilot);
                 player.sendSystemMessage(Component.translatable("astraengine.rocket.scanned", added,
                         pilot.discoveredSystems().size(), 256), true);
+                if (pilot.discoveredCount() >= 256) {
+                    player.sendSystemMessage(Component.translatable("astraengine.rocket.chart_full"));
+                }
             }
             case JUMP_SYSTEM -> {
-                if (!pilot.discoveredSystems().contains(payload.target()) || pilot.systemId().equals(payload.target())) {
+                if (!pilot.discoveredSystems().contains(payload.target())) {
+                    message(player, "unknown_target"); return;
+                }
+                if (!pilot.visitedSystems().contains(payload.target())) {
+                    message(player, "unvisited_target"); return;
+                }
+                boolean nearCurrent = pilot.systemId().equals(payload.target()) && pilot.position().length()
+                        <= GalacticNavigation.arrivalRadiusMeters(currentSystem(catalog, pilot, session));
+                if (nearCurrent) {
                     message(player, "unknown_target"); return;
                 }
                 session.jumpTarget = payload.target(); session.jumpBody = ""; session.jumpTicks = 80;
@@ -127,6 +140,29 @@ public final class RocketService implements AutoCloseable {
             default -> { }
         }
         catalog.setDirty(); send(player, session);
+    }
+
+    /** Sets inspection speed for the sender's live manual session, sharing the four-tick discrete action limit. */
+    public void speed(ServerPlayer player, FlightSpeedPayload payload) {
+        Session session = sessions.get(player.getUUID());
+        if (session == null || !session.entered || !isFlightWorld(player) || !player.isAlive()
+                || session.approach != null || session.jumpTicks > 0 || !acceptAction(player)) {
+            return;
+        }
+        ExplorationCatalog catalog = ExplorationCatalog.get(server);
+        catalog.player(player.getUUID()).speed(payload.speedMetersPerSecond());
+        catalog.setDirty();
+        send(player, session);
+    }
+
+    private boolean acceptAction(ServerPlayer player) {
+        int tick = server.getTickCount();
+        Integer last = lastAction.get(player.getUUID());
+        if (last != null && tick - last >= 0 && tick - last < 4) {
+            return false;
+        }
+        lastAction.put(player.getUUID(), tick);
+        return true;
     }
 
     /** Accepts finite sequential controls at most once per server tick; abandoned controls expire after ten ticks. */
@@ -229,6 +265,30 @@ public final class RocketService implements AutoCloseable {
             CosmosSystem system = currentSystem(catalog, pilot, session);
             FlightDynamics.State next = FlightDynamics.step(new FlightDynamics.State(pilot.position(), pilot.velocity()),
                     input, pilot.speedMetersPerSecond(), 0.05, system.bodies(), catalog.clockTicks() / 20.0);
+            if (!input.brake() && (input.forward() != 0 || input.strafe() != 0 || input.vertical() != 0)
+                    && !next.position().equals(pilot.position())) {
+                var arrival = GalacticNavigation.firstArrival(system, pilot.position(), next.position(),
+                        chartedSystems(catalog, pilot, session));
+                if (arrival.isPresent()) {
+                    GalacticNavigation.Arrival reached = arrival.get();
+                    boolean firstVisit = !pilot.visitedSystems().contains(reached.system().id());
+                    pilot.visit(reached.system().id(), reached.position(), input.orientation());
+                    catalog.revealNeighbors(pilot);
+                    session.system = reached.system();
+                    session.controls.relocate(pilot.revision());
+                    session.input = null;
+                    catalog.setDirty();
+                    send(player, session);
+                    if (firstVisit) {
+                        player.sendSystemMessage(Component.translatable("astraengine.rocket.visited",
+                                reached.system().name()), true);
+                        if (pilot.discoveredCount() >= 256) {
+                            player.sendSystemMessage(Component.translatable("astraengine.rocket.chart_full"));
+                        }
+                    }
+                    return;
+                }
+            }
             pilot.navigate(next, input.orientation());
         }
         catalog.setDirty();
@@ -253,9 +313,20 @@ public final class RocketService implements AutoCloseable {
         return session.system;
     }
 
+    private static List<CosmosSystem> chartedSystems(ExplorationCatalog catalog, ExplorationCatalog.Pilot pilot,
+            Session session) {
+        // Charts only grow and saved descriptors are immutable, so size invalidates this session-owned cache.
+        if (session.charted.size() != pilot.discoveredCount()) {
+            session.charted = pilot.discoveredSystems().stream().map(catalog::system).toList();
+        }
+        return session.charted;
+    }
+
     /** Recovers an interrupted flight to its original real location, while retaining private discoveries. */
     public void recover(ServerPlayer player) {
         sentCustomIds.remove(player.getUUID());
+        ExplorationCatalog catalog = ExplorationCatalog.get(server);
+        catalog.revealNeighbors(catalog.player(player.getUUID()));
         if (isFlightWorld(player)) { Point.load(player.getPersistentData().getCompound(RECOVERY), server).teleport(player, server); }
         player.getPersistentData().remove(RECOVERY);
         send(player, null);
@@ -285,7 +356,7 @@ public final class RocketService implements AutoCloseable {
         String target = !active ? "" : session.jumpTarget + (session.jumpBody.isEmpty() ? "" : "/" + session.jumpBody);
         PacketDistributor.sendToPlayer(player, new ExplorationPayload(catalog.galaxySeed(), catalog.clockTicks(),
                 pilot.systemId(), pilot.position(), pilot.velocity(), active, pilot.speedMetersPerSecond(), pilot.orientation(),
-                active ? session.jumpTicks : 0, target, pilot.discoveredSystems(), pilot.revision(),
+                active ? session.jumpTicks : 0, target, pilot.discoveredSystems(), pilot.visitedSystems(), pilot.revision(),
                 active ? session.controls.navigationEpoch() : 0));
     }
 
@@ -331,6 +402,7 @@ public final class RocketService implements AutoCloseable {
     private static final class Session {
         private final Point source;
         private CosmosSystem system;
+        private List<CosmosSystem> charted = List.of();
         private int age;
         private boolean entered;
         private final FlightInputWindow controls = new FlightInputWindow();

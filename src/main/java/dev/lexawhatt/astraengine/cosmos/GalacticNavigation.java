@@ -25,7 +25,8 @@ public final class GalacticNavigation {
     /**
      * Finds the earliest outside-to-inside crossing of a charted system's local arrival sphere.
      * At most 256 immutable descriptors are considered. A tangent counts as contact; ties use system ID.
-     * Already-inside candidates do not trigger, avoiding repeated transfers between overlapping custom regions.
+     * Already-inside candidates, including an eight-ULP boundary tolerance, do not trigger. This prevents
+     * repeated transfers between overlapping custom regions after the destination-local rebase.
      * No movement means no arrival. Inputs outside the finite flight envelope or null inputs are rejected.
      */
     public static Optional<Arrival> firstArrival(CosmosSystem origin, SpaceVector start, SpaceVector end,
@@ -52,7 +53,7 @@ public final class GalacticNavigation {
             SpaceVector center = candidate.galaxyPosition().subtract(origin.galaxyPosition())
                     .multiply(CosmosGenerator.LIGHT_YEAR);
             SpaceVector relative = center.subtract(start);
-            if (relative.length() <= radius) {
+            if (relative.length() <= radius + Math.ulp(radius) * 8) {
                 continue;
             }
             double projection = relative.dot(direction);
@@ -71,8 +72,9 @@ public final class GalacticNavigation {
                     && candidate.id().compareTo(closest.system().id()) >= 0) {
                 continue;
             }
-            // Reconstruct the small destination-local offset instead of subtracting two galactic positions.
-            SpaceVector position = direction.multiply(-halfChord).subtract(perpendicular);
+            // Galactic projection can leave a small residual along the direction in "perpendicular".
+            // Normalize the small local offset back to the boundary so that residual cannot cause reentry.
+            SpaceVector position = direction.multiply(-halfChord).subtract(perpendicular).normalized().multiply(radius);
             closest = new Arrival(candidate, position, entry / length);
             closestEntry = entry;
         }

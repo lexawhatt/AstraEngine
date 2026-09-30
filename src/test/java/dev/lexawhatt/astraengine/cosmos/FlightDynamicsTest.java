@@ -73,9 +73,9 @@ class FlightDynamicsTest {
         assertThrows(IllegalArgumentException.class, () -> new FlightDynamics.Input(2, 0, 0, 0, 0, false));
         assertThrows(IllegalArgumentException.class, () -> new FlightDynamics.Input(0, 0, 0, 181, 0, false));
         assertThrows(IllegalArgumentException.class, () -> new FlightDynamics.State(ZERO,
-                new SpaceVector(FlightDynamics.speed(5) * 2, 0, 0)));
+                new SpaceVector(FlightDynamics.MAX_SPEED * 2, 0, 0)));
         assertThrows(IllegalArgumentException.class, () -> FlightDynamics.speed(6));
-        FlightDynamics.State edge = new FlightDynamics.State(new SpaceVector(FlightDynamics.MAX_POSITION - 1, 0, 0),
+        FlightDynamics.State edge = new FlightDynamics.State(new SpaceVector(Math.nextDown(FlightDynamics.MAX_POSITION), 0, 0),
                 new SpaceVector(FlightDynamics.speed(5), 0, 0));
         FlightDynamics.State next = FlightDynamics.step(edge,
                 new FlightDynamics.Input(1, 0, 0, -90, 0, false), 5, 0.05, List.of(), 0);
@@ -134,12 +134,25 @@ class FlightDynamicsTest {
         assertEquals(1, FlightDynamics.validateSpeed(1));
         assertEquals(1234.56789, FlightDynamics.validateSpeed(1234.56789));
         assertEquals(FlightDynamics.MAX_SPEED, FlightDynamics.validateSpeed(FlightDynamics.MAX_SPEED));
-        for (double bad : new double[]{0, -1, Double.NaN, Double.POSITIVE_INFINITY, FlightDynamics.MAX_SPEED + 1}) {
+        for (double bad : new double[]{0, -1, Double.NaN, Double.POSITIVE_INFINITY, Math.nextUp(FlightDynamics.MAX_SPEED)}) {
             assertThrows(IllegalArgumentException.class, () -> FlightDynamics.validateSpeed(bad));
         }
         for (int gear = 0; gear < FlightDynamics.speedCount(); gear++) {
             assertEquals(gear, FlightDynamics.legacySpeedIndex(FlightDynamics.speed(gear)));
         }
+    }
+
+    @Test
+    void manualGalacticSpeedCrossesTheFormerLocalWallWithoutChangingLegacyGears() {
+        FlightDynamics.State initial = new FlightDynamics.State(new SpaceVector(FlightDynamics.LOCAL_RADIUS - 1, 0, 0), ZERO);
+        FlightDynamics.State moved = FlightDynamics.step(initial,
+                new FlightDynamics.Input(1, 0, 0, -90, 0, false), CosmosGenerator.LIGHT_YEAR,
+                0.05, List.of(), 0);
+        assertTrue(moved.position().x() > FlightDynamics.LOCAL_RADIUS);
+        assertEquals(CosmosGenerator.LIGHT_YEAR, moved.velocity().length(), 10);
+        assertEquals(10 * CosmosGenerator.AU, FlightDynamics.speed(5));
+        assertEquals(FlightDynamics.LOCAL_MAX_SPEED, FlightDynamics.speed(5));
+        assertEquals(1_000_000 * CosmosGenerator.LIGHT_YEAR, FlightDynamics.MAX_POSITION);
     }
 
     private static CelestialBody body() {
