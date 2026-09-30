@@ -73,8 +73,8 @@ Over the configured number of ticks, the model gradually transfers resource from
 | REMNANT | Permanent remnant until an explicit `reset` or new `demo` |
 
 The server owns this state. It advances only while the cycle is running and
-there is at least one living player in the Overworld or an active Rocket Mode
-pilot in `sol`. A Rocket Mode player in another system does not keep this cycle
+there is at least one living player in the Overworld, on a bound Sol surface
+patch, or an active Rocket Mode pilot in `sol`. A Rocket Mode player in another system does not keep this cycle
 running. Without eligible observers, while the server is offline, or after
 `pause`, neither extraction nor hazardous phase timers advance. Minecraft's
 day/night cycle is independent: `/time set` does not seek through extraction or

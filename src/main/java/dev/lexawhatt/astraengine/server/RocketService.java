@@ -6,6 +6,9 @@ import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.CosmosIds;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
+import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
+import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
+import dev.lexawhatt.astraengine.network.SurfacePayload;
 import dev.lexawhatt.astraengine.cosmos.GalacticNavigation;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.network.ExplorationPayload;
@@ -47,6 +50,7 @@ public final class RocketService implements AutoCloseable {
     private final Map<UUID, Session> sessions = new HashMap<>();
     private final Map<UUID, Integer> lastAction = new HashMap<>();
     private final Map<UUID, List<String>> sentCustomIds = new HashMap<>();
+    private final Map<UUID, Integer> recoveryAttempts = new HashMap<>();
 
     /** Creates the service owned by one Minecraft server. */
     public RocketService(MinecraftServer server) { this.server = server; }
@@ -60,18 +64,29 @@ public final class RocketService implements AutoCloseable {
     public void toggle(ServerPlayer player) {
         Session previous = sessions.remove(player.getUUID());
         if (previous != null) {
-            stop(player, previous, true);
-            send(player, null);
+            if (!stop(player, previous, true)) {
+                previous.returnRequested = true;
+                sessions.put(player.getUUID(), previous);
+                message(player, "preparing"); send(player, previous);
+            } else { send(player, null); }
             return;
         }
+        if (isFlightWorld(player)) { recoveryAttempts.remove(player.getUUID()); recover(player); return; }
         if (!player.isAlive() || player.isPassenger() || player.isSleeping()
                 || player.serverLevel().dimension().equals(SystemWorlds.TRANSIT) || isFlightWorld(player)) {
             message(player, "unavailable"); return;
         }
         ServerLevel flight = server.getLevel(FLIGHT);
         if (flight == null) { message(player, "missing_world"); return; }
+        if (!PreparedPlayerReturn.acceptsSource(server, player)) { message(player, "source_unavailable"); return; }
         ExplorationCatalog.get(server).player(player.getUUID());
-        sessions.put(player.getUUID(), new Session(Point.of(player)));
+        Session session = new Session(Point.of(player));
+        session.takeoff = SurfaceWorlds.definition(player.serverLevel().dimension()).orElse(null);
+        if (session.takeoff != null && (!SurfaceBindings.get(server).matches(player.serverLevel(), session.takeoff)
+                || !canTakeOff(player, session.takeoff))) {
+            message(player, "surface_unavailable"); return;
+        }
+        sessions.put(player.getUUID(), session);
         flight.getChunkSource().addRegionTicket(TICKET, new ChunkPos(0, 0), 2, player.getUUID());
         message(player, "preparing");
     }
@@ -80,10 +95,18 @@ public final class RocketService implements AutoCloseable {
     public void action(ServerPlayer player, FlightActionPayload payload) {
         if (!acceptAction(player)) { return; }
         if (payload.action() == FlightActionPayload.Action.TOGGLE) { toggle(player); return; }
+        if (payload.action() == FlightActionPayload.Action.TAKE_OFF) {
+            if (!active(player) && SurfaceWorlds.definition(player.serverLevel().dimension()).isPresent()) { toggle(player); }
+            return;
+        }
         Session session = sessions.get(player.getUUID());
         if (session == null || !session.entered || !isFlightWorld(player) || !player.isAlive()) { return; }
         ExplorationCatalog catalog = ExplorationCatalog.get(server);
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
+        if (session.surface != null) {
+            if (payload.action() == FlightActionPayload.Action.BRAKE) { cancelSurface(catalog, player, session, "surface_cancelled"); }
+            return;
+        }
         if (session.approach != null) {
             if (payload.action() == FlightActionPayload.Action.BRAKE) { finishApproach(catalog, player, session, "approach_cancelled"); }
             return;
@@ -119,6 +142,23 @@ public final class RocketService implements AutoCloseable {
                 }
                 session.jumpTarget = payload.target(); session.jumpBody = ""; session.jumpTicks = 80;
                 pilot.navigate(new FlightDynamics.State(pilot.position(), ZERO), pilot.orientation());
+            }
+            case LAND_BODY -> {
+                CosmosSystem system = currentSystem(catalog, pilot, session);
+                SurfaceDefinition definition = SurfaceDefinition.find(system.id(), payload.target()).orElse(null);
+                CelestialBody body = system.bodies().stream().filter(value -> value.id().equals(payload.target()))
+                        .findFirst().orElse(null);
+                if (definition == null || body == null
+                        || pilot.position().distance(system.positionAt(body, catalog.clockTicks() / 20.0)) > body.radiusMeters() * 6
+                        || pilot.position().distance(system.positionAt(body, catalog.clockTicks() / 20.0)) < body.radiusMeters()) {
+                    message(player, "surface_approach_first"); return;
+                }
+                session.surface = new SurfaceTransfer(definition, system, catalog.clockTicks(),
+                        pilot.position(), pilot.orientation());
+                session.jumpTarget = pilot.systemId(); session.jumpBody = definition.bodyId(); session.jumpTicks = 1;
+                pilot.navigate(new FlightDynamics.State(pilot.position(), ZERO), pilot.orientation());
+                session.controls.relocate(pilot.revision()); session.input = null;
+                message(player, "surface_preparing");
             }
             case APPROACH_BODY -> {
                 CosmosSystem system = currentSystem(catalog, pilot, session);
@@ -171,6 +211,10 @@ public final class RocketService implements AutoCloseable {
         int tick = server.getTickCount();
         if (session == null || !session.entered || !isFlightWorld(player) || !player.isAlive()
                 || !session.controls.accept(payload.sequence(), payload.navigationEpoch(), tick)) { return; }
+        if (session.surface != null) {
+            if (payload.brake()) { cancelSurface(ExplorationCatalog.get(server), player, session, "surface_cancelled"); }
+            return;
+        }
         if (session.approach != null) {
             if (payload.brake()) { finishApproach(ExplorationCatalog.get(server), player, session, "approach_cancelled"); }
             return;
@@ -186,7 +230,24 @@ public final class RocketService implements AutoCloseable {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
             return entry.getValue().entered && player != null && player.isAlive() && isFlightWorld(player);
         });
+        occupied |= server.getPlayerList().getPlayers().stream().anyMatch(player -> player.isAlive()
+                && SurfaceWorlds.definition(player.serverLevel().dimension()).isPresent());
         catalog.tick(occupied);
+        if (server.getTickCount() % 20 == 0) {
+            for (var retry : Map.copyOf(recoveryAttempts).entrySet()) {
+                ServerPlayer recovering = server.getPlayerList().getPlayer(retry.getKey());
+                if (recovering != null && retry.getValue() < 12 && !sessions.containsKey(retry.getKey())) {
+                    recover(recovering);
+                }
+            }
+        }
+        SurfaceWorlds.maintainBorders(server);
+        if (server.getTickCount() % 5 == 0) {
+            for (ServerPlayer observer : server.getPlayerList().getPlayers()) {
+                if (!sessions.containsKey(observer.getUUID())
+                        && SurfaceWorlds.definition(observer.serverLevel().dimension()).isPresent()) { sendSurface(observer, null); }
+            }
+        }
         Iterator<Map.Entry<UUID, Session>> iterator = sessions.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<UUID, Session> entry = iterator.next();
@@ -195,10 +256,25 @@ public final class RocketService implements AutoCloseable {
             if (player == null) {
                 if (session.approach != null) { stopApproachMotion(entry.getKey()); }
                 sentCustomIds.remove(entry.getKey());
+                if (session.surface != null) { session.surface.release(server, entry.getKey()); }
                 release(entry.getKey()); iterator.remove(); continue;
             }
             if (!player.isAlive() || (session.entered && !isFlightWorld(player))) {
                 stop(player, session, false); iterator.remove(); send(player, null); continue;
+            }
+            if (session.returnRequested) {
+                player.setDeltaMovement(Vec3.ZERO); player.fallDistance = 0;
+                if (session.surface != null) { session.surface.retain(server, player.getUUID()); }
+                if (server.getTickCount() % 100 == 0) {
+                    player.serverLevel().getChunkSource().addRegionTicket(TICKET, new ChunkPos(0, 0), 2, player.getUUID());
+                }
+                if (stop(player, session, true)) { iterator.remove(); send(player, null); continue; }
+                if (++session.returnTicks > 220) {
+                    session.returnRequested = false; session.returnTicks = 0;
+                    PreparedPlayerReturn.release(server, player.getUUID(), session.source.dimension(), session.source.position());
+                    message(player, "surface_failed");
+                }
+                continue;
             }
             if (!session.entered) {
                 if (++session.age > 220 || !player.serverLevel().dimension().equals(session.source.dimension())) {
@@ -211,11 +287,37 @@ public final class RocketService implements AutoCloseable {
                 if (!flight.isEmptyBlock(new BlockPos(8, 80, 8)) || !flight.isEmptyBlock(new BlockPos(8, 81, 8))) {
                     stop(player, session, false); iterator.remove(); message(player, "obstructed"); continue;
                 }
+                if (!PreparedPlayerReturn.acceptsSource(server, player)) {
+                    stop(player, session, false); iterator.remove(); message(player, "source_unavailable");
+                    send(player, null); continue;
+                }
+                if (session.takeoff != null && !canTakeOff(player, session.takeoff)) {
+                    stop(player, session, false); iterator.remove(); message(player, "surface_unavailable");
+                    send(player, null); continue;
+                }
+                session.source = Point.of(player);
                 player.getPersistentData().put(RECOVERY, session.source.save());
                 ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
+                if (session.takeoff != null) {
+                    CosmosSystem system = catalog.system(session.takeoff.systemId());
+                    SpaceVector localEye = new SpaceVector(player.getX(), player.getEyeY(), player.getZ());
+                    session.surface = SurfaceTransfer.ascent(session.takeoff, system, catalog.clockTicks(), localEye,
+                            FlightOrientation.fromAngles(player.getYRot(), player.getXRot(), 0));
+                    // Ground world identity, not stale navigation state, determines the departure system.
+                    SpaceVector position = session.surface.originalPosition();
+                    FlightOrientation view = session.surface.originalOrientation();
+                    pilot.visit(system.id(), position, view);
+                    pilot.navigate(new FlightDynamics.State(position, ZERO), view);
+                    session.system = system;
+                    session.jumpTarget = system.id(); session.jumpBody = session.takeoff.bodyId();
+                    session.jumpTicks = session.surface.remainingTicks();
+                }
                 pilot.navigate(new FlightDynamics.State(pilot.position(), ZERO), pilot.orientation());
                 session.controls.relocate(pilot.revision());
                 player.teleportTo(flight, 8.5, 80, 8.5, Set.of(), pilot.yaw(), pilot.pitch());
+                if (!isFlightWorld(player)) {
+                    stop(player, session, false); iterator.remove(); message(player, "failed"); send(player, null); continue;
+                }
                 session.entered = true; send(player, session);
             } else {
                 player.setDeltaMovement(Vec3.ZERO); player.fallDistance = 0;
@@ -224,6 +326,9 @@ public final class RocketService implements AutoCloseable {
                     player.serverLevel().getChunkSource().addRegionTicket(TICKET, new ChunkPos(0, 0), 2, player.getUUID());
                 }
                 advance(catalog, player, session);
+                if (session.surfaceCommitted) {
+                    release(player.getUUID()); iterator.remove(); send(player, null); continue;
+                }
                 if (server.getTickCount() % 2 == 0) { send(player, session); }
             }
         }
@@ -231,7 +336,9 @@ public final class RocketService implements AutoCloseable {
 
     private void advance(ExplorationCatalog catalog, ServerPlayer player, Session session) {
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
-        if (session.approach != null) {
+        if (session.surface != null) {
+            advanceSurface(catalog, player, session);
+        } else if (session.approach != null) {
             BodyApproach route = session.approach;
             BodyApproach.Frame next = route.frame(session.approachTicks + 1);
             double endSeconds = catalog.clockTicks() / 20.0;
@@ -305,6 +412,94 @@ public final class RocketService implements AutoCloseable {
         send(player, session);
     }
 
+    private void advanceSurface(ExplorationCatalog catalog, ServerPlayer player, Session session) {
+        SurfaceTransfer transfer = session.surface;
+        ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
+        CosmosSystem system = currentSystem(catalog, pilot, session);
+        if (!transfer.prepared()) {
+            SurfaceTransfer.Frame source = transfer.sourceFrame(system, catalog.clockTicks());
+            pilot.navigate(new FlightDynamics.State(source.position(), ZERO), source.orientation());
+            catalog.setDirty();
+            if (!transfer.prepare(server, player, system, catalog.clockTicks())) {
+                if (transfer.timedOut()) { cancelSurface(catalog, player, session, "surface_failed"); }
+                return;
+            }
+        }
+        transfer.retain(server, player.getUUID());
+        SurfaceTransfer.Frame frame = transfer.advance(system, catalog.clockTicks());
+        double seconds = catalog.clockTicks() / 20.0;
+        if (!FlightDynamics.clearSurfaceSegment(pilot.position(), frame.position(), system.bodies(),
+                Math.max(0, seconds - 0.05), seconds, transfer.definition().bodyId())) {
+            cancelSurface(catalog, player, session, "surface_failed"); return;
+        }
+        pilot.navigate(new FlightDynamics.State(frame.position(), ZERO), frame.orientation());
+        session.jumpTicks = transfer.remainingTicks();
+        catalog.setDirty();
+        if (!transfer.finished()) { return; }
+        if (transfer.ascending()) {
+            transfer.release(server, player.getUUID()); session.surface = null;
+            finishApproach(catalog, player, session, "surface_departed");
+        } else if (transfer.canCommit(server, player)) {
+            Vec3 feet = transfer.landingFeet();
+            FlightOrientation local = transfer.landingOrientation();
+            ServerLevel target = server.getLevel(SurfaceWorlds.dimension(transfer.definition()));
+            player.teleportTo(target, feet.x, feet.y, feet.z, Set.of(), local.yaw(), local.pitch());
+            if (player.serverLevel() != target) {
+                cancelSurface(catalog, player, session, "surface_failed"); return;
+            }
+            player.setDeltaMovement(Vec3.ZERO); player.fallDistance = 0;
+            player.getPersistentData().remove(RECOVERY);
+            transfer.release(server, player.getUUID()); session.surface = null;
+            session.surfaceCommitted = true;
+            message(player, "surface_arrived");
+        } else {
+            cancelSurface(catalog, player, session, "surface_failed");
+        }
+    }
+
+    private static boolean canTakeOff(ServerPlayer player, SurfaceDefinition definition) {
+        return definition.patch().contains(player.getX(), player.getZ())
+                && player.getEyeY() >= definition.patch().seaY()
+                    + dev.lexawhatt.astraengine.surface.SurfaceGeography.MIN_HEIGHT_METERS
+                && player.getY() >= player.serverLevel().getMinBuildHeight() + 1
+                && player.getEyeY() < player.serverLevel().getMaxBuildHeight() - 1
+                && player.serverLevel().canSeeSky(player.blockPosition()) && !player.isInWater();
+    }
+
+    private void cancelSurface(ExplorationCatalog catalog, ServerPlayer player, Session session, String reason) {
+        SurfaceTransfer transfer = session.surface;
+        if (transfer.ascending() && !session.source.teleport(player, server)) {
+            session.returnRequested = true; message(player, "preparing"); return;
+        }
+        transfer.release(server, player.getUUID());
+        ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
+        SurfaceTransfer.Frame source = transfer.sourceFrame(currentSystem(catalog, pilot, session), catalog.clockTicks());
+        pilot.navigate(new FlightDynamics.State(source.position(), ZERO), source.orientation());
+        session.surface = null;
+        if (transfer.ascending()) {
+            player.getPersistentData().remove(RECOVERY);
+            session.surfaceCommitted = true;
+        }
+        finishApproach(catalog, player, session, reason);
+    }
+
+    private void sendSurface(ServerPlayer player, Session session) {
+        long clockTicks = ExplorationCatalog.get(server).clockTicks();
+        SurfaceDefinition ground = SurfaceWorlds.definition(player.serverLevel().dimension()).orElse(null);
+        SurfaceTransfer transfer = session == null ? null : session.surface;
+        SurfacePayload payload;
+        if (transfer != null) {
+            SurfacePayload.Phase phase = !transfer.prepared() ? SurfacePayload.Phase.PREPARING
+                    : transfer.ascending() ? SurfacePayload.Phase.ASCENDING : SurfacePayload.Phase.DESCENDING;
+            payload = new SurfacePayload(transfer.definition().bodyId(), clockTicks, phase, transfer.remainingTicks());
+        } else if (ground != null) {
+            payload = new SurfacePayload(ground.bodyId(), clockTicks, SurfacePayload.Phase.SURFACE, 0);
+        } else {
+            payload = new SurfacePayload("", clockTicks, SurfacePayload.Phase.NONE, 0);
+        }
+        PacketDistributor.sendToPlayer(player, payload);
+    }
+
     private static CosmosSystem currentSystem(ExplorationCatalog catalog, ExplorationCatalog.Pilot pilot,
             Session session) {
         if (session.system == null || !session.system.id().equals(pilot.systemId())) {
@@ -327,7 +522,18 @@ public final class RocketService implements AutoCloseable {
         sentCustomIds.remove(player.getUUID());
         ExplorationCatalog catalog = ExplorationCatalog.get(server);
         catalog.revealNeighbors(catalog.player(player.getUUID()));
-        if (isFlightWorld(player)) { Point.load(player.getPersistentData().getCompound(RECOVERY), server).teleport(player, server); }
+        if (isFlightWorld(player)
+                && !Point.load(player.getPersistentData().getCompound(RECOVERY), server).teleport(player, server)) {
+            int attempts = recoveryAttempts.merge(player.getUUID(), 1, Integer::sum);
+            if (attempts == 1) { message(player, "preparing"); }
+            if (attempts == 12) {
+                Point source = Point.load(player.getPersistentData().getCompound(RECOVERY), server);
+                PreparedPlayerReturn.release(server, player.getUUID(), source.dimension(), source.position());
+                message(player, "surface_failed");
+            }
+            send(player, null); return;
+        }
+        recoveryAttempts.remove(player.getUUID());
         player.getPersistentData().remove(RECOVERY);
         send(player, null);
     }
@@ -335,8 +541,16 @@ public final class RocketService implements AutoCloseable {
     /** Releases runtime tickets on logout. The persisted recovery point remains for the next login. */
     public void disconnect(ServerPlayer player) {
         Session session = sessions.remove(player.getUUID());
-        if (session != null && session.approach != null) { stopApproachMotion(player.getUUID()); }
+        if (session != null && (session.approach != null || session.surface != null)) { stopApproachMotion(player.getUUID()); }
+        if (session != null && session.surface != null) { session.surface.release(server, player.getUUID()); }
+        if (session != null) {
+            PreparedPlayerReturn.release(server, player.getUUID(), session.source.dimension(), session.source.position());
+        } else if (recoveryAttempts.containsKey(player.getUUID())) {
+            Point source = Point.load(player.getPersistentData().getCompound(RECOVERY), server);
+            PreparedPlayerReturn.release(server, player.getUUID(), source.dimension(), source.position());
+        }
         lastAction.remove(player.getUUID()); release(player.getUUID());
+        recoveryAttempts.remove(player.getUUID());
         sentCustomIds.remove(player.getUUID());
     }
 
@@ -358,12 +572,17 @@ public final class RocketService implements AutoCloseable {
                 pilot.systemId(), pilot.position(), pilot.velocity(), active, pilot.speedMetersPerSecond(), pilot.orientation(),
                 active ? session.jumpTicks : 0, target, pilot.discoveredSystems(), pilot.visitedSystems(), pilot.revision(),
                 active ? session.controls.navigationEpoch() : 0));
+        sendSurface(player, session);
     }
 
-    private void stop(ServerPlayer player, Session session, boolean restore) {
-        if (session.approach != null) { stopApproachMotion(player.getUUID()); }
-        if (restore && session.entered && isFlightWorld(player) && player.isAlive()) { session.source.teleport(player, server); }
+    private boolean stop(ServerPlayer player, Session session, boolean restore) {
+        if (restore && session.entered && isFlightWorld(player) && player.isAlive()
+                && !session.source.teleport(player, server)) { return false; }
+        if (session.approach != null || session.surface != null) { stopApproachMotion(player.getUUID()); }
+        if (session.surface != null) { session.surface.release(server, player.getUUID()); }
         player.getPersistentData().remove(RECOVERY); release(player.getUUID());
+        PreparedPlayerReturn.release(server, player.getUUID(), session.source.dimension(), session.source.position());
+        return true;
     }
 
     private static void initializeLanding(ServerLevel level, ExplorationCatalog catalog) {
@@ -393,14 +612,23 @@ public final class RocketService implements AutoCloseable {
     @Override
     public void close() {
         sessions.forEach((id, session) -> {
-            if (session.approach != null) { stopApproachMotion(id); }
+            if (session.approach != null || session.surface != null) { stopApproachMotion(id); }
+            if (session.surface != null) { session.surface.release(server, id); }
+            PreparedPlayerReturn.release(server, id, session.source.dimension(), session.source.position());
             release(id);
         });
-        sessions.clear(); lastAction.clear(); sentCustomIds.clear();
+        for (UUID id : recoveryAttempts.keySet()) {
+            ServerPlayer player = server.getPlayerList().getPlayer(id);
+            if (player != null) {
+                Point source = Point.load(player.getPersistentData().getCompound(RECOVERY), server);
+                PreparedPlayerReturn.release(server, id, source.dimension(), source.position());
+            }
+        }
+        sessions.clear(); lastAction.clear(); sentCustomIds.clear(); recoveryAttempts.clear();
     }
 
     private static final class Session {
-        private final Point source;
+        private Point source;
         private CosmosSystem system;
         private List<CosmosSystem> charted = List.of();
         private int age;
@@ -408,6 +636,11 @@ public final class RocketService implements AutoCloseable {
         private final FlightInputWindow controls = new FlightInputWindow();
         private FlightDynamics.Input input;
         private BodyApproach approach;
+        private SurfaceDefinition takeoff;
+        private SurfaceTransfer surface;
+        private boolean surfaceCommitted;
+        private boolean returnRequested;
+        private int returnTicks;
         private int approachTicks;
         private int jumpTicks;
         private String jumpTarget = "";
@@ -442,11 +675,10 @@ public final class RocketService implements AutoCloseable {
             }
             return new Point(Level.OVERWORLD, Vec3.atBottomCenterOf(server.overworld().getSharedSpawnPos()), 0, 0);
         }
-        void teleport(ServerPlayer player, MinecraftServer server) {
+        boolean teleport(ServerPlayer player, MinecraftServer server) {
             ServerLevel level = server.getLevel(dimension);
-            if (level == null) { Point.load(new CompoundTag(), server).teleport(player, server); return; }
-            player.teleportTo(level, position.x, position.y, position.z, Set.of(), yaw, pitch);
-            player.setDeltaMovement(Vec3.ZERO); player.fallDistance = 0;
+            if (level == null) { return Point.load(new CompoundTag(), server).teleport(player, server); }
+            return PreparedPlayerReturn.attempt(server, player, dimension, position, yaw, pitch);
         }
     }
 }

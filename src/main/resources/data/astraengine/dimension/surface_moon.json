@@ -1,0 +1,13 @@
+{
+  "type": "astraengine:surface_moon",
+  "generator": {
+    "type": "astraengine:surface_patch",
+    "body": "moon",
+    "geography_version": 1,
+    "seed": 1297043278,
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "astraengine:surface_moon"
+    }
+  }
+}

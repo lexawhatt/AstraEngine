@@ -23,7 +23,9 @@ public final class SolarEvolutionService {
 
     /** Advances only for living Overworld observers or actual Rocket occupants whose current system is Sol. */
     public void tick() {
-        boolean occupied = server.overworld().players().stream().anyMatch(ServerPlayer::isAlive);
+        boolean occupied = server.getPlayerList().getPlayers().stream().anyMatch(player -> player.isAlive()
+                && (player.serverLevel() == server.overworld()
+                    || SurfaceWorlds.definition(player.serverLevel().dimension()).isPresent()));
         if (!occupied && rocket != null) {
             ExplorationCatalog catalog = ExplorationCatalog.get(server);
             occupied = server.getPlayerList().getPlayers().stream().anyMatch(player -> player.isAlive()

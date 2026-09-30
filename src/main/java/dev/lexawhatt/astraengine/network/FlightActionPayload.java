@@ -16,14 +16,16 @@ public record FlightActionPayload(Action action, String target) implements Custo
             FlightActionPayload::write, FlightActionPayload::read);
 
     /** Bounded presentation-navigation operations available to the requesting player. */
-    public enum Action { TOGGLE, SCAN, JUMP_SYSTEM, APPROACH_BODY, SPEED_UP, SPEED_DOWN, BRAKE, CHART_ATLAS }
+    public enum Action { TOGGLE, SCAN, JUMP_SYSTEM, APPROACH_BODY, SPEED_UP, SPEED_DOWN, BRAKE, CHART_ATLAS,
+        LAND_BODY, TAKE_OFF }
 
     public FlightActionPayload {
         if (action == null || target == null || target.length() > 64
                 || !target.matches("[a-z0-9_.:-]*")
                 || action == Action.JUMP_SYSTEM && !CosmosIds.isKnownId(target)
                 || action == Action.CHART_ATLAS && !UniverseGenerator.isAtlasSystemId(target)
-                || action == Action.APPROACH_BODY && !target.matches("[a-z0-9_-]{1,64}")) {
+                || (action == Action.APPROACH_BODY || action == Action.LAND_BODY)
+                        && !target.matches("[a-z0-9_-]{1,64}")) {
             throw new IllegalArgumentException("Invalid flight action target");
         }
     }

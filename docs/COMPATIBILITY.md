@@ -16,6 +16,7 @@ combinations or shader packs.
 | Overworld sky, clouds, fog and lightmap | Astra's automatic seasonal atmosphere, or the selected preview | The pack owns these effects, even with a forced Astra environment |
 | Opaque-world lights, flashlight, profile darkness and profile post-processing | Ordinary Astra lighting path | Disabled; the pack owns terrain lighting and post-processing |
 | Rocket cosmos and selected resource-profile skies | Ordinary celestial stage | Composited after the pack in non-Overworld dimensions, only into clear-depth sky pixels |
+| Bound Moon/Earth surface skies | Shared orbital frame, atmosphere and visual skylight correction | Late celestial sky composition; pack retains terrain lighting and fog |
 | Consumer ship visuals and eligible local editor shapes | Analytic depth before Astra opaque lighting | Depth-aware overlays after pack composition |
 | Ship GUI preview and picking | Engine preview and conservative picking | Engine preview and conservative picking |
 | User-compiled GLSL editor effect | Explicitly enabled final effect | Explicitly enabled final effect, after pack composition |
@@ -27,6 +28,12 @@ length and lighting may therefore differ from Astra's saved astronomical state.
 Turning shaders off restores the Astra sky at the current state; it does not
 reset the date or stellar event. These ownership choices apply to actual active
 pack state, including after toggling, reload and dimension changes.
+
+The first [Moon/Earth patches](SURFACE_TRAVEL.md) use the same depth-preserving
+late sky boundary. Their land/depart/return and persisted restart scenarios pass
+with the stable Iris/add-on row and Complementary r5.9.3. This does not synchronize
+the pack's terrain light or fog with the surface's orbital Sun, and it adds no
+pack shadow, weather or cloud integration.
 
 In the Overworld, forcing `environment space`, `environment planet` or a named
 resource profile does not replace an active pack's sky. Selected late resource

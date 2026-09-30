@@ -13,6 +13,9 @@ import dev.lexawhatt.astraengine.network.SolarReceivedEvent;
 import dev.lexawhatt.astraengine.network.SkyProfilePayload;
 import dev.lexawhatt.astraengine.network.SkyProfileReceivedEvent;
 import dev.lexawhatt.astraengine.network.SystemPayload;
+import dev.lexawhatt.astraengine.network.SurfacePayload;
+import dev.lexawhatt.astraengine.network.SurfaceReceivedEvent;
+import dev.lexawhatt.astraengine.worldgen.SurfaceWorldgen;
 import dev.lexawhatt.astraengine.network.SystemSnapshotReceivedEvent;
 import dev.lexawhatt.astraengine.server.EngineRuntime;
 import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
@@ -36,6 +39,7 @@ public final class AstraEngine {
         modEventBus.addListener(this::onCommonSetup);
         modEventBus.addListener(this::registerPayloads);
         ArchivedConstruction.register(modEventBus);
+        SurfaceWorldgen.register(modEventBus);
         runtime = new EngineRuntime();
     }
 
@@ -51,7 +55,9 @@ public final class AstraEngine {
         event.registrar("1").playToClient(SkyProfilePayload.TYPE, SkyProfilePayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SkyProfileReceivedEvent(payload)));
         // PayloadRegistrar defaults to MAIN: both request handlers run on the owning logical-server thread.
-        event.registrar("4").playToServer(FlightActionPayload.TYPE, FlightActionPayload.CODEC, (payload, context) -> {
+        event.registrar("1").playToClient(SurfacePayload.TYPE, SurfacePayload.CODEC,
+                (payload, context) -> NeoForge.EVENT_BUS.post(new SurfaceReceivedEvent(payload)));
+        event.registrar("5").playToServer(FlightActionPayload.TYPE, FlightActionPayload.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) { runtime.flightAction(player, payload); }
         });
         event.registrar("3").playToServer(FlightControlPayload.TYPE, FlightControlPayload.CODEC, (payload, context) -> {

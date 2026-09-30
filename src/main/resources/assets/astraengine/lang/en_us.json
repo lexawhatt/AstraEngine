@@ -139,6 +139,7 @@
   "astraengine.map.you": "YOU",
   "astraengine.map.scale": "Grid: %s",
   "astraengine.rocket.unavailable": "Rocket mode is unavailable during travel, sleep, mounting, or death.",
+  "astraengine.rocket.source_unavailable": "Flight requires a loaded, dry, clear standing space inside this world's height and border limits.",
   "astraengine.rocket.missing_world": "The flight world is unavailable.",
   "astraengine.rocket.preparing": "Preparing Rocket mode...",
   "astraengine.rocket.failed": "Flight preparation failed; your location was retained.",
@@ -232,5 +233,13 @@
   "astraengine.compat.render.not_installed": "not installed",
   "astraengine.compat.render.yes": "yes",
   "astraengine.compat.render.no": "no",
-  "astraengine.compat.render.incompatible_detail": "Custom Astra world passes are suppressed because the installed Iris API could not be used: %s. See the log and install a supported Iris version. Shader settings were not changed."
+  "astraengine.compat.render.incompatible_detail": "Custom Astra world passes are suppressed because the installed Iris API could not be used: %s. See the log and install a supported Iris version. Shader settings were not changed.",
+  "key.astraengine.flight.land": "Land on selected body",
+  "astraengine.rocket.surface_unavailable": "Takeoff requires an unobstructed position above ground in a supported surface patch.",
+  "astraengine.rocket.surface_approach_first": "Approach the Moon or Earth before landing on its surface patch.",
+  "astraengine.rocket.surface_preparing": "Preparing the persistent surface...",
+  "astraengine.rocket.surface_failed": "Surface transfer could not complete. Your safe source position was retained.",
+  "astraengine.rocket.surface_cancelled": "Surface transfer cancelled.",
+  "astraengine.rocket.surface_arrived": "Surface reached. Press R to depart.",
+  "astraengine.rocket.surface_departed": "Departure complete. Free flight restored."
 }

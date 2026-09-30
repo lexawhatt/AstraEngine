@@ -2,11 +2,14 @@ package dev.lexawhatt.astraengine.client.flight;
 
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.lexawhatt.astraengine.client.render.CosmosRenderer;
 import dev.lexawhatt.astraengine.client.render.RenderOptions;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
+import dev.lexawhatt.astraengine.client.surface.SurfaceStateClient;
+import dev.lexawhatt.astraengine.client.surface.SurfaceSkyRenderer;
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
 import dev.lexawhatt.astraengine.cosmos.CosmosIds;
@@ -19,6 +22,8 @@ import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.cosmos.UniverseGenerator;
 import dev.lexawhatt.astraengine.network.ExplorationPayload;
 import dev.lexawhatt.astraengine.network.ExplorationReceivedEvent;
+import dev.lexawhatt.astraengine.network.SurfaceReceivedEvent;
+import dev.lexawhatt.astraengine.network.SurfacePayload;
 import dev.lexawhatt.astraengine.network.CustomSystemsReceivedEvent;
 import dev.lexawhatt.astraengine.network.FlightActionPayload;
 import dev.lexawhatt.astraengine.network.FlightControlPayload;
@@ -61,10 +66,12 @@ public final class RocketController {
     private final CosmosRenderer renderer = new CosmosRenderer();
     private final RenderOptions options;
     private final SolarStateClient solar;
+    private final SurfaceStateClient surface = new SurfaceStateClient();
     private final KeyMapping toggle = key("toggle", GLFW.GLFW_KEY_R);
     private final KeyMapping map = key("map", GLFW.GLFW_KEY_M);
     private final KeyMapping scan = key("scan", GLFW.GLFW_KEY_C);
     private final KeyMapping brake = key("brake", GLFW.GLFW_KEY_B);
+    private final KeyMapping land = key("land", GLFW.GLFW_KEY_L);
     private final KeyMapping rollLeft = key("roll_left", GLFW.GLFW_KEY_Q);
     private final KeyMapping rollRight = key("roll_right", GLFW.GLFW_KEY_E);
     private final KeyMapping faster = key("faster", GLFW.GLFW_KEY_EQUAL);
@@ -114,7 +121,14 @@ public final class RocketController {
     public void registerKeys(RegisterKeyMappingsEvent event) {
         event.register(toggle); event.register(map); event.register(scan); event.register(brake);
         event.register(rollLeft); event.register(rollRight); event.register(faster); event.register(slower);
+        event.register(land);
     }
+
+    /** Shared connection-scoped surface context for the registered fixed-dimension effects. */
+    public SurfaceStateClient surfaceState() { return surface; }
+
+    /** Receives authoritative handoff progress; it never transfers the local player. */
+    public void receiveSurface(SurfaceReceivedEvent event) { surface.receive(event); }
 
     public void registerShaders(RegisterShadersEvent event) {
         pendingYawDegrees = 0; pendingPitchDegrees = 0;
@@ -348,7 +362,13 @@ public final class RocketController {
     public void tick(ClientTickEvent.Post event) {
         if (!pendingAtlasTarget.isEmpty() && --pendingAtlasTicks <= 0) { pendingAtlasTarget = ""; }
         while (toggle.consumeClick()) {
-            if (minecraft.screen == null) { action(FlightActionPayload.Action.TOGGLE, ""); }
+            if (minecraft.screen == null) {
+                action(surface.definition(minecraft.level) != null
+                        ? FlightActionPayload.Action.TAKE_OFF : FlightActionPayload.Action.TOGGLE, "");
+            }
+        }
+        while (land.consumeClick()) {
+            if (active() && minecraft.screen == null) { action(FlightActionPayload.Action.LAND_BODY, targetBody); }
         }
         while (map.consumeClick()) { if (minecraft.screen == null) { mapRequested = true; } }
         while (scan.consumeClick()) { if (minecraft.screen == null) { action(FlightActionPayload.Action.SCAN, ""); } }
@@ -406,7 +426,12 @@ public final class RocketController {
         return minecraft.screen == null && minecraft.getOverlay() == null && minecraft.isWindowActive();
     }
 
-    private boolean automaticCamera() { return snapshot != null && (snapshot.approaching() || finishingGuidance); }
+    private boolean automaticCamera() {
+        SurfacePayload context = surface.snapshot();
+        boolean surfaceRoute = context != null && (context.phase() == SurfacePayload.Phase.PREPARING
+                || context.phase() == SurfacePayload.Phase.DESCENDING || context.phase() == SurfacePayload.Phase.ASCENDING);
+        return snapshot != null && (snapshot.approaching() || finishingGuidance || surfaceRoute);
+    }
 
     /** Reads host-accepted movement before MouseHandler consumes it, preserving its cursor-recenter suppression. */
     public void mouseTurn(CalculatePlayerTurnEvent event) {
@@ -442,15 +467,17 @@ public final class RocketController {
         event.setYaw(yaw()); event.setPitch(pitch()); event.setRoll(roll());
     }
 
-    /** Consume conflicting host actions after key dispatch, so Q/E cannot drop items or open inventory in flight. */
+    /** Flight bindings own Q/E and L without dropping items, opening inventory or opening advancements. */
     public void keyInput(InputEvent.Key event) {
         if (!active() || !controlsAvailable()
                 || (!rollLeft.matches(event.getKey(), event.getScanCode())
-                    && !rollRight.matches(event.getKey(), event.getScanCode()))) { return; }
-        for (KeyMapping host : new KeyMapping[] {minecraft.options.keyDrop, minecraft.options.keyInventory}) {
+                    && !rollRight.matches(event.getKey(), event.getScanCode())
+                    && !land.matches(event.getKey(), event.getScanCode()))) { return; }
+        for (KeyMapping host : new KeyMapping[] {minecraft.options.keyDrop, minecraft.options.keyInventory,
+                minecraft.options.keyAdvancements}) {
             if (host.matches(event.getKey(), event.getScanCode())) {
                 host.setDown(false);
-                while (host.consumeClick()) { /* The roll key exclusively owns this flight action. */ }
+                while (host.consumeClick()) { /* The flight binding owns this action in the active flight context. */ }
             }
         }
     }
@@ -478,13 +505,18 @@ public final class RocketController {
 
     /** Flight sky uses its own physical-scale scene and does not depend on the chunk far plane. */
     public void render(RenderLevelStageEvent event) {
-        if (!active() || RenderCompatibility.shadowPass()) { return; }
+        var ground = surface.definition(minecraft.level);
+        if ((!active() && ground == null) || RenderCompatibility.shadowPass()) { return; }
         var stage = RenderCompatibility.lateWorldPasses()
                 ? RenderLevelStageEvent.Stage.AFTER_LEVEL : RenderLevelStageEvent.Stage.AFTER_SKY;
         if (event.getStage() != stage) { return; }
         renderer.setQuality(options.quality().ordinal());
-        renderer.setGalaxySeed(snapshot.galaxySeed());
+        renderer.setGalaxySeed(snapshot == null ? 0 : snapshot.galaxySeed());
         renderer.setSolarVisual(solar.visual());
+        if (ground != null) {
+            SurfaceSkyRenderer.render(event, renderer, CosmosGenerator.sol(), ground, surface.clockTicks(), exposure());
+            return;
+        }
         Matrix4f view = new Matrix4f(event.getModelViewMatrix()).setTranslation(0, 0, 0);
         viewProjection = new Matrix4f(event.getProjectionMatrix()).mul(view);
         float warp = snapshot.interstellarJump() ? (float) Math.sin(Math.PI * (1 - snapshot.jumpTicks() / 80.0)) : 0;
@@ -567,6 +599,17 @@ public final class RocketController {
     public void registerCommands(RegisterClientCommandsEvent event) {
         event.getDispatcher().register(Commands.literal("astra-flight")
                 .executes(context -> { action(FlightActionPayload.Action.TOGGLE, ""); return 1; })
+                .then(Commands.literal("takeoff").executes(context -> {
+                    action(FlightActionPayload.Action.TAKE_OFF, ""); return 1;
+                }))
+                .then(Commands.literal("land").executes(context -> {
+                    action(FlightActionPayload.Action.LAND_BODY, targetBody); return 1;
+                }).then(Commands.argument("body", StringArgumentType.word())
+                        .suggests((context, builder) -> builder.suggest("moon").suggest("earth").buildFuture())
+                        .executes(context -> {
+                            action(FlightActionPayload.Action.LAND_BODY, StringArgumentType.getString(context, "body"));
+                            return 1;
+                        })))
                 .then(Commands.literal("map").executes(context -> { mapRequested = true; return 1; }))
                 .then(Commands.literal("atlas").executes(context -> { atlasRequested = true; return 1; }))
                 .then(Commands.literal("scan").executes(context -> { action(FlightActionPayload.Action.SCAN, ""); return 1; }))
@@ -592,6 +635,7 @@ public final class RocketController {
     }
 
     public void logout(ClientPlayerNetworkEvent.LoggingOut event) {
+        surface.clear();
         restoreCamera(); snapshot = null; systems.clear(); customSystems = Map.of(); previousPosition = SpaceVector.ZERO;
         targetSystem = ""; targetGalaxy = false; pendingAtlasTarget = ""; pendingAtlasTicks = 0; atlasRequested = false;
         galaxyAtlas = List.of(); targetGalaxyIndex = 0;

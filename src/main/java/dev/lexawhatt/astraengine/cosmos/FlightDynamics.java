@@ -197,6 +197,24 @@ public final class FlightDynamics {
 
     static boolean clearSegment(SpaceVector start, SpaceVector end, List<CelestialBody> bodies,
             double startSeconds, double endSeconds, double curveAllowance) {
+        return clearSegment(start, end, bodies, startSeconds, endSeconds, curveAllowance, null);
+    }
+
+    /**
+     * Tests all moving envelopes except the authorized landing body, retaining the full parent graph.
+     * Only a prepared surface-route owner may bypass that body's ordinary free-flight envelope.
+     */
+    public static boolean clearSurfaceSegment(SpaceVector start, SpaceVector end, List<CelestialBody> bodies,
+            double startSeconds, double endSeconds, String landingBodyId) {
+        if (landingBodyId == null || bodies == null
+                || bodies.stream().noneMatch(body -> body.id().equals(landingBodyId))) {
+            throw new IllegalArgumentException("Landing collision exclusion requires a member body");
+        }
+        return clearSegment(start, end, bodies, startSeconds, endSeconds, 0, landingBodyId);
+    }
+
+    private static boolean clearSegment(SpaceVector start, SpaceVector end, List<CelestialBody> bodies,
+            double startSeconds, double endSeconds, double curveAllowance, String landingBodyId) {
         if (start == null || end == null || bodies == null || bodies.size() > CosmosSystem.MAX_BODIES
                 || !Double.isFinite(startSeconds) || !Double.isFinite(endSeconds)
                 || !Double.isFinite(curveAllowance) || curveAllowance < 0
@@ -206,6 +224,7 @@ public final class FlightDynamics {
         }
         double seconds = endSeconds - startSeconds;
         for (CelestialBody body : bodies) {
+            if (body.id().equals(landingBodyId)) { continue; }
             SpaceVector relativeStart = start.subtract(CelestialOrbits.positionAt(bodies, body, startSeconds));
             SpaceVector relativeEnd = end.subtract(CelestialOrbits.positionAt(bodies, body, endSeconds));
             SpaceVector relativeMotion = relativeEnd.subtract(relativeStart);

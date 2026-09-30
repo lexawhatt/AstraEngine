@@ -3,9 +3,10 @@
 A Minecraft 1.21.1 mod for NeoForge. Author: **lexawhatt**.
 
 AstraEngine manages stellar system state, persistent worlds, and shader-rendered
-space. The player stays in a local void: stars, planets, and black holes exist
-only in GLSL. Builds and arrival platforms use real blocks. SolarTech will be a
-separate API consumer providing machinery, an energy economy, and progression.
+space. Interplanetary flight uses a local void and shader-rendered celestial bodies.
+Builds, arrival platforms, and the first Moon/Earth surface patches use real blocks.
+SolarTech will be a separate API consumer providing machinery, an energy economy,
+and progression.
 
 [Engine and consumer-mod boundaries](docs/ENGINE_SCOPE.md): AstraEngine also
 owns server-side navigation, safe travel, and persistence; fuel, machinery, and
@@ -24,6 +25,15 @@ reload and restart.
 64 custom systems with 1-64 bodies each, within a 900-KiB aggregate descriptor
 synchronization budget. Parent-relative orbits support authored moons. These are astronomical descriptors;
 planetary terrain and landing require a separate world integration.
+
+## Planetary surfaces
+
+Approach **Moon** or **Earth** on the map, then press **L** to land on its permanent
+surface patch. Walk and build with real blocks; **R** departs, and **B** cancels a
+guided transfer. These are bounded local worlds, with shared orbital/voxel geography,
+not whole-globe traversal. Existing Overworld is preserved.
+
+[Arrival controls, persistence and current limits](docs/SURFACE_TRAVEL.md).
 
 ## Consumer ship rendering
 
@@ -263,6 +273,22 @@ The first command tests the pure model. The second runs GameTestServer checks
 for NBT, the network format, and pausing empty systems on the server.
 Minecraft 1.21.1's built-in GameTestServer does not include datapack dimensions
 when creating its world; a separate client scenario checks travel and block persistence.
+
+For the Moon/Earth surface scenario, create a disposable world and then reopen
+the same directory to verify retained terrain, markers, bindings and departure:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-surfaces -PverifyPhase=surface-create
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-surfaces -PverifyPhase=surface-restart
+```
+
+Use separate fresh directories for `surface-cancel`, `surface-failures` and
+`surface-boundaries`. They exercise a real host dimension veto, obstructed return,
+death during descent, invalid source positions, an edited landing quarry, and
+the landing key's ownership over vanilla advancements. Run `surface-interrupt`
+followed by `surface-recover` in another shared directory to check interrupted
+flight recovery. `-PverifyGraphics=fabulous` selects the alternate native path;
+optional mod and shader-pack files belong only in that test directory.
 
 The automated game scenario opens a separate Minecraft window. Use a fresh
 directory for a new run (the first phase refuses to overwrite an existing world):

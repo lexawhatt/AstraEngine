@@ -1,6 +1,7 @@
 package dev.lexawhatt.astraengine.client.render;
 
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
+import com.mojang.blaze3d.systems.RenderSystem;
 import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.client.solar.SolarVisual;
@@ -10,6 +11,8 @@ import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
 import dev.lexawhatt.astraengine.cosmos.GalaxyDescriptor;
 import dev.lexawhatt.astraengine.cosmos.UniverseGenerator;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
+import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
+import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +22,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 /**
  * Bounded analytic astronomical sky. Coordinates use system-local meters on the CPU;
@@ -117,6 +121,24 @@ public final class CosmosRenderer implements AutoCloseable {
      */
     public void render(RenderLevelStageEvent event, CosmosSystem system, SpaceVector cameraMeters,
                        double timeSeconds, float warp, float exposure) {
+        renderFrame(event, system, cameraMeters, timeSeconds, warp, exposure, FlightOrientation.IDENTITY, false);
+    }
+
+    /**
+     * Draws a planet-fixed ground sky through the same owned HDR pipeline as flight.
+     * The immutable orientation maps Minecraft local east/up/south directions into system space;
+     * observer meters and time are derived from the authoritative surface binding and clock.
+     * Real terrain retains its depth and occludes the distant curved planet.
+     */
+    public void renderSurface(RenderLevelStageEvent event, CosmosSystem system, SpaceVector cameraMeters,
+                              double timeSeconds, float exposure, FlightOrientation localToSystem) {
+        if (localToSystem == null) { throw new IllegalArgumentException("Surface orientation must not be null"); }
+        renderFrame(event, system, cameraMeters, timeSeconds, 0, exposure, localToSystem, true);
+    }
+
+    private void renderFrame(RenderLevelStageEvent event, CosmosSystem system, SpaceVector cameraMeters,
+                             double timeSeconds, float warp, float exposure, FlightOrientation localToSystem,
+                             boolean surfaceView) {
         if (RenderCompatibility.shadowPass()) { return; }
         boolean late = RenderCompatibility.lateWorldPasses();
         var stage = late ? RenderLevelStageEvent.Stage.AFTER_LEVEL : RenderLevelStageEvent.Stage.AFTER_SKY;
@@ -126,7 +148,14 @@ public final class CosmosRenderer implements AutoCloseable {
             throw new IllegalArgumentException("Cosmos rendering requires a finite camera and presentation state");
         }
         Matrix4f view = new Matrix4f(event.getModelViewMatrix()).setTranslation(0, 0, 0);
-        shader.safeGetUniform("InverseViewProjection").set(new Matrix4f(event.getProjectionMatrix()).mul(view).invert());
+        SpaceVector east = localToSystem.left();
+        SpaceVector up = localToSystem.up();
+        SpaceVector south = localToSystem.forward();
+        Matrix4f basis = new Matrix4f().setColumn(0, new Vector4f((float) east.x(), (float) east.y(), (float) east.z(), 0))
+                .setColumn(1, new Vector4f((float) up.x(), (float) up.y(), (float) up.z(), 0))
+                .setColumn(2, new Vector4f((float) south.x(), (float) south.y(), (float) south.z(), 0));
+        shader.safeGetUniform("InverseViewProjection").set(basis.mul(
+                new Matrix4f(event.getProjectionMatrix()).mul(view).invert()));
         shader.safeGetUniform("Time").set((float) (timeSeconds % 65536.0));
         shader.safeGetUniform("Seed").set((float) Math.floorMod(system.seed(), 4096));
         uploadUniverse(system, cameraMeters);
@@ -142,6 +171,7 @@ public final class CosmosRenderer implements AutoCloseable {
         shader.safeGetUniform("BodyCount").set(bodyCount);
         shader.safeGetUniform("LensIndex").set(celestialFrame.lensIndex());
         int evolutionIndex = -1;
+        int atmosphereIndex = -1;
         int nucleusIndex = -1;
         boolean atlasNucleus = UniverseGenerator.isAtlasSystemId(system.id()) && system.id().endsWith("_0");
         if (atlasNucleus) {
@@ -152,6 +182,7 @@ public final class CosmosRenderer implements AutoCloseable {
         for (int i = 0; i < bodyCount; i++) {
             CelestialFrame.Body frame = frames.get(i);
             CelestialBody body = frame.descriptor();
+            SurfaceDefinition definition = SurfaceDefinition.find(system.id(), body.id()).orElse(null);
             if (system.id().equals("sol") && body.id().equals("sun")) { evolutionIndex = i; }
             if (atlasNucleus && body.id().equals("primary") && body.kind() == CelestialBody.Kind.BLACK_HOLE) {
                 nucleusIndex = i;
@@ -159,8 +190,17 @@ public final class CosmosRenderer implements AutoCloseable {
             SpaceVector color = body.color();
             SpaceVector light = lightDirection(system, frame.position(), body.id(), timeSeconds);
             float seed = Math.floorMod(body.id().hashCode() ^ (int) system.seed(), 1024);
+            float renderRadius = frame.radiusRatio();
+            if (definition != null && frame.distance() < body.radiusMeters() + 100_000) {
+                var fixed = definition.frame(system, timeSeconds, timeSeconds * 20);
+                SpaceVector bodyPoint = fixed.toBodyPoint(cameraMeters);
+                double height = bodyPoint.length() > 1 ? definition.geography().sample(bodyPoint).heightMeters() : 0;
+                if (body.atmosphere() > 0) { height = Math.max(0, height); }
+                double blend = Math.clamp((body.radiusMeters() + 100_000 - frame.distance()) / 90_000, 0, 1);
+                renderRadius = (float) ((body.radiusMeters() + height * blend) / frame.distance());
+            }
             shader.safeGetUniform("BodyDirectionRadius[" + i + "]").set((float) frame.direction().x(),
-                    (float) frame.direction().y(), (float) frame.direction().z(), frame.radiusRatio());
+                    (float) frame.direction().y(), (float) frame.direction().z(), renderRadius);
             shader.safeGetUniform("BodyDistanceRatio[" + i + "]").set(celestialFrame.distanceRatio(i));
             shader.safeGetUniform("BodyColorKind[" + i + "]").set((float) color.x(), (float) color.y(),
                     (float) color.z(), (float) body.kind().ordinal());
@@ -168,12 +208,30 @@ public final class CosmosRenderer implements AutoCloseable {
                     body.ringInnerRatio(), body.ringOuterRatio());
             shader.safeGetUniform("BodyLightTilt[" + i + "]").set((float) light.x(), (float) light.y(),
                     (float) light.z(), (float) body.axialTiltRadians());
+            shader.safeGetUniform("BodyGeography[" + i + "]").set(definition == null ? 0 : definition.geography().kind().ordinal() + 1,
+                    0, (float) body.radiusMeters(), 0);
+            shader.safeGetUniform("BodyGeographySeed[" + i + "]").set(
+                    definition == null ? 0 : definition.geography().shaderSeed());
+            if (definition != null && body.atmosphere() > 0) {
+                SpaceVector relativeKm = cameraMeters.subtract(frame.position()).multiply(0.001);
+                if (relativeKm.length() < body.radiusMeters() * 0.03) {
+                    atmosphereIndex = i;
+                    shader.safeGetUniform("AtmosphereObserver").set((float) relativeKm.x(), (float) relativeKm.y(),
+                            (float) relativeKm.z(), (float) (body.radiusMeters() * 0.001));
+                }
+            }
             // Rotation is an artistic material animation; only orbital positions are model state.
             double rotationSeconds = body.kind() == CelestialBody.Kind.GAS_GIANT ? 36000 : 86400;
-            shader.safeGetUniform("BodySpin[" + i + "]").set((float) ((timeSeconds % rotationSeconds)
-                    / rotationSeconds * Math.PI * 2));
+            shader.safeGetUniform("BodySpin[" + i + "]").set(definition == null
+                    ? (float) ((timeSeconds % rotationSeconds) / rotationSeconds * Math.PI * 2)
+                    : (float) definition.spinRadians(timeSeconds, timeSeconds * 20));
         }
         shader.safeGetUniform("EvolutionIndex").set(evolutionIndex);
+        shader.safeGetUniform("AtmosphereBodyIndex").set(atmosphereIndex);
+        shader.safeGetUniform("SurfaceHorizon").set((float) up.x(), (float) up.y(), (float) up.z(),
+                surfaceView && atmosphereIndex >= 0 && !late ? 1.0f : 0.0f);
+        float[] fog = RenderSystem.getShaderFogColor();
+        shader.safeGetUniform("SurfaceFog").set(fog[0], fog[1], fog[2]);
         shader.safeGetUniform("NucleusBodyIndex").set(nucleusIndex);
         if (late) {
             lateSky.render(() -> drawSky(exposure));

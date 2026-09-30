@@ -36,8 +36,9 @@ changes virtual coordinates and the celestial view. Landing, walking on a surfac
 and building require a real block world and a dedicated arrival process. Smooth
 approach alone does not create a planet surface.
 
-Currently, `alpha` and `beta` are the persistent building worlds; arbitrary
-procedural systems do not yet receive their own block worlds. The evolution model
+Persistent building worlds include `alpha`, `beta`, and the first bounded
+[Moon/Earth surface patches](SURFACE_TRAVEL.md). Arbitrary procedural systems
+do not yet receive their own block worlds. The evolution model
 and controlled solar cycle exist, but production energy economics, Hawking losses,
 and the white-hole finale are unfinished. These are intended responsibilities,
 not claims that every subsystem is complete.

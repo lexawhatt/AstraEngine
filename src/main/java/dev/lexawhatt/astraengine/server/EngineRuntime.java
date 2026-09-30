@@ -64,6 +64,8 @@ public final class EngineRuntime {
         server = event.getServer();
         SystemCatalog.get(server);
         ExplorationCatalog.get(server);
+        SurfaceBindings.get(server).validate(server);
+        SurfaceWorlds.maintainBorders(server);
         travel = new TravelService(server);
         rocket = new RocketService(server);
         solar = new SolarEvolutionService(server, rocket);
@@ -177,7 +179,8 @@ public final class EngineRuntime {
     /** Routes a decoded main-thread request only to the running server and excludes the other travel owner. */
     public void flightAction(ServerPlayer player, FlightActionPayload payload) {
         if (rocket == null || server == null || player.getServer() != server || !server.isSameThread()) { return; }
-        if (payload.action() == FlightActionPayload.Action.TOGGLE && !rocket.active(player)
+        if ((payload.action() == FlightActionPayload.Action.TOGGLE
+                || payload.action() == FlightActionPayload.Action.TAKE_OFF) && !rocket.active(player)
                 && travel != null && travel.busy(player)) {
             player.sendSystemMessage(Component.translatable("astraengine.rocket.unavailable"), true);
             return;

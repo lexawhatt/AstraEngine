@@ -2764,6 +2764,274 @@
         1,
         0
       ]
+    },
+    {
+      "name": "BodyGeography[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "BodyGeography[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "AtmosphereBodyIndex",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "AtmosphereObserver",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[0]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[1]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[2]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[3]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[4]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[5]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[6]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[7]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[8]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[9]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[10]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyGeographySeed[11]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "SurfaceHorizon",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "SurfaceFog",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        0
+      ]
     }
   ]
 }

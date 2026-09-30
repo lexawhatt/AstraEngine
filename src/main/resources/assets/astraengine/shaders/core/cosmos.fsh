@@ -36,6 +36,12 @@ uniform vec4 BodyColorKind[12];
 uniform vec4 BodySurface[12];
 uniform vec4 BodyLightTilt[12];
 uniform float BodySpin[12];
+uniform vec4 BodyGeography[12];
+uniform int BodyGeographySeed[12];
+uniform int AtmosphereBodyIndex;
+uniform vec4 AtmosphereObserver;
+uniform vec4 SurfaceHorizon;
+uniform vec3 SurfaceFog;
 
 in vec2 clipPosition;
 out vec4 fragColor;
@@ -79,6 +85,8 @@ float fbm(vec3 p) {
 #moj_import <astraengine:solar.glsl>
 #moj_import <astraengine:celestial_display.glsl>
 #moj_import <astraengine:black_hole.glsl>
+#moj_import <astraengine:planet_atmosphere.glsl>
+#moj_import <astraengine:surface_geography.glsl>
 
 // Face projection avoids the pole stretching of latitude/longitude star textures.
 vec3 starCoordinates(vec3 ray) {
@@ -123,18 +131,67 @@ vec3 surfaceCoordinates(vec3 n, float tilt, float spin) {
     return vec3(c * n.x + s * n.z, n.y, -s * n.x + c * n.z);
 }
 
+// Body-fixed albedo detail only: these frequencies never displace the surface,
+// change sea level, or substitute an independent continental map for the CPU geography.
+vec3 mappedEarthAlbedo(vec3 p, float height, uint seed, float footprint, float water) {
+    float broad = geographyNoise(p * 9.0, seed ^ 0x1D7Au);
+    float detail = 0.0;
+    float frequency = 37.0;
+    float weight = 0.58;
+    for (int octave = 0; octave < 3; octave++) {
+        float resolved = 1.0 - smoothstep(0.18, 0.75, footprint * frequency);
+        if (resolved > 0.001) {
+            detail += (geographyNoise(p * frequency, seed ^ (0xA219u + uint(octave) * 0x41u)) - 0.5)
+                    * weight * resolved;
+        }
+        frequency *= 3.05;
+        weight *= 0.52;
+    }
+    float variation = clamp(broad + detail * 0.85, 0.0, 1.0);
+    // Sand, vegetation and rock retain the pinned elevation ordering. Smooth
+    // optical transitions avoid drawn contour bands without moving the shoreline.
+    vec3 sand = mix(vec3(0.32, 0.25, 0.13), vec3(0.53, 0.44, 0.27), variation);
+    vec3 grass = mix(vec3(0.025, 0.072, 0.023), vec3(0.12, 0.21, 0.055), variation);
+    vec3 rock = mix(vec3(0.075, 0.09, 0.09), vec3(0.36, 0.29, 0.20), variation);
+    rock *= 0.92 + detail * 0.8;
+    vec3 land = mix(sand, grass, smoothstep(2.0, 4.0, height));
+    land = mix(land, rock, smoothstep(62.0, 74.0, height));
+    float polarWidth = max(0.00015, footprint * 0.65);
+    float ice = smoothstep(0.82 - polarWidth, 0.82 + polarWidth, abs(p.y));
+    vec3 snow = mix(vec3(0.48, 0.58, 0.65), vec3(0.84, 0.89, 0.91), variation);
+    land = mix(land, snow, ice);
+    float shelf = smoothstep(-22.0, -1.0, height);
+    vec3 ocean = mix(vec3(0.003, 0.016, 0.036), vec3(0.011, 0.071, 0.078), shelf);
+    ocean *= 0.96 + detail * 0.15;
+    return mix(land, ocean, water);
+}
+
 vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 parameters,
-                   float tilt, float spin) {
+                   float tilt, float spin, vec4 geography, uint geographySeed, float normalFootprint) {
     int kind = int(material.w + 0.5);
     vec3 p = surfaceCoordinates(n, tilt, spin);
     vec3 seed = vec3(parameters.x * 0.071, parameters.x * 0.027, 3.7);
     float diffuse = max(dot(n, light), 0.0);
     float day = smoothstep(-0.075, 0.15, dot(n, light));
-    float terrain = fbm(p * 3.5 + seed);
+    float terrain = geography.x > 0.5 ? 0.5 : fbm(p * 3.5 + seed);
     vec3 albedo = material.rgb;
     float water = 0.0;
     float clouds = 0.0;
-    if (kind == 3) {
+    if (geography.x > 0.5) {
+        int surfaceKind = int(geography.x + 0.5);
+        float height = geographyHeight(p, surfaceKind, geographySeed, normalFootprint);
+        float fineWeight = 1.0 - smoothstep(0.15, 0.8, normalFootprint * geography.z / 16.0);
+        float grain = fineWeight > 0.001 ? noise(p * (geography.z / 16.0)) : 0.5;
+        if (surfaceKind == 1) {
+            albedo = mix(vec3(0.23, 0.22, 0.205), vec3(0.39, 0.38, 0.36), smoothstep(-30.0, 35.0, height));
+        } else {
+            water = 1.0 - smoothstep(-0.3, 0.4, height);
+            albedo = mappedEarthAlbedo(p, height, geographySeed, normalFootprint, water);
+            // Local terrain/cloud ownership changes at handoff; the geographic map itself never scrolls.
+            clouds = 0.0;
+        }
+        albedo *= 1.0 + (grain - 0.5) * fineWeight * 0.28;
+    } else if (kind == 3) {
         float continents = fbm(p * 2.7 + seed);
         float coast = smoothstep(0.48, 0.515, continents);
         float mountains = smoothstep(0.58, 0.73, continents);
@@ -174,13 +231,13 @@ vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 paramet
     if (kind == 3) {
         float specular = pow(max(0.0, dot(reflect(-light, n), -viewRay)), 90.0);
         color += vec3(1.0, 0.82, 0.59) * specular * water * (1.0 - clouds) * day;
-        float city = pow(noise(p * 230.0 + seed), 22.0)
+        float city = geography.x > 0.5 ? 0.0 : pow(noise(p * 230.0 + seed), 22.0)
                    * smoothstep(0.515, 0.55, fbm(p * 2.7 + seed)) * (1.0 - day) * (1.0 - clouds);
         color += vec3(1.0, 0.57, 0.18) * city * 0.7;
     }
     float rim = pow(1.0 - max(dot(n, -viewRay), 0.0), 3.0);
     vec3 atmosphere = mix(vec3(1.0, 0.20, 0.025), vec3(0.12, 0.42, 1.0), day);
-    color += atmosphere * parameters.y * rim * (0.08 + day * 0.5);
+    color += atmosphere * parameters.y * rim * (0.08 + day * 0.5) * (geography.x > 0.5 ? 0.0 : 1.0);
     return color;
 }
 
@@ -236,7 +293,7 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
     float tilt = BodyLightTilt[index].w;
     int kind = int(material.w + 0.5);
     float along = dot(ray, center);
-    if (along <= 0.0 && radius <= 1.0) { return color; }
+    if (along <= 0.0 && radius <= 1.0 && index != AtmosphereBodyIndex) { return color; }
     float separation = length(center - ray * along);
     vec3 normal = vec3(0);
     float hit = sphereHit(ray, center, radius, normal);
@@ -291,8 +348,10 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
                * (1.0 - smoothstep(atmosphereRadius, atmosphereRadius + pixelAngle, separation));
     vec3 tangentNormal = normalize(ray * along - center + vec3(1e-12));
     float haloDay = smoothstep(-0.25, 0.25, dot(tangentNormal, light));
-    color += mix(vec3(0.25, 0.045, 0.005), vec3(0.035, 0.16, 0.46), haloDay)
-           * halo * parameters.y * (0.12 + haloDay);
+    if (index != AtmosphereBodyIndex) {
+        color += mix(vec3(0.25, 0.045, 0.005), vec3(0.035, 0.16, 0.46), haloDay)
+               * halo * parameters.y * (0.12 + haloDay);
+    }
     float ringHit;
     vec3 ringNormal = normalize(vec3(0.0, cos(tilt), sin(tilt)));
     vec4 ring = ringSurface(ray, center, radius, ringNormal, parameters.z, parameters.w,
@@ -301,10 +360,19 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
     ring.rgb *= solarGain;
     if (ring.a > 0.0 && (hit < 0.0 || ringHit > hit)) { color = mix(color, ring.rgb, ring.a); }
     if (hit > 0.0) {
-        vec3 surface = planetSurface(normal, ray, light, material, parameters, tilt, BodySpin[index]) * solarGain;
+        float normalFootprint = pixelAngle * max(hit, 1e-7)
+                / max(1e-8, radius * max(0.025, abs(dot(normal, -ray))));
+        vec3 surface = planetSurface(normal, ray, light, material, parameters, tilt, BodySpin[index],
+                BodyGeography[index], uint(BodyGeographySeed[index]), normalFootprint) * solarGain;
         color = mix(color, surface, discCoverage);
     }
     if (ring.a > 0.0 && hit > 0.0 && ringHit < hit) { color = mix(color, ring.rgb, ring.a); }
+    if (index == AtmosphereBodyIndex) {
+        color = planetaryAtmosphere(color, ray, AtmosphereObserver, light,
+                EvolutionIndex >= 0 ? SolarLight.x + SolarLight.y * 0.6 : 1.0,
+                hit > 0.0 ? 1.0 - discCoverage : 1.0,
+                EvolutionIndex >= 0 ? BodyDirectionRadius[EvolutionIndex].w : 0.00465);
+    }
     return color;
 }
 
@@ -358,6 +426,13 @@ void main() {
                 color = body(color, ray, i, pixelAngle);
             }
         }
+    }
+    if (SurfaceHorizon.w > 0.5) {
+        float elevation = dot(ray, SurfaceHorizon.xyz);
+        float haze = exp(-pow(elevation / 0.035, 2.0)) * 0.92;
+        float sunlight = EvolutionIndex >= 0 ? dot(ray, BodyDirectionRadius[EvolutionIndex].xyz) : -1.0;
+        haze *= 1.0 - smoothstep(0.9998, 0.99997, sunlight);
+        color = mix(color, celestialRadiance(SurfaceFog) / max(Exposure, 0.1), haze);
     }
     // Preserve linear radiance until the HDR bloom pipeline performs its single display transform.
     fragColor = vec4(HdrOutput == 1 ? max(color, vec3(0.0)) : celestialDisplay(color, Exposure), 1.0);

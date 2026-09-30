@@ -9,6 +9,7 @@ import dev.lexawhatt.astraengine.client.render.OverworldSkyRenderer;
 import dev.lexawhatt.astraengine.client.solar.AstralOverworldEffects;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarAudioController;
+import dev.lexawhatt.astraengine.client.surface.SurfaceEffects;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
 import dev.lexawhatt.astraengine.client.ship.ShipRenderer;
@@ -71,6 +72,16 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(options::registerCommands);
         NeoForge.EVENT_BUS.addListener(RenderCompatibility::registerCommands);
         RocketController rocket = new RocketController(options, solar);
+        NeoForge.EVENT_BUS.addListener(rocket::receiveSurface);
+        SurfaceEffects lunarEffects = new SurfaceEffects(rocket.surfaceState(), solar, false);
+        SurfaceEffects earthEffects = new SurfaceEffects(rocket.surfaceState(), solar, true);
+        NeoForge.EVENT_BUS.addListener(earthEffects::fogColor);
+        modEventBus.addListener((RegisterDimensionSpecialEffectsEvent event) -> {
+            event.register(ResourceLocation.fromNamespaceAndPath(AstraEngine.MOD_ID, "surface_moon"),
+                    lunarEffects);
+            event.register(ResourceLocation.fromNamespaceAndPath(AstraEngine.MOD_ID, "surface_earth"),
+                    earthEffects);
+        });
         SolarAudioController audio = new SolarAudioController(solar, rocket);
         NeoForge.EVENT_BUS.addListener(audio::tick);
         NeoForge.EVENT_BUS.addListener(audio::logout);

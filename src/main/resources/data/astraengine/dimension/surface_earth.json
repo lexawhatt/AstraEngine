@@ -1,0 +1,13 @@
+{
+  "type": "astraengine:surface_earth",
+  "generator": {
+    "type": "astraengine:surface_patch",
+    "body": "earth",
+    "geography_version": 1,
+    "seed": 1161908820,
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "astraengine:surface_earth"
+    }
+  }
+}

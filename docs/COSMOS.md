@@ -24,9 +24,10 @@ coordinates.
 5. **R** or **Leave Rocket mode** returns to the original location in the real world.
 
 These controls are available to ordinary players on an AstraEngine server.
-Planetary landing is not implemented: Approach body selects an observation point
-in shader space. This slice does not create block terrain, walkable surfaces,
-or structures on procedural planets.
+**Approach body** selects an observation point in shader space. Sol Moon and
+Earth additionally support **L** to enter their permanent bounded
+[surface patches](SURFACE_TRAVEL.md). Other procedural planets do not yet have
+walkable block worlds.
 
 ## Controls
 
@@ -352,11 +353,11 @@ the saved navigation record. An unreadable existing catalog is not replaced by
 an empty one.
 
 The shared orbital clock advances while at least one living player is in Rocket
-mode; it does not accumulate absent or offline time. This is a shared visual
-navigation clock, separate from each discovered system's resource evolution.
+mode or on a bound surface patch; it does not accumulate absent or offline time.
+This is a shared visual navigation clock, separate from each discovered system's resource evolution.
 Extraction and stage state in the [first-slice API](API.md) remain a separate
 contract. The diagnostic Sun state is stored in `data/astraengine_solar.dat`:
-its clock advances only with a living Overworld observer or an active Rocket
+its clock advances only with a living Overworld or Sol surface observer, or an active Rocket
 pilot in `sol`. Pilots in other systems can advance the orbital clock without
 advancing the solar supernova.
 
@@ -370,3 +371,10 @@ shader packs and performance on other hardware need separate verification.
 Related tools: [Overworld Sun and supernova](SOLAR_SKY.md),
 [lighting and environments](RENDERING.md), and
 [local scene and GLSL editors](EDITOR.md).
+
+## First surface bindings
+
+Sol Moon and Earth now have permanent bounded local patches, a shared geographic
+model and prepared landing/departure. See [surface travel](SURFACE_TRAVEL.md).
+Other celestial descriptors still do not create block worlds. This does not
+implement arbitrary whole-planet entry or closed planetary traversal.

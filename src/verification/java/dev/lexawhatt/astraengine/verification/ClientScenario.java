@@ -11,6 +11,8 @@ import dev.lexawhatt.astraengine.client.editor.ShaderEditorScreen;
 import dev.lexawhatt.astraengine.client.flight.CosmosMapScreen;
 import dev.lexawhatt.astraengine.client.flight.UniverseAtlasScreen;
 import dev.lexawhatt.astraengine.network.SystemSnapshotReceivedEvent;
+import dev.lexawhatt.astraengine.network.SurfacePayload;
+import dev.lexawhatt.astraengine.network.SurfaceReceivedEvent;
 import dev.lexawhatt.astraengine.server.SystemWorlds;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -22,7 +24,9 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.AccessibilityOnboardingScreen;
 import net.minecraft.client.gui.screens.BackupConfirmScreen;
+import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.client.gui.screens.TitleScreen;
+import net.minecraft.client.gui.screens.advancements.AdvancementsScreen;
 import net.minecraft.client.tutorial.TutorialSteps;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.CommonComponents;
@@ -78,16 +82,20 @@ public final class ClientScenario {
     private VolumetricScenario volumetricScenario;
     private RenderCompatibilityScenario renderCompatibilityScenario;
     private CelestialPolishScenario celestialPolishScenario;
+    private SurfaceScenario surfaceScenario;
+    private SurfacePayload latestSurface;
 
     public ClientScenario() {
         NeoForge.EVENT_BUS.addListener(this::tick);
         NeoForge.EVENT_BUS.addListener((SystemSnapshotReceivedEvent event) -> received = event.payload().snapshot());
+        NeoForge.EVENT_BUS.addListener((SurfaceReceivedEvent event) -> latestSurface = event.payload());
     }
 
     private void tick(ClientTickEvent.Post event) {
         if (finished) { return; }
         try {
-            require((System.nanoTime() - startedAt) < (phase.startsWith("seasonal") || phase.equals("volumetric")
+            require((System.nanoTime() - startedAt) < (phase.startsWith("surface-") ? 900_000_000_000L
+                    : phase.startsWith("seasonal") || phase.equals("volumetric")
                     || phase.equals("render-compat") || phase.equals("celestial-polish")
                     ? 600_000_000_000L : 240_000_000_000L),
                     "Native fixture timed out at step " + step);
@@ -108,17 +116,24 @@ public final class ClientScenario {
             if (opened && !experimentalConfirmationContinued
                     && (phase.equals("cosmos-restart") || phase.equals("solar-restart") || phase.equals("camera-restart")
                             || phase.equals("celestial-api-restart") || phase.equals("galactic-restart") || phase.equals("atlas-restart")
-                            || phase.equals("seasonal-restart"))
+                            || phase.equals("seasonal-restart") || phase.equals("surface-restart") || phase.equals("surface-recover")
+                            || phase.equals("surface-upgrade"))
                     && minecraft.player == null && minecraft.getOverlay() == null
                     && minecraft.screen instanceof BackupConfirmScreen screen
                     && screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
                 // This verification-only flow can reopen only its successfully completed disposable fixture.
                 Path fixture = minecraft.gameDirectory.toPath();
-                String scenario = phase.substring(0, phase.length() - "-restart".length());
-                require(Files.isRegularFile(fixture.resolve("verified-" + scenario + ".txt"))
-                                && Files.isRegularFile(fixture.resolve(scenario + "-checkpoint.properties"))
-                                && Files.isRegularFile(fixture.resolve("saves/first-slice/level.dat")),
-                        "Experimental confirmation is restricted to a completed verification world");
+                if (phase.equals("surface-upgrade")) {
+                    SurfaceScenario.upgradeManifest(fixture);
+                } else {
+                    String scenario = phase.equals("surface-recover") ? "surface-interrupt"
+                            : phase.substring(0, phase.length() - "-restart".length());
+                    String completedPhase = phase.equals("surface-restart") ? "surface-create" : scenario;
+                    require(Files.isRegularFile(fixture.resolve("verified-" + completedPhase + ".txt"))
+                                    && Files.isRegularFile(fixture.resolve(scenario + "-checkpoint.properties"))
+                                    && Files.isRegularFile(fixture.resolve("saves/first-slice/level.dat")),
+                            "Experimental confirmation is restricted to a completed verification world");
+                }
                 Button proceed = screen.children().stream().filter(Button.class::isInstance).map(Button.class::cast)
                         .filter(button -> button.getMessage().getString().equals(
                                 Component.translatable("selectWorld.backupJoinSkipButton").getString()))
@@ -152,14 +167,17 @@ public final class ClientScenario {
                         || phase.equals("celestial-api") || phase.equals("celestial-api-restart")
                         || phase.equals("galactic") || phase.equals("galactic-restart")
                         || phase.equals("atlas") || phase.equals("atlas-restart")
-                        || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("celestial-polish")) {
+                        || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("celestial-polish")
+                        || phase.startsWith("surface-")) {
                     minecraft.options.guiScale().set(2);
                 }
                 if (phase.equals("create") || phase.equals("lighting") || phase.equals("editor")
                         || phase.equals("cosmos") || phase.equals("solar") || phase.equals("camera") || phase.equals("audio")
                         || phase.equals("celestial") || phase.equals("approach") || phase.equals("celestial-api") || phase.equals("galactic") || phase.equals("atlas")
                         || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("seasonal")
-                        || phase.equals("solar-clouds") || phase.equals("volumetric") || phase.equals("celestial-polish")) {
+                        || phase.equals("solar-clouds") || phase.equals("volumetric") || phase.equals("celestial-polish")
+                        || phase.equals("surface-create") || phase.equals("surface-cancel") || phase.equals("surface-interrupt")
+                        || phase.equals("surface-failures") || phase.equals("surface-boundaries")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
@@ -168,6 +186,9 @@ public final class ClientScenario {
                             new WorldOptions(20260927L, false, false), WorldPresets::createNormalWorldDimensions,
                             minecraft.screen);
                 } else {
+                    if (phase.equals("surface-upgrade")) {
+                        SurfaceScenario.upgradeManifest(minecraft.gameDirectory.toPath());
+                    }
                     minecraft.createWorldOpenFlows().openWorld("first-slice",
                             () -> { throw new IllegalStateException("Could not reopen fixture"); });
                 }
@@ -186,6 +207,11 @@ public final class ClientScenario {
             boolean cameraPhase = phase.equals("camera") || phase.equals("camera-restart");
             boolean celestialPhase = phase.equals("celestial");
             boolean celestialPolishPhase = phase.equals("celestial-polish");
+            boolean surfacePhase = phase.startsWith("surface-");
+            if (phase.equals("surface-boundaries")) {
+                require(!(minecraft.screen instanceof AdvancementsScreen),
+                        "Flight landing key opened vanilla advancements during the boundary fixture");
+            }
             boolean approachPhase = phase.equals("approach");
             boolean atlasPhase = phase.equals("atlas") || phase.equals("atlas-restart");
             boolean shipVisualPhase = phase.equals("ship-visual") || phase.equals("render-compat");
@@ -194,7 +220,8 @@ public final class ClientScenario {
             if (minecraft.player == null || minecraft.level == null || minecraft.getOverlay() != null
                     || (minecraft.screen != null && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
                             || minecraft.screen instanceof ShaderEditorScreen))
-                            && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || celestialPolishPhase
+                            && !(phase.equals("surface-failures") && minecraft.screen instanceof DeathScreen)
+                            && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || celestialPolishPhase || surfacePhase
                                     || approachPhase || celestialApiPhase || galacticPhase)
                                     && minecraft.screen instanceof CosmosMapScreen)
                             && !(atlasPhase && (minecraft.screen instanceof CosmosMapScreen
@@ -204,6 +231,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (surfacePhase) {
+                if (surfaceScenario == null) { surfaceScenario = new SurfaceScenario(phase, latestSurface); }
+                if (surfaceScenario.tick()) { finish(); }
+                return;
+            }
             if (celestialPolishPhase) {
                 if (celestialPolishScenario == null) { celestialPolishScenario = new CelestialPolishScenario(); }
                 if (celestialPolishScenario.tick()) { finish(); }
