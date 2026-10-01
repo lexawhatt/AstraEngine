@@ -218,6 +218,7 @@ vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 paramet
     vec3 albedo = material.rgb;
     float water = 0.0;
     float clouds = 0.0;
+    bool hostSurface = ContinentalEarth != 0 && geography.x > 1.5;
     if (geography.x > 0.5) {
         int surfaceKind = int(geography.x + 0.5);
         float height = surfaceKind == 2 ? earthHeight(p, geographySeed, normalFootprint)
@@ -230,8 +231,13 @@ vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 paramet
                     normalFootprint, geography.z, true);
         } else {
             water = 1.0 - smoothstep(-0.3, 0.4, height);
-            albedo = ContinentalEarth != 0 ? continentalAlbedo(p, water)
-                    : mappedEarthAlbedo(p, height, geographySeed, normalFootprint, water);
+            if (ContinentalEarth != 0) {
+                vec4 surface = continentalMaterial(p);
+                albedo = surface.rgb;
+                water = surface.a;
+            } else {
+                albedo = mappedEarthAlbedo(p, height, geographySeed, normalFootprint, water);
+            }
             vec3 reliefNormal = mappedEarthNormal(p, geographySeed, normalFootprint, geography.z);
             vec3 fixedLight = mappedSurfaceCoordinates(light, tilt, spin, geography);
             diffuse = max(dot(reliefNormal, fixedLight), 0.0)
@@ -277,6 +283,11 @@ vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 paramet
         albedo *= 0.38 + terrain * 0.91 + detail * 0.16 + rim * 0.12;
     }
     vec3 color = albedo * (0.004 + diffuse * 1.35);
+    if (hostSurface) {
+        // Shade the host display albedo before undoing the display shoulder. Decoding bright snow
+        // first would amplify the night ambient term and make ice appear self-luminous.
+        color = celestialRadiance(albedo * pow((0.004 + diffuse * 1.35) / 1.354, 1.0 / 2.2));
+    }
     if (kind == 3) {
         float specular = pow(max(0.0, dot(reflect(-light, n), -viewRay)), 90.0);
         color += vec3(1.0, 0.82, 0.59) * specular * water * (1.0 - clouds) * day;
@@ -439,7 +450,7 @@ vec4 ringSurface(vec3 ray, vec3 center, float radius, vec3 normal, float inner, 
     return vec4(color, alpha);
 }
 
-vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
+vec3 body(vec3 color, vec3 ray, int index, float pixelAngle, inout float bloomWeight) {
     vec4 descriptor = BodyDirectionRadius[index];
     vec3 center = descriptor.xyz;
     float radius = descriptor.w;
@@ -482,6 +493,7 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
                                           16.0, parameters.x, pixelAngle);
         }
         if (discCoverage > 0.0) {
+            bloomWeight = mix(bloomWeight, 1.0, discCoverage);
             if (radius <= 1.0) {
                 normal = safeUnit(-(center - ray * along) - ray * sqrt(max(0.0,
                         radius * radius - separation * separation)), -ray);
@@ -541,6 +553,10 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
         vec3 surface = planetSurface(normal, ray, light, material, parameters, tilt, BodySpin[index],
                 BodyGeography[index], uint(BodyGeographySeed[index]), normalFootprint) * solarGain;
         color = mix(color, surface, discCoverage);
+        // Host display white requires large inverse-shoulder values, but is not an emissive source.
+        // Store eligibility only in our private HDR attachment; final sky alpha remains opaque.
+        float surfaceBloom = ContinentalEarth != 0 && BodyGeography[index].x > 1.5 ? 0.0 : 1.0;
+        bloomWeight = mix(bloomWeight, surfaceBloom, discCoverage);
     }
     if (ring.a > 0.0 && hit > 0.0 && ringHit < hit) { color = mix(color, ring.rgb, ring.a); }
     if (index == AtmosphereBodyIndex) {
@@ -584,6 +600,7 @@ void main() {
     }
     // Compute background derivatives before divergent body paths.
     vec3 color = universe(sourceRay, pixelAngle);
+    float bloomWeight = 1.0;
     // One body-material call site prevents drivers from triplicating the full
     // relief program. The host bounds BodyCount to 12 and all relief loop budgets.
     int passes = lens ? 2 : 1;
@@ -592,7 +609,7 @@ void main() {
         vec3 materialRay = lens && pass == 0 ? sourceRay : ray;
         for (int i = 0; i < BodyCount; i++) {
             if (lens && (i == LensIndex || foregroundOfLens(ray, i, lensPlane) != (pass == 1))) { continue; }
-            color = body(color, materialRay, i, pixelAngle);
+            color = body(color, materialRay, i, pixelAngle, bloomWeight);
         }
     }
     if (SurfaceHorizon.w > 0.5) {
@@ -603,5 +620,6 @@ void main() {
         color = mix(color, celestialRadiance(SurfaceFog) / max(Exposure, 0.1), haze);
     }
     // Preserve linear radiance until the HDR bloom pipeline performs its single display transform.
-    fragColor = vec4(HdrOutput == 1 ? max(color, vec3(0.0)) : celestialDisplay(color, Exposure), 1.0);
+    fragColor = vec4(HdrOutput == 1 ? max(color, vec3(0.0)) : celestialDisplay(color, Exposure),
+                    HdrOutput == 1 ? bloomWeight : 1.0);
 }

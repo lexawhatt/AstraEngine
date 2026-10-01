@@ -56,18 +56,23 @@ vec4 continentalSample(vec3 p) {
     return mix(coarse, result, weight.w);
 }
 
-vec3 continentalAlbedo(vec3 p, float water) {
-    vec4 climate = continentalSample(p);
-    vec3 dry = mix(vec3(0.25, 0.20, 0.105), vec3(0.42, 0.31, 0.15), smoothstep(12.0, 28.0, climate.y));
-    vec3 foliage = mix(vec3(0.034, 0.075, 0.039), vec3(0.055, 0.105, 0.024), smoothstep(4.0, 24.0, climate.y));
-    vec3 land = mix(dry, foliage, smoothstep(0.25, 0.53, climate.z));
-    float rock = smoothstep(1900.0, 3400.0, climate.x);
-    land = mix(land, vec3(0.26, 0.245, 0.225), rock);
-    float snow = 1.0 - smoothstep(-5.0, 1.0, climate.y);
-    land = mix(land, vec3(0.73, 0.79, 0.81), snow);
-    float shelf = smoothstep(-650.0, -8.0, climate.x);
-    vec3 ocean = mix(vec3(0.003, 0.014, 0.034), vec3(0.009, 0.055, 0.066), shelf);
-    float seaIce = 1.0 - smoothstep(-12.0, -4.0, climate.y);
-    ocean = mix(ocean, vec3(0.59, 0.69, 0.74), seaIce);
-    return mix(land, ocean, water);
+// Display colors captured from the same host block textures and biome tints as the ground.
+// Indices are the non-persistent EarthClimate presentation order.
+uniform vec4 EarthSurfaceColors[12];
+vec4 continentalClimateMaterial(vec4 climate) {
+    float height = climate.x, temperature = climate.y, moisture = climate.z;
+    int material;
+    if (height < 0.0) {
+        material = temperature < 0.0 ? 2 : height < -600.0 ? 0 : 1;
+    } else if (temperature + fract(height) * 0.0065 < 0.0) { material = 4; }
+    else if (height < 5.0) { material = 3; }
+    else if (height > 2400.0) { material = 5; }
+    else if (temperature > 18.0 && moisture < 0.30) { material = 6; }
+    else if (temperature > 21.0 && moisture < 0.48) { material = 7; }
+    else if (temperature > 21.0 && moisture > 0.59) { material = 8; }
+    else if (temperature < 9.0) { material = 9; }
+    else { material = moisture > 0.43 ? 10 : 11; }
+    return EarthSurfaceColors[material];
 }
+
+vec4 continentalMaterial(vec3 p) { return continentalClimateMaterial(continentalSample(p)); }

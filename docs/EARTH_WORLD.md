@@ -134,6 +134,22 @@ The bounded relief march resolves height-dependent silhouette and parallax; its
 step budget still limits very thin terrain features at grazing angles. Atmospheric
 transport ends at the actual mountain hit, avoiding haze integrated behind terrain.
 
+Orbital and distant-mesh materials use an immutable palette captured on the render
+thread from active block-atlas textures and the default Earth biomes' foliage,
+grass and water tints. Forest, jungle and taiga summaries weight their canopies;
+they do not reconstruct individual trees. Exposed freezing and snow cover use the
+same physical zero-Celsius weather threshold and quantized surface altitude as
+the Earth weather hook. This does not change saved biome classes or terrain versions.
+Ice carries its own solid material flag, so a pale blue texture cannot accidentally
+select ocean reflections. Resource reload and logout invalidate the captured palette.
+
+The orbital HDR path shades host display colors before decoding its display transform.
+This avoids brightening green canopies twice and amplifying white materials at night.
+Atmospheric scattering, sunlight and exposure still change their visible appearance.
+These are base regional summaries: custom consumer biome-palette synchronization,
+observed buildings, snow removal and other player edits are not yet represented here.
+The optional DH base-column override remains undecorated until actual chunk data arrives.
+
 The server announces the Earth binding at login. The client retains it across
 resource reload and clears it on logout. F3 then displays longitude, latitude and
 physical altitude in these charts; reduced-debug privacy is preserved. It never
@@ -166,7 +182,10 @@ visible gold-to-emerald replacement and owned ticket retirement. It uses a fresh
 Earth preset and preserves its evidence separately from player saves.
 
 The separate `earth-orbit` phase verifies the orbital presentation path. The
-`earth-landscape` phase covers lowland, summit, high-altitude, coast, pole, face-edge
+`earth-materials` phase captures forest, taiga, jungle, ice and snow by day and
+night, reads back actual GPU palette uniforms, and verifies invalidation on resource
+reload. It uses `/astra-flight map` to avoid another mod's M-key binding in a test pack.
+The `earth-landscape` phase covers lowland, summit, high-altitude, coast, pole, face-edge
 and foothill views, plus resource reload and resize. It retains screenshots and
 31 asynchronous GPU timer samples per view; these measure the complete `AFTER_SKY`
 event interval, including any optional handlers, rather than total frame time.

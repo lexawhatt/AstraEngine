@@ -15,6 +15,7 @@ import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
 import dev.lexawhatt.astraengine.surface.SurfaceGeography;
+import dev.lexawhatt.astraengine.surface.EarthSurfacePalette;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +42,7 @@ public final class CosmosRenderer implements AutoCloseable {
     private final LateSkyRenderer lateSky = new LateSkyRenderer("cosmos");
     private final SurfaceHeightCache earthHeights = new SurfaceHeightCache();
     private final ContinentalSurfaceCache continental = new ContinentalSurfaceCache();
+    private EarthSurfacePalette earthPalette;
     private int continentalVersion;
     private RenderOptions options;
     private ShaderInstance shader;
@@ -57,6 +59,7 @@ public final class CosmosRenderer implements AutoCloseable {
     public void registerShaders(RegisterShadersEvent event) {
         earthHeights.close();
         continental.close();
+        earthPalette = null;
         bloom.registerShaders(event);
         lateSky.registerShaders(event);
         try {
@@ -80,6 +83,7 @@ public final class CosmosRenderer implements AutoCloseable {
     public void close() {
         earthHeights.close();
         continental.close();
+        earthPalette = null;
         bloom.close();
         lateSky.close();
         galaxySeed = 0;
@@ -224,6 +228,10 @@ public final class CosmosRenderer implements AutoCloseable {
         SpaceVector continentalObserver = null;
         boolean mappedContinent = continentalVersion != 0 && system.id().equals("sol");
         shader.safeGetUniform("ContinentalEarth").set(mappedContinent ? 1 : 0);
+        if (mappedContinent) {
+            if (earthPalette == null) { earthPalette = EarthSurfaceMaterials.capture(); }
+            EarthSurfaceMaterials.bind(shader, earthPalette);
+        }
         boolean atlasNucleus = system.id().startsWith("u_")
                 && UniverseGenerator.isAtlasSystemId(system.id()) && system.id().endsWith("_0");
         if (atlasNucleus) {

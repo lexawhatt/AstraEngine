@@ -11,11 +11,13 @@ uniform vec2 MaterialOffset;
 out vec3 localPosition;
 out vec3 localNormal;
 out vec3 materialColor;
+out float liquidWater;
 out vec2 materialPosition;
 void main() {
     localPosition = mix(Position + FlatOffset, (LocalTransform * vec4(Position, 1.0)).xyz, UV0.x);
     localNormal = mix(Normal, mat3(LocalTransform) * Normal, UV0.x);
     materialColor = Color.rgb;
+    liquidWater = UV0.y;
     materialPosition = Position.xz + MaterialOffset;
     gl_Position = ProjMat * ModelViewMat * vec4(localPosition, 1.0);
 }

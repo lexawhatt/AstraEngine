@@ -23,10 +23,11 @@ public final class ContinentalLandscape {
     private final float[] colors;
     private final float[] normals;
     private final float[] joinWeights;
+    private final boolean[] liquid;
     private final int[] triangles;
 
     private ContinentalLandscape(EarthChart chart, double centerX, double centerZ, PlanetaryFrame frame,
-            float[] positions, float[] colors, float[] normals, float[] joinWeights, int[] triangles) {
+            float[] positions, float[] colors, float[] normals, float[] joinWeights, boolean[] liquid, int[] triangles) {
         this.chart = chart;
         this.centerX = centerX;
         this.centerZ = centerZ;
@@ -35,6 +36,7 @@ public final class ContinentalLandscape {
         this.colors = colors;
         this.normals = normals;
         this.joinWeights = joinWeights;
+        this.liquid = liquid;
         this.triangles = triangles;
     }
 
@@ -44,6 +46,13 @@ public final class ContinentalLandscape {
      */
     public static ContinentalLandscape bake(EarthChart chart, double centerX, double centerZ,
             BooleanSupplier cancelled) {
+        return bake(chart, centerX, centerZ, EarthSurfacePalette.DEFAULT, cancelled);
+    }
+
+    /** Builds with a captured immutable host appearance; no worker reads textures or biome registries. */
+    public static ContinentalLandscape bake(EarthChart chart, double centerX, double centerZ,
+            EarthSurfacePalette palette, BooleanSupplier cancelled) {
+        if (palette == null) { throw new IllegalArgumentException("Landscape palette is required"); }
         if (chart == null || cancelled == null || !Double.isFinite(centerX) || !Double.isFinite(centerZ)
                 || Math.abs(centerX) > EarthChart.RADIUS_METERS || Math.abs(centerZ) > EarthChart.RADIUS_METERS) {
             throw new IllegalArgumentException("Landscape requires a chart, contained center and cancellation flag");
@@ -53,8 +62,9 @@ public final class ContinentalLandscape {
         int count = 1 + RINGS * SECTORS;
         float[] positions = new float[count * 3], colors = new float[count * 3], normals = new float[count * 3];
         float[] weights = new float[count];
+        boolean[] liquid = new boolean[count];
         weights[0] = 0;
-        sampleVertex(0, frame.upAxis(), chart, centerX, centerZ, frame, terrain, positions, colors);
+        sampleVertex(0, frame.upAxis(), chart, centerX, centerZ, frame, terrain, palette, positions, colors, liquid);
         for (int ring = 0; ring < RINGS; ring++) {
             if (cancelled.getAsBoolean()) { throw new CancellationException("Distant surface retired"); }
             double radius = ringRadius(ring);
@@ -66,7 +76,7 @@ public final class ContinentalLandscape {
                         .add(frame.zAxis().multiply(Math.sin(angle) * radius)).normalized();
                 weights[1 + ring * SECTORS + sector] = weight;
                 sampleVertex(1 + ring * SECTORS + sector, direction, chart, centerX, centerZ,
-                        frame, terrain, positions, colors);
+                        frame, terrain, palette, positions, colors, liquid);
             }
         }
         int[] triangles = new int[(SECTORS + (RINGS - 1) * SECTORS * 2) * 3];
@@ -92,7 +102,7 @@ public final class ContinentalLandscape {
             addNormal(normals, a, normal); addNormal(normals, b, normal); addNormal(normals, c, normal);
         }
         for (int i = 0; i < count; i++) { put(normals, i, vector(normals, i).normalized()); }
-        return new ContinentalLandscape(chart, centerX, centerZ, frame, positions, colors, normals, weights, triangles);
+        return new ContinentalLandscape(chart, centerX, centerZ, frame, positions, colors, normals, weights, liquid, triangles);
     }
 
     /** Strictly increasing ring radius; shared angular vertices make every ring seam watertight. */
@@ -132,30 +142,15 @@ public final class ContinentalLandscape {
     }
 
     private static void sampleVertex(int index, SpaceVector direction, EarthChart chart, double centerX,
-            double centerZ, PlanetaryFrame frame, ContinentalTerrain terrain, float[] positions, float[] colors) {
+            double centerZ, PlanetaryFrame frame, ContinentalTerrain terrain, EarthSurfacePalette palette,
+            float[] positions, float[] colors, boolean[] liquid) {
         var sample = terrain.sample(direction);
         boolean water = sample.heightMeters() < 0;
         // The generator's first-air coordinate is the top of the last solid block, not its block index.
         double height = water ? -1.0 / 9.0 : Math.floor(sample.heightMeters());
         put(positions, index, project(chart, centerX, centerZ, frame, direction, height));
-        SpaceVector dry = new SpaceVector(.43, .39, .25), green = new SpaceVector(.24, .39, .13);
-        double moisture = Math.clamp((sample.moisture() - .25) / .3, 0, 1);
-        SpaceVector land = dry.multiply(1 - moisture).add(green.multiply(moisture));
-        double rock = Math.clamp((sample.heightMeters() - 1900) / 1500, 0, 1);
-        land = land.multiply(1 - rock).add(new SpaceVector(.39, .38, .36).multiply(rock));
-        double snow = 1 - Math.clamp((sample.temperature() + 5) / 6, 0, 1);
-        land = land.multiply(1 - snow).add(new SpaceVector(.96, .975, .985).multiply(snow));
-        EarthClimate climate = EarthClimate.at(sample);
-        if (climate == EarthClimate.BEACH || climate == EarthClimate.DESERT) {
-            land = new SpaceVector(.78, .74, .56);
-        }
-        SpaceVector ocean = new SpaceVector(.08, .25, .42);
-        // Near the shore, the ordinary transparent block water still reveals its shallow seabed.
-        // Retain that contribution in the distant opaque approximation instead of an abrupt deep-ocean tile.
-        double seabed = Math.exp(Math.min(0, sample.heightMeters()) / 25);
-        ocean = ocean.multiply(1 - seabed).add(new SpaceVector(.32, .43, .60).multiply(seabed));
-        if (sample.temperature() < -4) { ocean = new SpaceVector(.59, .69, .74); }
-        put(colors, index, water ? ocean : land);
+        liquid[index] = EarthSurfacePalette.liquid(sample);
+        put(colors, index, palette.color(sample));
     }
 
     private static void addNormal(float[] data, int index, SpaceVector value) {
@@ -190,6 +185,8 @@ public final class ContinentalLandscape {
     public SpaceVector color(int index) { return vector(colors, index); }
     /** Far-projection weight for rebasing the near flat mesh without a moving-origin offset. */
     public float joinWeight(int index) { return joinWeights[index]; }
+    /** True for liquid water; ice must not inherit reflection or blue-water shading. */
+    public boolean liquid(int index) { return liquid[index]; }
     /** Unit smoothed presentation normal. */
     public SpaceVector normal(int index) { return vector(normals, index); }
 }

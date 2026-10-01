@@ -210,7 +210,7 @@ public final class ClientScenario {
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
                         || phase.startsWith("earth-boundary-") || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || (phase.equals("earth-landscape") || phase.equals("earth-landscape-pack")) || phase.equals("earth-generation-create") || phase.equals("continental-create")
-                        || phase.startsWith("dh-clouds") || phase.equals("earth-dh")
+                        || phase.startsWith("dh-clouds") || phase.equals("earth-dh") || phase.equals("earth-materials")
                         || phase.equals("lunar-pulsar") || phase.equals("pulsar-create")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
@@ -243,7 +243,7 @@ public final class ClientScenario {
             boolean solarPhase = phase.equals("solar") || phase.equals("solar-restart");
             boolean cameraPhase = phase.equals("camera") || phase.equals("camera-restart");
             boolean celestialPhase = phase.equals("celestial");
-            boolean celestialPolishPhase = phase.equals("earth-orbit") || phase.equals("celestial-polish") || phase.equals("lunar-pulsar");
+            boolean celestialPolishPhase = phase.equals("earth-materials") || phase.equals("earth-orbit") || phase.equals("celestial-polish") || phase.equals("lunar-pulsar");
             boolean surfacePhase = phase.startsWith("surface-") || phase.startsWith("earth-travel-");
             if (phase.equals("surface-boundaries")) {
                 require(!(minecraft.screen instanceof AdvancementsScreen),
@@ -268,8 +268,8 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
-            if (phase.equals("earth-orbit")) {
-                if (continentalOrbitScenario == null) { continentalOrbitScenario = new ContinentalOrbitScenario(); }
+            if (phase.equals("earth-orbit") || phase.equals("earth-materials")) {
+                if (continentalOrbitScenario == null) { continentalOrbitScenario = new ContinentalOrbitScenario(phase.equals("earth-materials")); }
                 if (continentalOrbitScenario.tick()) { finish(); }
                 return;
             }

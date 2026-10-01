@@ -67,6 +67,10 @@ prepares a collision-checked landing there. The ground calendar now drives the s
 rotation and Sol orbital motion in flight, including frozen daylight and safe recovery
 from time commands. A bounded distant terrain mesh continues its oceans and mountain
 silhouettes beyond loaded chunks, with geographic lighting and cloud occlusion.
+Orbital and distant surfaces capture active block textures and the default Earth
+biome tints: forests use canopy colors, snow stays pale, and frozen seas use ice
+instead of liquid-ocean color and reflections. These are regional material summaries;
+individual trees and player buildings are not reconstructed from orbit.
 It layers beneath host/DH geometry and yields to active Iris packs. It remains opt-in while continuous
 storage-boundary views are integrated;
 existing worlds and the current legacy landing destinations retain their behavior.

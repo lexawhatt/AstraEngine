@@ -7,8 +7,12 @@ in vec2 clipPosition;
 out vec4 fragColor;
 
 vec3 sampleRadiance(vec2 uv) {
-    vec3 value = max(texture(Source, uv).rgb, vec3(0.0));
+    vec4 source = texture(Source, uv);
+    vec3 value = max(source.rgb, vec3(0.0));
     if (Extract == 0) { return value; }
+    // Alpha is bloom eligibility in owned HDR sources, not world transparency. Other celestial
+    // sources write one; host-matched non-emissive Earth terrain can explicitly exclude itself.
+    value *= clamp(source.a, 0.0, 1.0);
     float peak = max(value.r, max(value.g, value.b));
     float knee = max(Threshold * 0.5, 0.0001);
     float soft = clamp(peak - Threshold + knee, 0.0, 2.0 * knee);

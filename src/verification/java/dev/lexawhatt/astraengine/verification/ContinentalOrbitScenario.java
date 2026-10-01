@@ -11,6 +11,8 @@ import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.server.RocketService;
 import dev.lexawhatt.astraengine.surface.ContinentalTerrain;
+import dev.lexawhatt.astraengine.surface.EarthClimate;
+import dev.lexawhatt.astraengine.surface.EarthSurfacePalette;
 import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
 import java.lang.reflect.Field;
 import java.nio.FloatBuffer;
@@ -45,6 +47,11 @@ final class ContinentalOrbitScenario {
     private CosmosRenderer renderer;
     private SpaceVector observer;
     private SpaceVector mountain;
+    private final boolean materials;
+    private final SpaceVector[] covers = new SpaceVector[5];
+    private final EarthClimate[] climates = {EarthClimate.FOREST, EarthClimate.TAIGA, EarthClimate.JUNGLE,
+            EarthClimate.FROZEN_OCEAN, EarthClimate.SNOW};
+    private EarthSurfacePalette firstPalette;
     private FlightOrientation orientation;
     private CompletableFuture<?> pending = CompletableFuture.completedFuture(null);
     private RuntimeException failure;
@@ -53,7 +60,10 @@ final class ContinentalOrbitScenario {
     private int frames;
     private final StringBuilder evidence = new StringBuilder("Controlled production renderer poses; no pilot or landing overrides.\n");
 
-    ContinentalOrbitScenario() {
+    ContinentalOrbitScenario() { this(false); }
+
+    ContinentalOrbitScenario(boolean materials) {
+        this.materials = materials;
         game.options.hideGui = true;
         game.options.fov().set(70);
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, camera);
@@ -65,7 +75,8 @@ final class ContinentalOrbitScenario {
         if (!pending.isDone()) { return false; }
         pending.join();
         if (step == 0) {
-            KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_M));
+            if (materials) { game.player.connection.sendCommand("astra-flight map"); }
+            else { KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_M)); }
             step = 1;
             return false;
         }
@@ -85,13 +96,27 @@ final class ContinentalOrbitScenario {
             var sun = frame.toBodyDirection(frame.centerMeters().multiply(-1)).normalized();
             double maximum = 0;
             Random random = new Random(41);
+            double[] best = new double[covers.length];
             for (int i = 0; i < 20000; i++) {
                 SpaceVector direction = new SpaceVector(random.nextDouble() * 2 - 1,
                         random.nextDouble() * 2 - 1, random.nextDouble() * 2 - 1).normalized();
-                double height = terrain.sample(direction).heightMeters();
+                var sample = terrain.sample(direction);
+                double height = sample.heightMeters();
+                if (materials) {
+                    for (int cover = 0; cover < covers.length; cover++) {
+                        if (EarthSurfacePalette.material(sample) == climates[cover] && direction.dot(sun) > best[cover]) {
+                            best[cover] = direction.dot(sun); covers[cover] = direction;
+                        }
+                    }
+                }
                 if (direction.dot(sun) > .6 && height > maximum) { maximum = height; mountain = direction; }
             }
             require(mountain != null && maximum > 5000, "No daylight mountain fixture found");
+            if (materials) {
+                for (int cover = 0; cover < covers.length; cover++) {
+                    require(covers[cover] != null && best[cover] > .2, "Missing lit material: " + climates[cover]);
+                }
+            }
             evidence.append("mountain=").append(mountain).append(" height=").append(maximum).append('\n');
             setPose();
             step = 2;
@@ -99,15 +124,15 @@ final class ContinentalOrbitScenario {
         }
         if (frames < 30 || !ready()) { return false; }
         inspect();
-        var path = game.gameDirectory.toPath().resolve("evidence/continental-orbit-" + view + ".png");
+        var path = game.gameDirectory.toPath().resolve("evidence/" + prefix() + "-" + view + ".png");
         Files.createDirectories(path.getParent());
         try (NativeImage capture = Screenshot.takeScreenshot(game.getMainRenderTarget())) { capture.writeToFile(path); }
         require(GL11.glGetError() == GL11.GL_NO_ERROR, "Continental orbital frame left a GL error");
-        if (view == 3) {
+        if (view == (materials ? 4 : 3)) {
             pending = game.reloadResourcePacks();
         }
-        if (++view == 6) {
-            Files.writeString(path.getParent().resolve("continental-orbit.txt"), evidence, StandardOpenOption.CREATE_NEW);
+        if (++view == (materials ? 10 : 6)) {
+            Files.writeString(path.getParent().resolve(prefix() + ".txt"), evidence, StandardOpenOption.CREATE_NEW);
             NeoForge.EVENT_BUS.unregister(camera);
             NeoForge.EVENT_BUS.unregister(render);
             return true;
@@ -117,16 +142,17 @@ final class ContinentalOrbitScenario {
     }
 
     private void setPose() {
-        double altitude = switch (view) {
+        if (materials) { mountain = covers[switch (view) { case 5 -> 3; case 6 -> 4; case 7 -> 0; case 8, 9 -> 2; default -> view; }]; }
+        double altitude = materials ? (farView() ? ContinentalTerrain.RADIUS_METERS * 2 : 180000) : switch (view) {
             case 0, 5 -> ContinentalTerrain.RADIUS_METERS * 2;
             case 1 -> 180000;
             case 2 -> 20000;
             default -> terrain.sample(mountain).heightMeters() + 100;
         };
-        var frame = SurfaceDefinition.byBody("earth").frame(CosmosGenerator.sol(), 0, 0);
+        var frame = SurfaceDefinition.byBody("earth").frame(CosmosGenerator.sol(), seconds(), seconds() * 20);
         observer = frame.toSystemPoint(mountain.multiply(ContinentalTerrain.RADIUS_METERS + altitude));
         SpaceVector direction = frame.centerMeters().subtract(observer).normalized();
-        if (view == 3 || view == 4) {
+        if (!materials && (view == 3 || view == 4)) {
             var grid = dev.lexawhatt.astraengine.surface.SurfaceHeightTile.Grid.at(mountain,
                     ContinentalTerrain.RADIUS_METERS, 513, 4);
             direction = frame.toSystemDirection(grid.east().add(mountain.multiply(-.08))).normalized();
@@ -136,24 +162,28 @@ final class ContinentalOrbitScenario {
         var tangent = new dev.lexawhatt.astraengine.surface.PlanetaryFrame(mountain, grid.east(), mountain, grid.south());
         var localDirection = tangent.toLocalDirection(frame.toBodyDirection(direction));
         var localOrientation = FlightOrientation.fromAngles(Math.toDegrees(Math.atan2(-localDirection.x(), localDirection.z())),
-                -Math.toDegrees(Math.asin(localDirection.y())), 0);
+                -Math.toDegrees(Math.asin(Math.clamp(localDirection.y(), -1, 1))), 0);
         orientation = frame.toSystemOrientation(tangent.toBodyOrientation(localOrientation));
         frames = 0;
-        evidence.append("view=").append(view).append(" altitude=").append(altitude).append('\n');
+        evidence.append("view=").append(view).append(" altitude=").append(altitude)
+                .append(" cover=").append(EarthSurfacePalette.material(terrain.sample(mountain)))
+                .append(" direction=").append(mountain).append(" seconds=").append(seconds()).append('\n');
     }
 
     private boolean ready() throws ReflectiveOperationException {
         Object cache = field(renderer, "continental");
-        return (int) field(cache, "globe") != 0 && (view == 0 || view == 5 || field(cache, "grid") != null);
+        var grid = (dev.lexawhatt.astraengine.surface.SurfaceHeightTile.Grid) field(cache, "grid");
+        return (int) field(cache, "globe") != 0 && (farView() || grid != null && grid.contains(mountain, .45));
     }
 
-    private void inspect() throws ReflectiveOperationException {
+    private void inspect() throws Exception {
         var shader = (ShaderInstance) field(renderer, "shader");
         require(shader.getUniform("ContinentalEarth").getIntBuffer().get(0) == 1,
                 "Renderer lost server-selected continental geography");
+        if (materials) { inspectPalette(shader); }
         Object cache = field(renderer, "continental");
         int[] tiles = (int[]) field(cache, "tiles");
-        if (view == 0 || view == 5) {
+        if (farView()) {
             require(field(cache, "grid") == null, "Far globe retained close terrain tiles");
             for (int texture : tiles) { require(texture == 0, "Far globe retained a tile allocation"); }
             return;
@@ -172,6 +202,44 @@ final class ContinentalOrbitScenario {
         } finally { MemoryUtil.memFree(values); }
     }
 
+    private boolean farView() { return materials ? view == 9 : view == 0 || view == 5; }
+    private double seconds() { return materials && view >= 5 && view <= 7 ? 600 : 0; }
+    private String prefix() { return materials ? "earth-materials" : "continental-orbit"; }
+
+    private void inspectPalette(ShaderInstance shader) throws Exception {
+        var palette = (EarthSurfacePalette) field(renderer, "earthPalette");
+        require(palette != null, "Renderer never captured host surface materials");
+        if (firstPalette == null) {
+            firstPalette = palette;
+            var path = game.gameDirectory.toPath().resolve("evidence/earth-materials-palette.json");
+            Files.createDirectories(path.getParent());
+            Files.writeString(path, new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(palette),
+                    StandardOpenOption.CREATE_NEW);
+        } else {
+            require(firstPalette.equals(palette), "Unchanged resource reload changed captured appearance");
+            if (view == 5) { require(firstPalette != palette, "Resource reload retained stale appearance"); }
+        }
+        for (var climate : EarthClimate.values()) {
+            var color = palette.colors().get(climate.ordinal());
+            String name = "EarthSurfaceColors[" + climate.ordinal() + "]";
+            int location = org.lwjgl.opengl.GL20.glGetUniformLocation(shader.getId(), name);
+            require(location >= 0, "Missing GPU material uniform: " + name);
+            float[] values = new float[4];
+            org.lwjgl.opengl.GL20.glGetUniformfv(shader.getId(), location, values);
+            require(Math.abs(values[0] - color.x()) < 1e-6
+                    && Math.abs(values[1] - color.y()) < 1e-6
+                    && Math.abs(values[2] - color.z()) < 1e-6,
+                    "Host palette was not uploaded: " + climate);
+            require(values[3] == (climate == EarthClimate.OCEAN || climate == EarthClimate.DEEP_OCEAN ? 1 : 0),
+                    "Frozen surface acquired liquid reflectance");
+        }
+        var forest = palette.colors().get(EarthClimate.FOREST.ordinal());
+        var snow = palette.colors().get(EarthClimate.SNOW.ordinal());
+        var ice = palette.colors().get(EarthClimate.FROZEN_OCEAN.ordinal());
+        require(forest.y() > forest.x() && forest.y() < .6, "Default forest lost its dark green canopy");
+        require(snow.x() > .8 && ice.x() > .35, "Default snow/ice captured an ocean color");
+    }
+
     private void render(RenderLevelStageEvent event) {
         if (renderer == null || observer == null || failure != null || game.level == null
                 || !game.level.dimension().equals(RocketService.FLIGHT)
@@ -184,7 +252,7 @@ final class ContinentalOrbitScenario {
                 bindings[i] = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
             }
             RenderSystem.activeTexture(active);
-            renderer.render(event, CosmosGenerator.sol(), observer, 0, 0, 1);
+            renderer.render(event, CosmosGenerator.sol(), observer, seconds(), 0, 1);
             require(GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE) == active, "Orbital pass leaked its active texture unit");
             for (int i = 0; i < bindings.length; i++) {
                 RenderSystem.activeTexture(GL13.GL_TEXTURE0 + i);

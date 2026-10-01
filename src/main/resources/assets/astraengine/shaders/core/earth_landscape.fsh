@@ -8,6 +8,7 @@ uniform vec2 BandAltitude;
 in vec3 localPosition;
 in vec3 localNormal;
 in vec3 materialColor;
+in float liquidWater;
 in vec2 materialPosition;
 out vec4 fragColor;
 float materialHash(ivec2 p) {
@@ -34,7 +35,7 @@ void main() {
     float pixelMeters = max(length(dFdx(materialPosition)), length(dFdy(materialPosition)));
     float broad = (materialNoise(materialPosition / 128.0) - 0.5) * (1.0 - smoothstep(64.0, 384.0, pixelMeters));
     float fine = (materialNoise(materialPosition / 16.0) - 0.5) * (1.0 - smoothstep(8.0, 48.0, pixelMeters));
-    float land = 1.0 - smoothstep(1.3, 2.0, materialColor.b / max(0.02, materialColor.r));
+    float land = 1.0 - clamp(liquidWater, 0.0, 1.0);
     float snow = smoothstep(0.65, 0.82, min(materialColor.r, min(materialColor.g, materialColor.b)));
     vec3 albedo = materialColor * (1.0 + land * (1.0 - snow * 0.8) * (broad * 0.25 + fine * 0.12));
     vec3 color = albedo * LightColor * hostShade;

@@ -120,6 +120,13 @@ Physical catalog radii stay unchanged. The Overworld has an explicit apparent
 Sun scale (default 3); Rocket Mode retains physical angular sizes. Bloom is a
 separate image-space optical effect.
 
+The private cosmos HDR attachment uses alpha as bloom eligibility. Captured host
+Earth materials decode display white through the highlight shoulder; those large
+values are excluded from bright extraction so snow does not become an emissive
+halo. Other celestial inputs retain eligibility one, and final sky composition
+still writes opaque alpha. This metadata is not host-world transparency. Sunlight,
+atmosphere and exposure continue to shade the non-emissive surface.
+
 ```text
 /astra-render bloom true
 /astra-render bloom-strength 0.65

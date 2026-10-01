@@ -16,6 +16,7 @@ import dev.lexawhatt.astraengine.client.surface.EarthStateClient;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.surface.ContinentalLandscape;
 import dev.lexawhatt.astraengine.surface.EarthChart;
+import dev.lexawhatt.astraengine.surface.EarthSurfacePalette;
 import java.io.IOException;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -43,6 +44,7 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     private ShaderInstance terrain;
     private ShaderInstance compose;
     private ContinentalLandscape mesh;
+    private EarthSurfacePalette palette;
     private VertexBuffer vertices;
     private RenderTarget target;
     private Pending pending;
@@ -179,9 +181,11 @@ final class EarthLandscapeRenderer implements AutoCloseable {
         if (pending == null && !failed && (mesh == null || Math.hypot(mesh.centerX() - x, mesh.centerZ() - z) > 128)) {
             double centerX = Math.clamp(Math.rint(x / 128) * 128, -EarthChart.RADIUS_METERS, EarthChart.RADIUS_METERS);
             double centerZ = Math.clamp(Math.rint(z / 128) * 128, -EarthChart.RADIUS_METERS, EarthChart.RADIUS_METERS);
+            if (palette == null) { palette = EarthSurfaceMaterials.capture(); }
+            var appearance = palette;
             AtomicBoolean cancel = new AtomicBoolean();
             pending = new Pending(cancel, CompletableFuture.supplyAsync(() ->
-                    ContinentalLandscape.bake(chart, centerX, centerZ, cancel::get), Util.backgroundExecutor()));
+                    ContinentalLandscape.bake(chart, centerX, centerZ, appearance, cancel::get), Util.backgroundExecutor()));
         }
     }
 
@@ -191,7 +195,7 @@ final class EarthLandscapeRenderer implements AutoCloseable {
             int index = replacement.vertexIndex(i);
             SpaceVector p = replacement.position(index), color = replacement.color(index), normal = replacement.normal(index);
             buffer.addVertex((float) p.x(), (float) p.y(), (float) p.z())
-                    .setUv(replacement.joinWeight(index), 0)
+                    .setUv(replacement.joinWeight(index), replacement.liquid(index) ? 1 : 0)
                     .setColor((float) color.x(), (float) color.y(), (float) color.z(), 1)
                     .setNormal((float) normal.x(), (float) normal.y(), (float) normal.z());
         }
@@ -212,6 +216,7 @@ final class EarthLandscapeRenderer implements AutoCloseable {
 
     /** Retires all per-view work/resources; registered program lifetime belongs to Minecraft. */
     @Override public void close() {
+        palette = null;
         RenderSystem.assertOnRenderThread();
         if (pending != null) { pending.cancelled().set(true); pending = null; }
         if (vertices != null) { vertices.close(); vertices = null; }
