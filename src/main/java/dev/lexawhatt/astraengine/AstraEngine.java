@@ -14,6 +14,8 @@ import dev.lexawhatt.astraengine.network.SkyProfilePayload;
 import dev.lexawhatt.astraengine.network.SkyProfileReceivedEvent;
 import dev.lexawhatt.astraengine.network.SystemPayload;
 import dev.lexawhatt.astraengine.network.SurfacePayload;
+import dev.lexawhatt.astraengine.network.EarthContextPayload;
+import dev.lexawhatt.astraengine.network.EarthContextReceivedEvent;
 import dev.lexawhatt.astraengine.network.SurfaceReceivedEvent;
 import dev.lexawhatt.astraengine.worldgen.SurfaceWorldgen;
 import dev.lexawhatt.astraengine.network.SystemSnapshotReceivedEvent;
@@ -44,6 +46,8 @@ public final class AstraEngine {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
+        event.registrar("1").playToClient(EarthContextPayload.TYPE, EarthContextPayload.CODEC,
+                (payload, context) -> NeoForge.EVENT_BUS.post(new EarthContextReceivedEvent(payload)));
         event.registrar("1").playToClient(SystemPayload.TYPE, SystemPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SystemSnapshotReceivedEvent(payload)));
         event.registrar("3").playToClient(CustomSystemsPayload.TYPE, CustomSystemsPayload.CODEC,

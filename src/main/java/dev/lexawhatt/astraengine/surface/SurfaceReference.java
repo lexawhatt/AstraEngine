@@ -10,7 +10,7 @@ import java.util.Optional;
  * including Earth-sized prototypes. No worlds, chunks, renderer resources or player state are owned here.
  */
 public record SurfaceReference(String geographyId, String dimensionId, SurfacePatch patch,
-        int altitudeOffsetMeters, PlanetaryTopology topology) {
+        int altitudeOffsetMeters, PlanetaryTopology topology) implements GeographicReference {
     public SurfaceReference {
         if (!namespaced(geographyId) || !namespaced(dimensionId) || patch == null || topology == null
                 || patch.radiusMeters() != topology.radiusMeters()) {

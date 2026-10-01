@@ -44,7 +44,7 @@ public final class GeographicCommands {
         var snapshot = AstraGeography.snapshot(player).orElse(null);
         if (snapshot == null) { return fail(source, "unsupported"); }
         // Use the exact host altitude datum rather than recovering it from rounded body-vector length.
-        var reference = AstraGeography.reference(player.serverLevel()).orElseThrow();
+        var reference = AstraGeography.planetaryReference(player.serverLevel()).orElseThrow();
         var geographic = reference.geographic(new SpaceVector(player.getX(), player.getY(), player.getZ()));
         source.sendSuccess(() -> Component.translatable("astraengine.geography.position", reference.geographyId(),
                 number(Math.toDegrees(geographic.latitudeRadians()), 6),
@@ -65,7 +65,7 @@ public final class GeographicCommands {
         double x = event.getTargetX(), y = event.getTargetY(), z = event.getTargetZ();
         if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) { return fail(source, "outside"); }
         var feet = new SpaceVector(x, y, z);
-        var reference = AstraGeography.reference(level).orElse(null);
+        var reference = AstraGeography.planetaryReference(level).orElse(null);
         if (reference == null || !reference.contains(feet) || !level.getWorldBorder().isWithinBounds(x, z)
                 || y < level.getMinBuildHeight() || y + player.getBbHeight() > level.getMaxBuildHeight()) {
             return fail(source, "outside");

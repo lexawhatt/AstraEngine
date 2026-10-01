@@ -5,6 +5,8 @@ import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.surface.GeographicPosition;
 import dev.lexawhatt.astraengine.surface.SurfaceReference;
 import dev.lexawhatt.astraengine.surface.SurfaceReferences;
+import dev.lexawhatt.astraengine.surface.GeographicReference;
+import dev.lexawhatt.astraengine.server.EarthWorlds;
 import dev.lexawhatt.astraengine.worldgen.ContinentalTerrainChunkGenerator;
 import dev.lexawhatt.astraengine.worldgen.PlanetaryTerrainChunkGenerator;
 import dev.lexawhatt.astraengine.worldgen.SurfaceChunkGenerator;
@@ -33,7 +35,7 @@ public final class AstraGeography {
             throw new IllegalStateException("Geographic sampling requires the owning server thread");
         }
         var level = player.serverLevel();
-        var reference = reference(level).orElse(null);
+        var reference = planetaryReference(level).orElse(null);
         SpaceVector feet = new SpaceVector(player.getX(), player.getY(), player.getZ());
         if (!player.isAlive() || player.isRemoved() || reference == null || !reference.contains(feet)
                 || !level.getWorldBorder().isWithinBounds(player.getX(), player.getZ())) { return Optional.empty(); }
@@ -70,13 +72,23 @@ public final class AstraGeography {
     }
 
     /**
+     * Read-only binding for any implemented projection, including the saved Earth preset. Requires the owning
+     * server thread and a non-null level. Unsupported/foreign levels return absence. The legacy patch-only
+     * {@link #reference(ServerLevel)} API retains its original return type and behavior.
+     */
+    public static Optional<GeographicReference> planetaryReference(ServerLevel level) {
+        var earth = EarthWorlds.chart(level);
+        return earth.<GeographicReference>map(chart -> chart).or(() -> reference(level).map(chart -> chart));
+    }
+
+    /**
      * Resolves latitude/longitude/altitude to host feet in an existing world on its server thread.
      * Absence means unbound geography, outside window/border, or outside the host build-height interval.
      * No teleport, collision search, chunk load or clipping is performed. Null arguments are invalid.
      */
     public static Optional<SpaceVector> resolve(ServerLevel level, GeographicPosition position) {
         if (position == null) { throw new IllegalArgumentException("A geographic position is required"); }
-        return reference(level).flatMap(reference -> reference.resolve(position))
+        return planetaryReference(level).flatMap(reference -> reference.resolve(position))
                 .filter(feet -> feet.y() >= level.getMinBuildHeight() && feet.y() < level.getMaxBuildHeight()
                         && level.getWorldBorder().isWithinBounds(feet.x(), feet.z()));
     }

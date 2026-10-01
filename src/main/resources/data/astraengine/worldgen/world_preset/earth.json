@@ -1,0 +1,1033 @@
+{
+  "dimensions": {
+    "astraengine:earth/px/below_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "px",
+        "band": -2,
+        "biome_source": {
+          "face": "px",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/px/below_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "px",
+        "band": -1,
+        "biome_source": {
+          "face": "px",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "minecraft:overworld": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "px",
+        "band": 0,
+        "biome_source": {
+          "face": "px",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/px/above_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "px",
+        "band": 1,
+        "biome_source": {
+          "face": "px",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/px/above_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "px",
+        "band": 2,
+        "biome_source": {
+          "face": "px",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/px/above_3": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "px",
+        "band": 3,
+        "biome_source": {
+          "face": "px",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nx/below_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nx",
+        "band": -2,
+        "biome_source": {
+          "face": "nx",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nx/below_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nx",
+        "band": -1,
+        "biome_source": {
+          "face": "nx",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nx/above_0": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nx",
+        "band": 0,
+        "biome_source": {
+          "face": "nx",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nx/above_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nx",
+        "band": 1,
+        "biome_source": {
+          "face": "nx",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nx/above_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nx",
+        "band": 2,
+        "biome_source": {
+          "face": "nx",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nx/above_3": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nx",
+        "band": 3,
+        "biome_source": {
+          "face": "nx",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/py/below_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "py",
+        "band": -2,
+        "biome_source": {
+          "face": "py",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/py/below_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "py",
+        "band": -1,
+        "biome_source": {
+          "face": "py",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/py/above_0": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "py",
+        "band": 0,
+        "biome_source": {
+          "face": "py",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/py/above_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "py",
+        "band": 1,
+        "biome_source": {
+          "face": "py",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/py/above_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "py",
+        "band": 2,
+        "biome_source": {
+          "face": "py",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/py/above_3": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "py",
+        "band": 3,
+        "biome_source": {
+          "face": "py",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/ny/below_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "ny",
+        "band": -2,
+        "biome_source": {
+          "face": "ny",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/ny/below_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "ny",
+        "band": -1,
+        "biome_source": {
+          "face": "ny",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/ny/above_0": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "ny",
+        "band": 0,
+        "biome_source": {
+          "face": "ny",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/ny/above_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "ny",
+        "band": 1,
+        "biome_source": {
+          "face": "ny",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/ny/above_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "ny",
+        "band": 2,
+        "biome_source": {
+          "face": "ny",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/ny/above_3": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "ny",
+        "band": 3,
+        "biome_source": {
+          "face": "ny",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/pz/below_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "pz",
+        "band": -2,
+        "biome_source": {
+          "face": "pz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/pz/below_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "pz",
+        "band": -1,
+        "biome_source": {
+          "face": "pz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/pz/above_0": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "pz",
+        "band": 0,
+        "biome_source": {
+          "face": "pz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/pz/above_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "pz",
+        "band": 1,
+        "biome_source": {
+          "face": "pz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/pz/above_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "pz",
+        "band": 2,
+        "biome_source": {
+          "face": "pz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/pz/above_3": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "pz",
+        "band": 3,
+        "biome_source": {
+          "face": "pz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nz/below_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nz",
+        "band": -2,
+        "biome_source": {
+          "face": "nz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nz/below_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nz",
+        "band": -1,
+        "biome_source": {
+          "face": "nz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nz/above_0": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nz",
+        "band": 0,
+        "biome_source": {
+          "face": "nz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nz/above_1": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nz",
+        "band": 1,
+        "biome_source": {
+          "face": "nz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nz/above_2": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nz",
+        "band": 2,
+        "biome_source": {
+          "face": "nz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "astraengine:earth/nz/above_3": {
+      "type": "astraengine:earth_surface",
+      "generator": {
+        "type": "astraengine:earth",
+        "chart_version": 1,
+        "terrain_version": 1,
+        "seed": 4707198747791281998,
+        "face": "nz",
+        "band": 3,
+        "biome_source": {
+          "face": "nz",
+          "palette": {
+            "deep_ocean": "minecraft:deep_ocean",
+            "ocean": "minecraft:ocean",
+            "frozen_ocean": "minecraft:frozen_ocean",
+            "beach": "minecraft:beach",
+            "snow": "minecraft:snowy_plains",
+            "alpine": "minecraft:stony_peaks",
+            "desert": "minecraft:desert",
+            "savanna": "minecraft:savanna",
+            "jungle": "minecraft:jungle",
+            "taiga": "minecraft:taiga",
+            "forest": "minecraft:forest",
+            "plains": "minecraft:plains"
+          }
+        }
+      }
+    },
+    "minecraft:the_nether": {
+      "type": "minecraft:the_nether",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "minecraft:nether",
+        "biome_source": {
+          "type": "minecraft:multi_noise",
+          "preset": "minecraft:nether"
+        }
+      }
+    },
+    "minecraft:the_end": {
+      "type": "minecraft:the_end",
+      "generator": {
+        "type": "minecraft:noise",
+        "settings": "minecraft:end",
+        "biome_source": {
+          "type": "minecraft:the_end"
+        }
+      }
+    }
+  }
+}

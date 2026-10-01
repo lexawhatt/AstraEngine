@@ -59,6 +59,11 @@ function at every nearby ray step. Map approach frames ordinary planets/moons mo
 their real radii. [Rendering and limits](docs/SURFACE_TRAVEL.md): arbitrary geographic
 landing, a unified Earth/Overworld and orbital player-build summaries remain unfinished.
 
+The new **Astra Earth** world type provides [continental Earth storage](docs/EARTH_WORLD.md)
+in Overworld, with climate biomes, vegetation, geographic F3 and persistent blocks.
+It remains opt-in while its orbital travel and storage-boundary views are integrated;
+existing worlds and the current legacy landing destinations retain their behavior.
+
 An opt-in [horizon calibration world](docs/PLANETARY_HORIZON.md) adds an Earth-radius
 spherical ocean and fixed visual towers. It demonstrates altitude-dependent
 horizons and bottom-first occlusion. Near blocks and DH meshes remain flat; active

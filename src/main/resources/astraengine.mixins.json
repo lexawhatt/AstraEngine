@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.lexawhatt.astraengine.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "EarthBiomeWeatherMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
