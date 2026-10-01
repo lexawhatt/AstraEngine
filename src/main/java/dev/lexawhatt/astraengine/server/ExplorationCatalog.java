@@ -234,6 +234,13 @@ public final class ExplorationCatalog extends SavedData {
             speedMetersPerSecond = FlightDynamics.validateSpeed(metersPerSecond); revision++;
         }
         void arrive(String id, FlightDynamics.Observation observation) {
+            arrive(id, observation, false);
+        }
+        void arrive(String id, FlightDynamics.Observation observation, boolean allowFirstVisit) {
+            if (observation == null || !discovered.contains(id)) {
+                throw new IllegalArgumentException("Arrival requires a charted destination and observation");
+            }
+            if (allowFirstVisit) { visited.add(id); }
             if (!visited.contains(id)) { throw new IllegalArgumentException("Fast-travel destination is not visited"); }
             systemId = id; position = observation.position(); velocity = new SpaceVector(0, 0, 0);
             orientation = observation.orientation(); revision++;

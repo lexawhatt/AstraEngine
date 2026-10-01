@@ -77,9 +77,11 @@ public final class PulsarGameTests {
         CompoundTag invalidLegacy = saved.copy();
         invalidLegacy.putInt("version", 6); invalidLegacy.remove("pulsar_version");
         rejects(helper, () -> ExplorationCatalog.decode(invalidLegacy), "Unversioned legacy pulsar identity");
-        rejects(helper, () -> new ExplorationPayload(catalog.galaxySeed(), 0, "sol", SpaceVector.ZERO,
-                SpaceVector.ZERO, true, 100, FlightOrientation.IDENTITY, 80, "p_0",
-                List.of("sol", "p_0"), List.of("sol"), 1, 1), "Fast travel to unvisited pulsar");
+        var acceptedCheat = new ExplorationPayload(catalog.galaxySeed(), 0, "sol", SpaceVector.ZERO,
+                SpaceVector.ZERO, true, 100, FlightOrientation.IDENTITY, 20, "p_0",
+                List.of("sol", "p_0"), List.of("sol"), 1, 1);
+        helper.assertTrue(acceptedCheat.visitedSystems().equals(List.of("sol")),
+                "Accepted first-visit route fabricated a visit before arrival");
         helper.succeed();
     }
 

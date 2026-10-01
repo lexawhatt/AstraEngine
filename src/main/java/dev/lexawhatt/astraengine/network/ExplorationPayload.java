@@ -53,8 +53,8 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
         if (!validTransition(active, systemId, jumpTicks, jumpTarget)) {
             throw new IllegalArgumentException("Invalid exploration transition state");
         }
-        if (jumpTicks > 0 && jumpTarget.indexOf('/') < 0 && !visitedSystems.contains(jumpTarget)) {
-            throw new IllegalArgumentException("Fast travel requires a visited destination");
+        if (jumpTicks > 0 && jumpTarget.indexOf('/') < 0 && !discoveredSystems.contains(jumpTarget)) {
+            throw new IllegalArgumentException("An accepted jump requires a charted destination");
         }
         discoveredSystems = List.copyOf(discoveredSystems);
         visitedSystems = List.copyOf(visitedSystems);
@@ -84,7 +84,7 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
                 navigationEpoch);
     }
 
-    /** Compatibility adapter for former gear/yaw/pitch callers; network semantics use version eight. */
+    /** Compatibility adapter for former gear/yaw/pitch callers; network semantics use version nine. */
     public ExplorationPayload(long galaxySeed, long clockTicks, String systemId, SpaceVector position,
             SpaceVector velocity, boolean active, int speedIndex, float yaw, float pitch, int jumpTicks,
             String jumpTarget, List<String> discoveredSystems, long revision, long navigationEpoch) {
@@ -109,7 +109,7 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
         if (ticks == 0) { return target.isEmpty(); }
         if (!active || target.isEmpty()) { return false; }
         int separator = target.indexOf('/');
-        if (separator < 0) { return ticks <= 80 && validId(target); }
+        if (separator < 0) { return ticks <= BodyApproach.MAX_TICKS && validId(target); }
         return target.substring(0, separator).equals(system)
                 && target.substring(separator + 1).matches("[a-z0-9_-]{1,64}");
     }

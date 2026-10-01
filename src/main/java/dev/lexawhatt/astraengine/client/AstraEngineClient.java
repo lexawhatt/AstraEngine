@@ -142,6 +142,7 @@ public final class AstraEngineClient {
         modEventBus.addListener(rocket::registerShaders);
         NeoForge.EVENT_BUS.addListener(rocket::receive);
         NeoForge.EVENT_BUS.addListener(rocket::receiveCustomSystems);
+        NeoForge.EVENT_BUS.addListener(rocket::receiveNavigationPolicy);
         NeoForge.EVENT_BUS.addListener(rocket::registerCommands);
         NeoForge.EVENT_BUS.addListener(rocket::tick);
         NeoForge.EVENT_BUS.addListener(rocket::movement);

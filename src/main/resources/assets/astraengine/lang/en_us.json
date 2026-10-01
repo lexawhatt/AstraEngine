@@ -262,5 +262,12 @@
   "astraengine.terrain.location": "Highlands latitude %s, longitude %s | %s | Reference terrain altitude %s m",
   "astraengine.terrain.neighbor": "%s -> %s (entry %s, reversed %s)",
   "astraengine.horizon.status": "Horizon calibration: enabled=%s, active=%s, towers=%s, flat comparison=%s. Scene: astraengine:horizon_ocean; active shader packs retain their sky.",
-  "generator.astraengine.earth": "Astra Earth"
+  "generator.astraengine.earth": "Astra Earth",
+  "gamerule.astraFreeNavigation": "Allow undiscovered space destinations",
+  "gamerule.astraFreeNavigation.description": "Allow valid system jumps without prior discovery or visits. Requested targets are charted; arrival records a visit.",
+  "gamerule.astraTravelSeconds": "Space navigation duration (seconds)",
+  "gamerule.astraTravelSeconds.description": "0 keeps normal timing. 1-3600 sets body approach and system jump duration in game seconds (20 ticks). Ground loading and guided surface travel are unchanged.",
+  "astraengine.flight.surface_descending": "Descending / %s s / %s cancel",
+  "astraengine.flight.surface_ascending": "Ascending / %s s / %s cancel",
+  "astraengine.flight.surface_loading": "Preparing the surface / %s cancel"
 }

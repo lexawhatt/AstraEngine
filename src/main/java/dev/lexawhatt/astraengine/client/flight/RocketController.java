@@ -6,6 +6,12 @@ import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.lexawhatt.astraengine.client.surface.EarthStateClient;
+import dev.lexawhatt.astraengine.client.map.NavigationMapAccess;
+import dev.lexawhatt.astraengine.client.map.NavigationMapOpeningEvent;
+import dev.lexawhatt.astraengine.client.map.NavigationMapSnapshot;
+import net.neoforged.neoforge.common.NeoForge;
+import java.util.Optional;
+import java.util.Set;
 import dev.lexawhatt.astraengine.client.render.CosmosRenderer;
 import dev.lexawhatt.astraengine.client.render.RenderOptions;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
@@ -13,6 +19,8 @@ import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.surface.SurfaceStateClient;
 import dev.lexawhatt.astraengine.client.surface.SurfaceSkyRenderer;
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
+import dev.lexawhatt.astraengine.cosmos.NavigationPolicy;
+import dev.lexawhatt.astraengine.network.NavigationPolicyReceivedEvent;
 import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
 import dev.lexawhatt.astraengine.cosmos.CosmosIds;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
@@ -94,6 +102,10 @@ public final class RocketController {
     private int pendingAtlasTicks;
     private Map<String, CosmosSystem> customSystems = Map.of();
     private ExplorationPayload snapshot;
+    private NavigationPolicy navigationPolicy = NavigationPolicy.DEFAULT;
+    private int jumpDurationTicks = 80;
+    private long connectionGeneration;
+    private boolean openingMap;
     private SpaceVector previousPosition = SpaceVector.ZERO;
     private FlightOrientation previousOrientation = FlightOrientation.IDENTITY;
     private boolean finishingGuidance;
@@ -160,6 +172,9 @@ public final class RocketController {
         if (snapshot == null || snapshot.galaxySeed() != incoming.galaxySeed()) {
             systems.clear();
             galaxyAtlas = UniverseGenerator.galaxies(incoming.galaxySeed());
+        }
+        if (incoming.interstellarJump() && (snapshot == null || !snapshot.interstellarJump())) {
+            jumpDurationTicks = Math.max(incoming.jumpTicks(), navigationPolicy.jumpTicks());
         }
         boolean wasApproaching = snapshot != null && snapshot.approaching();
         boolean manualRebase = snapshot != null && snapshot.active() && incoming.active()
@@ -238,6 +253,78 @@ public final class RocketController {
         customSystems = Map.copyOf(replacement);
     }
 
+    /** Main-thread connection settings; resource reload does not reset server policy. */
+    public void receiveNavigationPolicy(NavigationPolicyReceivedEvent event) {
+        navigationPolicy = event.payload().policy();
+    }
+
+    /** Last server policy, or safe defaults before synchronization and after logout. */
+    public NavigationPolicy navigationPolicy() { return navigationPolicy; }
+
+    /** Opens all map entry points through the consumer replacement contract on the client thread. */
+    public void openMap(NavigationMapAccess.View view) {
+        if (!minecraft.isSameThread()) { throw new IllegalStateException("Maps require the client thread"); }
+        if (view == null) { throw new IllegalArgumentException("Map view is required"); }
+        if (openingMap) { throw new IllegalStateException("A map-opening listener cannot recursively open a map"); }
+        if (minecraft.player == null || minecraft.getConnection() == null) { return; }
+        openingMap = true;
+        try {
+            var screen = view == NavigationMapAccess.View.SYSTEM
+                    ? new CosmosMapScreen(this) : new UniverseAtlasScreen(this);
+            var event = new NavigationMapOpeningEvent(view, new MapAccess(connectionGeneration), screen);
+            NeoForge.EVENT_BUS.post(event);
+            minecraft.setScreen(event.screen());
+        } finally { openingMap = false; }
+    }
+
+    private final class MapAccess implements NavigationMapAccess {
+        private final long generation;
+        private MapAccess(long generation) { this.generation = generation; }
+        private boolean connected() {
+            if (!minecraft.isSameThread()) { throw new IllegalStateException("Map access requires the client thread"); }
+            return generation == connectionGeneration && minecraft.player != null && minecraft.getConnection() != null;
+        }
+        @Override
+        public Optional<NavigationMapSnapshot> snapshot() {
+            if (!connected() || RocketController.this.snapshot == null) { return Optional.empty(); }
+            var value = RocketController.this.snapshot;
+            return Optional.of(new NavigationMapSnapshot(value.galaxySeed(), currentSystem(), discoveredSystems(),
+                    Set.copyOf(value.visitedSystems()), value.position(), value.orientation(), value.orbitalSeconds(),
+                    active(), active() && value.jumpTicks() == 0 && !automaticCamera(),
+                    value.jumpTicks(), value.jumpTarget(), targetBody, navigationPolicy));
+        }
+        @Override
+        public boolean open(NavigationMapAccess.View view) {
+            if (view == null) { throw new IllegalArgumentException("Map view is required"); }
+            if (!connected()) { return false; }
+            openMap(view); return true;
+        }
+        @Override
+        public boolean request(Action request, String target) {
+            if (request == null || target == null) { throw new IllegalArgumentException("Map action and target are required"); }
+            if (!connected() || !active()) { return false; }
+            boolean idle = RocketController.this.snapshot.jumpTicks() == 0 && !automaticCamera();
+            switch (request) {
+                case SCAN, CANCEL_ROUTE -> {
+                    if (!target.isEmpty()) { return false; }
+                    action(request == Action.SCAN ? FlightActionPayload.Action.SCAN : FlightActionPayload.Action.BRAKE, "");
+                }
+                case SELECT_BODY, APPROACH_BODY -> {
+                    if (!idle || currentSystem().bodies().stream().noneMatch(body -> body.id().equals(target))) { return false; }
+                    if (request == Action.SELECT_BODY) { setTargetBody(target); }
+                    else { action(FlightActionPayload.Action.APPROACH_BODY, target); }
+                }
+                case AIM_SYSTEM -> { return idle && CosmosIds.isKnownId(target) && aimAtSystem(target); }
+                case CHART_ATLAS -> { return idle && UniverseGenerator.isAtlasSystemId(target) && chartAtlasSystem(target); }
+                case JUMP_SYSTEM -> {
+                    if (!idle || !canJumpTo(target)) { return false; }
+                    action(FlightActionPayload.Action.JUMP_SYSTEM, target);
+                }
+            }
+            return true;
+        }
+    }
+
     public ExplorationPayload snapshot() { return snapshot; }
     public float smoothing() { return smoothing; }
     public float exposure() { return options.exposure(); }
@@ -283,7 +370,9 @@ public final class RocketController {
 
     /** Includes returning to the current origin after leaving its arrival envelope in manual flight. */
     public boolean canJumpTo(String id) {
-        return active() && snapshot.jumpTicks() == 0 && visited(id)
+        return active() && snapshot.jumpTicks() == 0 && CosmosIds.isKnownId(id)
+                && navigationPolicy.permitsJump(visited(id))
+                && (!CosmosIds.isCustom(id) || customSystems.containsKey(id))
                 && (!snapshot.systemId().equals(id)
                     || snapshot.position().length() > GalacticNavigation.arrivalRadiusMeters(currentSystem()));
     }
@@ -434,11 +523,11 @@ public final class RocketController {
         while (slower.consumeClick()) { if (active() && controlsAvailable()) { pendingSpeedSteps = Math.max(-16, pendingSpeedSteps - 1); } }
         if (mapRequested && minecraft.screen == null && minecraft.player != null) {
             mapRequested = false;
-            minecraft.setScreen(new CosmosMapScreen(this));
+            openMap(NavigationMapAccess.View.SYSTEM);
         }
         if (atlasRequested && minecraft.screen == null && minecraft.player != null) {
             atlasRequested = false;
-            minecraft.setScreen(new UniverseAtlasScreen(this));
+            openMap(NavigationMapAccess.View.ATLAS);
         }
         if (active()) {
             if (!wasActive) {
@@ -578,7 +667,7 @@ public final class RocketController {
         }
         Matrix4f view = new Matrix4f(event.getModelViewMatrix()).setTranslation(0, 0, 0);
         viewProjection = new Matrix4f(event.getProjectionMatrix()).mul(view);
-        float warp = snapshot.interstellarJump() ? (float) Math.sin(Math.PI * (1 - snapshot.jumpTicks() / 80.0)) : 0;
+        float warp = snapshot.interstellarJump() ? (float) Math.sin(Math.PI * (1 - snapshot.jumpTicks() / (double) jumpDurationTicks)) : 0;
         View display = view();
         renderer.render(event, currentSystem(), display.position(), display.timeSeconds(), display.orbitalSeconds(),
                 display.earthOrientation(), warp, exposure());
@@ -587,8 +676,8 @@ public final class RocketController {
 
     /** Replaces the walking HUD with navigation instruments while retaining the host's screen rendering. */
     public void hud(RenderGuiEvent.Pre event) {
-        if (minecraft.screen instanceof CosmosMapScreen) { event.setCanceled(true); return; }
-        if (!active()) { return; }
+        if (!active() && !(minecraft.screen instanceof CosmosMapScreen)
+                && !(minecraft.screen instanceof UniverseAtlasScreen)) { return; }
         event.setCanceled(true);
         if (minecraft.options.hideGui || minecraft.screen != null) { return; }
         GuiGraphics graphics = event.getGuiGraphics();
@@ -686,6 +775,12 @@ public final class RocketController {
                         })))
                 .then(Commands.literal("map").executes(context -> { mapRequested = true; return 1; }))
                 .then(Commands.literal("atlas").executes(context -> { atlasRequested = true; return 1; }))
+                .then(Commands.literal("jump").then(Commands.argument("system", StringArgumentType.word())
+                        .executes(context -> {
+                            String id = StringArgumentType.getString(context, "system");
+                            if (!CosmosIds.isKnownId(id)) { return 0; }
+                            action(FlightActionPayload.Action.JUMP_SYSTEM, id); return 1;
+                        })))
                 .then(Commands.literal("scan").executes(context -> { action(FlightActionPayload.Action.SCAN, ""); return 1; }))
                 .then(Commands.literal("speed")
                         .then(Commands.literal("local").executes(context -> setSpeed(FlightDynamics.LOCAL_MAX_SPEED) ? 1 : 0))
@@ -710,6 +805,7 @@ public final class RocketController {
 
     public void logout(ClientPlayerNetworkEvent.LoggingOut event) {
         surface.clear();
+        navigationPolicy = NavigationPolicy.DEFAULT; jumpDurationTicks = 80; connectionGeneration++;
         restoreCamera(); snapshot = null; renderedView = null; previousOrbitalSeconds = 0; previousEarthOrientation = null; systems.clear(); customSystems = Map.of(); previousPosition = SpaceVector.ZERO;
         targetSystem = ""; targetGalaxy = false; pendingAtlasTarget = ""; pendingAtlasTicks = 0; atlasRequested = false;
         galaxyAtlas = List.of(); targetGalaxyIndex = 0;

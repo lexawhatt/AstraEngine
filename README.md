@@ -160,6 +160,12 @@ one, find a black-hole system on the map and select its primary object →
 
 [Controls, scale, and limits](docs/COSMOS.md) · [Sol parameter sources](docs/SOLAR_REFERENCE.md).
 
+Consumer mods can [replace the system map and atlas](docs/NAVIGATION_API.md) through
+a client event with immutable snapshots and server-validated requests. Operators
+can enable `astraFreeNavigation` to bypass prior discovery/visits, and set
+`astraTravelSeconds` to a positive duration (1 = 20 server ticks). Defaults preserve
+ordinary navigation. These rules do not bypass surface chunk preparation.
+
 ## Continents, mountains and ocean depths
 
 Three new permanent [continental inspection worlds](docs/CONTINENTAL_WORLDS.md)

@@ -23,6 +23,9 @@ import dev.lexawhatt.astraengine.network.SurfaceReceivedEvent;
 import dev.lexawhatt.astraengine.worldgen.SurfaceWorldgen;
 import dev.lexawhatt.astraengine.network.SystemSnapshotReceivedEvent;
 import dev.lexawhatt.astraengine.server.EngineRuntime;
+import dev.lexawhatt.astraengine.server.NavigationRules;
+import dev.lexawhatt.astraengine.network.NavigationPolicyPayload;
+import dev.lexawhatt.astraengine.network.NavigationPolicyReceivedEvent;
 import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
@@ -50,6 +53,8 @@ public final class AstraEngine {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
+        event.registrar("1").playToClient(NavigationPolicyPayload.TYPE, NavigationPolicyPayload.CODEC,
+                (payload, context) -> NeoForge.EVENT_BUS.post(new NavigationPolicyReceivedEvent(payload)));
         event.registrar("1").playToClient(EarthBoundaryPayload.TYPE, EarthBoundaryPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new EarthBoundaryReceivedEvent(payload)));
         event.registrar("2").playToClient(EarthContextPayload.TYPE, EarthContextPayload.CODEC,
@@ -58,7 +63,7 @@ public final class AstraEngine {
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SystemSnapshotReceivedEvent(payload)));
         event.registrar("3").playToClient(CustomSystemsPayload.TYPE, CustomSystemsPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new CustomSystemsReceivedEvent(payload)));
-        event.registrar("8").playToClient(ExplorationPayload.TYPE, ExplorationPayload.CODEC,
+        event.registrar("9").playToClient(ExplorationPayload.TYPE, ExplorationPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new ExplorationReceivedEvent(payload)));
         event.registrar("1").playToClient(SolarPayload.TYPE, SolarPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SolarReceivedEvent(payload)));
@@ -82,6 +87,7 @@ public final class AstraEngine {
     }
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
+        event.enqueueWork(NavigationRules::register);
         event.enqueueWork(() -> {
             if (ModList.get().isLoaded("distanthorizons")) {
                 try {

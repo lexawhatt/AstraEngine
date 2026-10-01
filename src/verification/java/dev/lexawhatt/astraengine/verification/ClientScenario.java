@@ -95,6 +95,7 @@ public final class ClientScenario {
     private EarthBoundaryScenario earthBoundaryScenario;
     private ContinentalOrbitScenario continentalOrbitScenario;
     private EarthDistantScenario earthDistantScenario;
+    private NavigationScenario navigationScenario;
     private LunarPulsarVisualScenario lunarPulsarVisualScenario;
     private PulsarAtlasScenario pulsarAtlasScenario;
     private SurfacePayload latestSurface;
@@ -113,7 +114,7 @@ public final class ClientScenario {
                     || phase.startsWith("earth-") || phase.startsWith("continental-") ? 900_000_000_000L
                     : phase.startsWith("seasonal") || phase.equals("volumetric")
                     || phase.equals("render-compat") || phase.equals("celestial-polish")
-                    || phase.equals("lunar-pulsar") || phase.startsWith("pulsar-")
+                    || phase.equals("lunar-pulsar") || phase.equals("navigation") || phase.startsWith("pulsar-")
                     ? 600_000_000_000L : 240_000_000_000L),
                     "Native fixture timed out at step " + step);
             if (!opened && !onboardingContinued && minecraft.getOverlay() == null
@@ -211,7 +212,7 @@ public final class ClientScenario {
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
                         || phase.startsWith("earth-boundary-") || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || (phase.equals("earth-landscape") || phase.equals("earth-landscape-pack")) || phase.equals("earth-generation-create") || phase.equals("continental-create")
                         || phase.startsWith("dh-clouds") || phase.equals("earth-dh") || phase.equals("earth-materials")
-                        || phase.equals("lunar-pulsar") || phase.equals("pulsar-create")) {
+                        || phase.equals("lunar-pulsar") || phase.equals("pulsar-create") || phase.equals("navigation")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
@@ -233,6 +234,10 @@ public final class ClientScenario {
             }
             if (!pending.isDone()) { return; }
             pending.join();
+            if (navigationScenario != null && navigationScenario.reconnecting()) {
+                if (navigationScenario.tick()) { finish(); }
+                return;
+            }
             if (solarAudioScenario != null && solarAudioScenario.disconnected()
                     && minecraft.level == null && minecraft.getOverlay() == null) {
                 if (solarAudioScenario.tick()) { finish(); }
@@ -255,7 +260,7 @@ public final class ClientScenario {
             boolean galacticPhase = phase.equals("galactic") || phase.equals("galactic-restart");
             boolean celestialApiPhase = phase.equals("celestial-api") || phase.equals("celestial-api-restart");
             if (minecraft.player == null || minecraft.level == null || minecraft.getOverlay() != null
-                    || (minecraft.screen != null && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
+                    || (minecraft.screen != null && !phase.equals("navigation") && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
                             || minecraft.screen instanceof ShaderEditorScreen))
                             && !(phase.equals("surface-failures") && minecraft.screen instanceof DeathScreen)
                             && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || celestialPolishPhase || surfacePhase
@@ -268,6 +273,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.equals("navigation")) {
+                if (navigationScenario == null) { navigationScenario = new NavigationScenario(); }
+                if (navigationScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.equals("earth-orbit") || phase.equals("earth-materials")) {
                 if (continentalOrbitScenario == null) { continentalOrbitScenario = new ContinentalOrbitScenario(phase.equals("earth-materials")); }
                 if (continentalOrbitScenario.tick()) { finish(); }

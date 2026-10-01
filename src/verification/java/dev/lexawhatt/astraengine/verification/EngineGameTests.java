@@ -202,7 +202,7 @@ public final class EngineGameTests {
                     new InvalidTransition(true, 120, "s_1_0_0/earth"),
                     new InvalidTransition(true, 120, "sol/"),
                     new InvalidTransition(true, 120, "sol/earth/moon"),
-                    new InvalidTransition(true, 81, "s_1_0_0"),
+                    new InvalidTransition(true, ExplorationPayload.MAX_TRANSITION_TICKS + 1, "s_1_0_0"),
                     new InvalidTransition(true, 80, "s_2_0_0")}) {
                 writeTransition(buffer, invalid.active(), invalid.ticks(), invalid.target(), 51);
                 boolean rejected = false;

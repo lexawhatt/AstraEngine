@@ -105,10 +105,14 @@ They do not silently allocate or reset worlds. See [COSMOS.md](COSMOS.md).
 IDs, immutable custom definitions, virtual flight position, orientation and an occupied-only orbital clock.
 `RocketService` owns transient flight sessions and return/recovery points.
 C2S actions and controls are requests for the sending player's own session;
-only visited systems can be fast-jump destinations; a discovery grants chart
+by default only visited systems can be fast-jump destinations; a discovery grants chart
 visibility and manual targeting. Presentation uses
 `ExplorationPayload` snapshots. These internals are not yet a frozen SolarTech
 travel or extraction API for generated systems.
+
+The [consumer map API](NAVIGATION_API.md) exposes client-only replacement events,
+immutable snapshots and validated request handles. Operator navigation gamerules
+can explicitly bypass prior discovery/visits and fix route duration.
 
 
 ## Ship visualization

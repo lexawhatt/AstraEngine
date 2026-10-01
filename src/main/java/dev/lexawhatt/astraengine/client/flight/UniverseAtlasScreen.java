@@ -29,6 +29,7 @@ public final class UniverseAtlasScreen extends Screen {
     private int columnX;
     private int columnWidth;
     private Button aim;
+    private Button jump;
 
     /** Opens the public atlas for this connection's navigation controller on the client thread. */
     public UniverseAtlasScreen(RocketController controller) {
@@ -76,11 +77,17 @@ public final class UniverseAtlasScreen extends Screen {
                 + pulsar.name()), button -> {
             selectedRegion = regions.size(); rebuildWidgets();
         }).bounds(columnX, 58 + regions.size() * 22, columnWidth, 20).build());
+        jump = addRenderableWidget(Button.builder(Component.translatable("astraengine.map.jump"), button -> {
+            if (controller.canJumpTo(selectedSystemId())) {
+                controller.action(dev.lexawhatt.astraengine.network.FlightActionPayload.Action.JUMP_SYSTEM, selectedSystemId());
+                onClose();
+            }
+        }).bounds(columnX, height - 80, columnWidth, 20).build());
         int buttonWidth = (columnWidth - 8) / 2;
         aim = addRenderableWidget(Button.builder(text("aim"), button -> {
             if (controller.chartAtlasSystem(selectedSystemId())) { onClose(); }
         }).bounds(columnX, height - 54, buttonWidth, 20).build());
-        addRenderableWidget(Button.builder(text("map"), button -> minecraft.setScreen(new CosmosMapScreen(controller)))
+        addRenderableWidget(Button.builder(text("map"), button -> controller.openMap(dev.lexawhatt.astraengine.client.map.NavigationMapAccess.View.SYSTEM))
                 .bounds(columnX + buttonWidth + 8, height - 54, buttonWidth, 20).build());
         refreshActions();
     }
@@ -99,6 +106,7 @@ public final class UniverseAtlasScreen extends Screen {
         boolean known = controller.snapshot() != null
                 && controller.snapshot().discoveredSystems().contains(selectedSystemId());
         aim.active = idle && (known || controller.snapshot().discoveredSystems().size() < 256);
+        jump.active = idle && controller.canJumpTo(selectedSystemId());
     }
 
     private boolean pulsarSelected() { return selectedRegion == regions.size(); }

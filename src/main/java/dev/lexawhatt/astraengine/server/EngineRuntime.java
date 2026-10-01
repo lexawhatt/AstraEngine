@@ -99,6 +99,7 @@ public final class EngineRuntime {
     private void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             PacketDistributor.sendToPlayer(player, new EarthContextPayload(EarthWorlds.terrainVersion(server)));
+            NavigationRules.send(player);
             if (travel != null) { travel.recover(player); }
             if (rocket != null) { rocket.recover(player); }
             if (solar != null) { solar.send(player); }

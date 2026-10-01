@@ -109,9 +109,10 @@ public final class AtlasGameTests {
                 helper.assertTrue(ExplorationPayload.CODEC.decode(buffer).equals(payload) && !buffer.isReadable(),
                         "Universe navigation snapshot changed identity or private visits"); buffer.clear();
             }
-            rejects(helper, () -> new ExplorationPayload(7, 20, "sol", SpaceVector.ZERO, SpaceVector.ZERO, true, 100,
-                    FlightOrientation.IDENTITY, 80, "u_5_0", List.of("sol", "u_5_0"), List.of("sol"), 15, 2),
-                    "Unvisited atlas destination on fast-travel wire");
+            var acceptedCheat = new ExplorationPayload(7, 20, "sol", SpaceVector.ZERO, SpaceVector.ZERO, true, 100,
+                    FlightOrientation.IDENTITY, 20, "u_5_0", List.of("sol", "u_5_0"), List.of("sol"), 15, 2);
+            helper.assertTrue(!acceptedCheat.visitedSystems().contains("u_5_0"),
+                    "An authorized cheat route fabricated a visit before actual arrival");
             for (String invalid : List.of("u_9_0", "u_0_7", "u_00_0", "v_1_01_0_0", "v_9_0_0_0")) {
                 helper.assertTrue(!CosmosIds.isKnownId(invalid), "Noncanonical universe identity was accepted: " + invalid);
             }

@@ -82,9 +82,11 @@ public final class GalacticGameTests {
                 helper.assertTrue(ExplorationPayload.CODEC.decode(buffer).equals(payload) && !buffer.isReadable(),
                         "Visited fast travel or distant same-origin return changed on wire"); buffer.clear();
             }
-            rejects(helper, () -> new ExplorationPayload(1, 20, "sol", SpaceVector.ZERO, SpaceVector.ZERO, true,
-                    100, FlightOrientation.IDENTITY, 80, "s_1_0_0", known, List.of("sol"), 9, 2),
-                    "Unvisited fast-travel destination");
+            var cheat = new ExplorationPayload(1, 20, "sol", SpaceVector.ZERO, SpaceVector.ZERO, true,
+                    100, FlightOrientation.IDENTITY, 72000, "s_1_0_0", known, List.of("sol"), 9, 2);
+            ExplorationPayload.CODEC.encode(buffer, cheat);
+            helper.assertTrue(ExplorationPayload.CODEC.decode(buffer).equals(cheat),
+                    "Server-accepted first-visit timed jump changed on wire"); buffer.clear();
             for (int count : new int[]{0, 257}) {
                 writeNavigationPrefix(buffer); buffer.writeVarInt(count);
                 rejects(helper, () -> ExplorationPayload.CODEC.decode(buffer), "Out-of-bounds visited wire count " + count);

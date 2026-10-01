@@ -112,6 +112,10 @@ speed does not turn approach into an interstellar autopilot.
 
 ## Map and discoveries
 
+The following discovery requirements describe the default policy. Operators may
+override them with `astraFreeNavigation`; `astraTravelSeconds` fixes approach/jump
+duration in game seconds. See [navigation rules and the consumer map API](NAVIGATION_API.md).
+
 **Current system** shows bodies and orbits from above in the XZ plane. A cross
 marks the camera position. Select a body through its marker or the list; the list
 and zoom are useful for tightly grouped inner planets. **Track selected body**
@@ -177,12 +181,13 @@ cannot find a safe route, the request is rejected. A new obstruction during
 flight stops the route without teleporting through the body. This is not a
 surface landing.
 
-**Jump to system** is available only after that player has visited its arrival
+By default, **Jump to system** is available only after that player has visited its arrival
 region in manual flight. The server rejects unvisited destinations even if a
 client forges the request. Returning to the current system origin is allowed
 after flying outside its arrival region. Fast travel retains a separate void
 transit lasting **80 server ticks**, or four
-seconds at 20 TPS. The system and observation point change at the end. During
+seconds at 20 TPS; `astraTravelSeconds` can override that duration. The system and
+observation point change at the end. During
 approach or interstellar transit, navigation requests cannot start a second route.
 Transit has no radial lines or animated ribbons.
 

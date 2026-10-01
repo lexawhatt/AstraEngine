@@ -14,6 +14,7 @@ public final class VerificationMod {
     public VerificationMod(IEventBus bus) {
         bus.addListener((RegisterGameTestsEvent event) -> {
             event.register(EngineGameTests.class);
+            event.register(NavigationGameTests.class);
             event.register(CelestialApiGameTests.class);
             event.register(GalacticGameTests.class);
             event.register(AtlasGameTests.class);

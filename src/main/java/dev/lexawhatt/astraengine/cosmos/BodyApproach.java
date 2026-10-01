@@ -19,6 +19,7 @@ public final class BodyApproach {
     private final FlightOrientation initialOrientation;
     private final OrbitalTimeline timeline;
     private final int durationTicks;
+    private final int aimTicks;
     private final double logarithm;
     private final FlightOrientation[] orientationGuide;
 
@@ -32,6 +33,7 @@ public final class BodyApproach {
         this.initialOrientation = initialOrientation;
         this.timeline = timeline;
         this.durationTicks = durationTicks;
+        aimTicks = Math.min(AIM_TICKS, durationTicks / 5);
         logarithm = Math.clamp(Math.log1p(start.distance(destination) / Math.max(body.radiusMeters() * 3, 100_000)),
                 0.25, 24);
         orientationGuide = null;
@@ -46,6 +48,7 @@ public final class BodyApproach {
         initialOrientation = checked.initialOrientation;
         timeline = checked.timeline;
         durationTicks = checked.durationTicks;
+        aimTicks = checked.aimTicks;
         logarithm = checked.logarithm;
         // Only a collision-checked candidate allocates the bounded, immutable orientation guide.
         orientationGuide = buildOrientationGuide();
@@ -73,6 +76,19 @@ public final class BodyApproach {
     /** Predicts body motion from an immutable elapsed/calendar policy; the owning server checks the policy remains current. */
     public static Optional<BodyApproach> plan(CosmosSystem system, CelestialBody body, FlightDynamics.State state,
             FlightOrientation orientation, OrbitalTimeline timeline) {
+        return plan(system, body, state, orientation, timeline, 0);
+    }
+
+    /**
+     * Plans with an operator duration override: zero keeps normal timing, 20..72000 ticks fixes arrival time.
+     * The override bypasses the ordinary speed cap but retains collision, finite-position and ephemeris checks.
+     * It applies only to this route; later rule changes cannot retime a route already in progress.
+     */
+    public static Optional<BodyApproach> plan(CosmosSystem system, CelestialBody body, FlightDynamics.State state,
+            FlightOrientation orientation, OrbitalTimeline timeline, int fixedTicks) {
+        if (fixedTicks != 0 && (fixedTicks < 20 || fixedTicks > MAX_TICKS)) {
+            throw new IllegalArgumentException("Fixed approach duration must be zero or 20..72000 ticks");
+        }
         if (system == null || body == null || !system.bodies().contains(body) || state == null || orientation == null
                 || timeline == null) {
             throw new IllegalArgumentException("A local approach requires valid system, target, navigation and time");
@@ -83,7 +99,7 @@ public final class BodyApproach {
             return Optional.empty();
         }
         for (int candidate = 0; candidate < 9; candidate++) {
-            int duration = 240;
+            int duration = fixedTicks == 0 ? 240 : fixedTicks;
             BodyApproach route = null;
             for (int refinement = 0; refinement < 8; refinement++) {
                 FlightDynamics.Observation arrival;
@@ -113,6 +129,7 @@ public final class BodyApproach {
                 }
                 BodyApproach proposed = new BodyApproach(system, body, state.position(), control, destination,
                         orientation, timeline, duration);
+                if (fixedTicks > 0) { route = proposed; break; }
                 double curveDerivative = 2 * Math.max(state.position().distance(control),
                         control.distance(destination));
                 double minimumSeconds = curveDerivative * maximumProgressDerivative(proposed.logarithm)
@@ -175,12 +192,12 @@ public final class BodyApproach {
             return initialOrientation;
         }
         FlightOrientation guided = orientationAt(elapsedTicks);
-        if (elapsedTicks >= AIM_TICKS) {
+        if (elapsedTicks >= aimTicks) {
             return guided;
         }
         FlightOrientation firstAim = orientationGuide[0];
         FlightOrientation aim = initialOrientation.interpolate(firstAim,
-                smooth(elapsedTicks / (double) AIM_TICKS));
+                smooth(elapsedTicks / (double) aimTicks));
         FlightOrientation inverseAim = new FlightOrientation(-firstAim.x(), -firstAim.y(),
                 -firstAim.z(), firstAim.w());
         // Choose the aiming arc once. Recomputing its shortest side toward a moving target can
@@ -190,7 +207,7 @@ public final class BodyApproach {
     }
 
     private SpaceVector position(double elapsedTicks) {
-        if (elapsedTicks <= AIM_TICKS) {
+        if (elapsedTicks <= aimTicks) {
             return start;
         }
         if (elapsedTicks >= durationTicks) {
@@ -213,8 +230,9 @@ public final class BodyApproach {
         double previousTick = 0;
         double previousProgress = 0;
         double curvature = start.subtract(control.multiply(2)).add(destination).length();
-        for (int sample = 1; sample <= PLANNING_SEGMENTS; sample++) {
-            double tick = durationTicks * sample / (double) PLANNING_SEGMENTS;
+        int segments = Math.min(PLANNING_SEGMENTS, durationTicks);
+        for (int sample = 1; sample <= segments; sample++) {
+            double tick = durationTicks * sample / (double) segments;
             SpaceVector next = position(tick);
             double progress = progress(tick);
             double curveAllowance = curvature * Math.pow(progress - previousProgress, 2) / 4;
@@ -238,7 +256,7 @@ public final class BodyApproach {
     }
 
     private double progress(double elapsedTicks) {
-        double time = Math.clamp((elapsedTicks - AIM_TICKS) / (durationTicks - AIM_TICKS), 0, 1);
+        double time = Math.clamp((elapsedTicks - aimTicks) / (durationTicks - aimTicks), 0, 1);
         return -Math.expm1(-logarithm * smooth(time)) / -Math.expm1(-logarithm);
     }
 

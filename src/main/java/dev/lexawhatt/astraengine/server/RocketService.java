@@ -159,7 +159,7 @@ public final class RocketService implements AutoCloseable {
         message(player, "preparing");
     }
 
-    /** Applies only one discrete own-player action per four ticks, rejecting uncharted destinations. */
+    /** Applies only one discrete own-player action per four ticks, enforcing the current server navigation policy. */
     public void action(ServerPlayer player, FlightActionPayload payload) {
         if (!acceptAction(player)) { return; }
         if (payload.action() == FlightActionPayload.Action.TOGGLE) { toggle(player); return; }
@@ -180,7 +180,12 @@ public final class RocketService implements AutoCloseable {
             if (payload.action() == FlightActionPayload.Action.BRAKE) { finishApproach(catalog, player, session, "approach_cancelled"); }
             return;
         }
-        if (session.jumpTicks > 0) { return; }
+        if (session.jumpTicks > 0) {
+            if (payload.action() == FlightActionPayload.Action.BRAKE) {
+                finishApproach(catalog, player, session, "approach_cancelled");
+            }
+            return;
+        }
         switch (payload.action()) {
             case CHART_ATLAS -> {
                 // The request type accepts only public atlas anchors, never private custom definitions.
@@ -198,18 +203,24 @@ public final class RocketService implements AutoCloseable {
                 }
             }
             case JUMP_SYSTEM -> {
-                if (!pilot.discoveredSystems().contains(payload.target())) {
+                var policy = NavigationRules.policy(server);
+                if (catalog.findSystem(payload.target()).isEmpty()) {
                     message(player, "unknown_target"); return;
                 }
-                if (!pilot.visitedSystems().contains(payload.target())) {
+                if (!policy.permitsJump(pilot.visitedSystems().contains(payload.target()))) {
                     message(player, "unvisited_target"); return;
                 }
                 boolean nearCurrent = pilot.systemId().equals(payload.target()) && pilot.position().length()
                         <= GalacticNavigation.arrivalRadiusMeters(currentSystem(catalog, pilot, session));
-                if (nearCurrent) {
-                    message(player, "unknown_target"); return;
+                if (nearCurrent) { message(player, "unknown_target"); return; }
+                // Only a requested, accepted cheat charts a target. Enabling the rule reveals nothing.
+                if (!pilot.discoveredSystems().contains(payload.target())) {
+                    if (catalog.discover(player.getUUID(), payload.target()) == DiscoverResult.LIMIT_REACHED) {
+                        message(player, "chart_full"); return;
+                    }
                 }
-                session.jumpTarget = payload.target(); session.jumpBody = ""; session.jumpTicks = 80;
+                session.jumpFirstVisit = policy.freeNavigation();
+                session.jumpTarget = payload.target(); session.jumpBody = ""; session.jumpTicks = policy.jumpTicks();
                 pilot.navigate(new FlightDynamics.State(pilot.position(), ZERO), pilot.orientation());
             }
             case LAND_BODY -> {
@@ -242,7 +253,7 @@ public final class RocketService implements AutoCloseable {
                         .findFirst().orElse(null);
                 if (body == null) { message(player, "unknown_target"); return; }
                 var route = BodyApproach.plan(system, body, new FlightDynamics.State(pilot.position(), pilot.velocity()),
-                        pilot.orientation(), timeline(catalog, system.id()));
+                        pilot.orientation(), timeline(catalog, system.id()), NavigationRules.policy(server).overrideTicks());
                 if (route.isEmpty()) { message(player, "approach_blocked"); return; }
                 session.approach = route.get(); session.approachTicks = 0;
                 session.jumpTarget = pilot.systemId(); session.jumpBody = payload.target();
@@ -476,7 +487,10 @@ public final class RocketService implements AutoCloseable {
                 CosmosSystem system = catalog.system(session.jumpTarget);
                 CelestialBody body = session.jumpBody.isEmpty() ? system.bodies().getFirst()
                         : system.bodies().stream().filter(value -> value.id().equals(session.jumpBody)).findFirst().orElseThrow();
-                pilot.arrive(system.id(), ExplorationCatalog.arrival(system, body, orbitalSeconds(catalog, system.id())));
+                pilot.arrive(system.id(), ExplorationCatalog.arrival(system, body, orbitalSeconds(catalog, system.id())),
+                        session.jumpFirstVisit);
+                session.jumpFirstVisit = false;
+                catalog.revealNeighbors(pilot);
                 session.system = system;
                 session.controls.relocate(pilot.revision());
                 session.input = null; session.jumpTarget = ""; session.jumpBody = "";
@@ -526,6 +540,7 @@ public final class RocketService implements AutoCloseable {
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
         pilot.navigate(new FlightDynamics.State(pilot.position(), ZERO), pilot.orientation());
         session.approach = null; session.approachTicks = 0;
+        session.jumpFirstVisit = false;
         session.jumpTicks = 0; session.jumpTarget = ""; session.jumpBody = ""; session.input = null;
         session.controls.relocate(pilot.revision());
         catalog.setDirty();
@@ -786,6 +801,7 @@ public final class RocketService implements AutoCloseable {
         private int approachTicks;
         private int jumpTicks;
         private String jumpTarget = "";
+        private boolean jumpFirstVisit;
         private String jumpBody = "";
         private Session(Point source) { this.source = source; }
     }

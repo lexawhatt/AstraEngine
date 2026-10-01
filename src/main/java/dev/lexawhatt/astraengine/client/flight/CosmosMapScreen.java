@@ -66,7 +66,7 @@ public final class CosmosMapScreen extends Screen {
                 .bounds(14, 37, tabWidth, 20).build());
         addRenderableWidget(Button.builder(text("nearby"), button -> switchChart(true))
                 .bounds(20 + tabWidth, 37, tabWidth, 20).build());
-        addRenderableWidget(Button.builder(text("atlas"), button -> minecraft.setScreen(new UniverseAtlasScreen(controller)))
+        addRenderableWidget(Button.builder(text("atlas"), button -> controller.openMap(dev.lexawhatt.astraengine.client.map.NavigationMapAccess.View.ATLAS))
                 .bounds(230, 12, 112, 20).build());
         addRenderableWidget(Button.builder(text("close"), button -> onClose()).bounds(width - 72, 12, 58, 20).build());
         List<Entry> entries = entries();
@@ -143,7 +143,7 @@ public final class CosmosMapScreen extends Screen {
         navigate.setMessage(text(approaching ? "cancel_approach" : galactic ? "jump" : "approach"));
         navigate.active = approaching || (idle && selected && (!galactic
                 || controller.canJumpTo(selection)));
-        navigate.setTooltip(galactic && selected && !controller.visited(selection)
+        navigate.setTooltip(galactic && selected && !controller.visited(selection) && !controller.navigationPolicy().freeNavigation()
                 ? Tooltip.create(text("unvisited")) : null);
         target.setMessage(text(galactic ? "aim_system" : "target"));
         target.active = selected && (!galactic || idle);

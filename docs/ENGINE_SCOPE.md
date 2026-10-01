@@ -21,10 +21,14 @@ recipe, or fuel. Gameplay ship rules need a separate contract that is still to b
 defined. The current Rocket mode is a free camera for exploring and inspecting
 the cosmos.
 
-Chart visibility and a recorded visit are separate engine states. First manual
+Chart visibility and a recorded visit are separate engine states. Under the default policy, first manual
 arrival unlocks fast travel and reveals neighboring systems; consumers can reveal
 custom content through the API but cannot use discovery to grant a visit. Manual
 flight crosses system boundaries while the real player stays in the void.
+
+Operator [navigation rules](NAVIGATION_API.md) may explicitly permit a first jump
+without prior discovery/visits and set its duration. Consumer maps use a client
+replacement event and immutable request handle; server authority is preserved.
 
 Procedural system/body descriptors and spatial galactic environments are
 implemented. The versioned [cosmic atlas](UNIVERSE.md) supplies nine galaxies and named
