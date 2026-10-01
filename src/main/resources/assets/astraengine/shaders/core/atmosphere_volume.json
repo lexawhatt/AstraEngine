@@ -7,6 +7,9 @@
   "samplers": [
     {
       "name": "SceneDepth"
+    },
+    {
+      "name": "DistantDepth"
     }
   ],
   "uniforms": [
@@ -147,6 +150,37 @@
       "values": [
         0.36,
         0.86
+      ]
+    },
+    {
+      "name": "DistantReady",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "DistantInverseViewProjection",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
       ]
     }
   ]

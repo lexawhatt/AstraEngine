@@ -9,17 +9,13 @@ in vec2 clipPosition;
 out vec4 fragColor;
 #moj_import <astraengine:celestial_display.glsl>
 
-float distanceAt(vec2 uv, float depth) {
-    vec4 value = InverseViewProjection * vec4(uv * 2.0 - 1.0, depth * 2.0 - 1.0, 1.0);
-    return length(value.xyz / value.w);
-}
+#moj_import <astraengine:atmosphere_scene_depth.glsl>
 
 void main() {
     vec2 uv = clipPosition * 0.5 + 0.5;
     vec4 scene = texture(SceneColor, uv);
-    float depth = texture(SceneDepth, uv).r;
-    if (depth >= 0.999999) { fragColor = scene; return; }
-    float distance = distanceAt(uv, depth);
+    float distance = atmosphereSceneDistance(uv);
+    if (distance < 0.0) { fragColor = scene; return; }
     vec2 grid = uv * TransportSize - 0.5;
     vec2 base = floor(grid);
     vec2 blend = fract(grid);
@@ -28,9 +24,9 @@ void main() {
     for (int y = 0; y < 2; y++) {
         for (int x = 0; x < 2; x++) {
             vec2 sampleUV = (base + vec2(x, y) + 0.5) / TransportSize;
-            float sampleDepth = texture(SceneDepth, sampleUV).r;
-            if (sampleDepth >= 0.999999) { continue; }
-            float difference = abs(distanceAt(sampleUV, sampleDepth) - distance);
+            float sampleDistance = atmosphereSceneDistance(sampleUV);
+            if (sampleDistance < 0.0) { continue; }
+            float difference = abs(sampleDistance - distance);
             float w = (x == 0 ? 1.0 - blend.x : blend.x) * (y == 0 ? 1.0 - blend.y : blend.y);
             w *= 1.0 - smoothstep(max(0.15, distance * 0.015), max(0.5, distance * 0.04), difference);
             integrated += texture(Transport, sampleUV) * w;

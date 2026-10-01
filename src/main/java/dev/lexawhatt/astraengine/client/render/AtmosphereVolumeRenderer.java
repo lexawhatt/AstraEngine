@@ -23,6 +23,7 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
     private HdrColorTarget geometry;
     private RenderTarget scene;
     private boolean failed;
+    private boolean terrainDepthCaptured;
     private Frame frame;
 
     /** One sky extraction shared by the later geometry pass; no simulation is advanced here. */
@@ -51,14 +52,29 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
                 ResourceLocation.fromNamespaceAndPath(AstraEngine.MOD_ID, name), DefaultVertexFormat.POSITION);
     }
 
-    void clearFrame() { frame = null; }
+    void clearFrame() { frame = null; terrainDepthCaptured = false; }
+
+    /** Preserve actual opaque depth before Fabulous resolves transparency with a fullscreen depth-writing quad. */
+    void captureTerrainDepth() {
+        Minecraft game = Minecraft.getInstance();
+        if (frame == null || frame.level != game.level || failed || scene == null) { return; }
+        RenderTarget main = game.getMainRenderTarget();
+        if (scene.width != main.width || scene.height != main.height) { return; }
+        try (var saved = new FullscreenPass()) {
+            GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, main.frameBufferId);
+            GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, scene.frameBufferId);
+            GL30.glBlitFramebuffer(0, 0, main.width, main.height, 0, 0, scene.width, scene.height,
+                    GL11.GL_DEPTH_BUFFER_BIT, GL11.GL_NEAREST);
+            terrainDepthCaptured = true;
+        }
+    }
 
     /** Produces a reduced-resolution linear transport image before celestial HDR composition. */
     boolean sky(Frame extracted, ShaderInstance skyProgram) {
         frame = null;
         if (transport == null || compose == null || failed || extracted.coverage <= 0) { return false; }
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
-        try (var saved = new FullscreenPass(); var masks = new CelestialBloomPipeline.ColorState()) {
+        try (var saved = new FullscreenPass(4); var masks = new CelestialBloomPipeline.ColorState()) {
             try {
                 ensureTargets(main, extracted.quality);
             } catch (RuntimeException failure) {
@@ -70,6 +86,7 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
             uniforms(extracted, main);
             sky.bind();
             transport.safeGetUniform("GeometryPass").set(0);
+            distantUniforms(transport, null);
             transport.setSampler("SceneDepth", main.getDepthTextureId());
             FullscreenPass.draw(transport);
             skyProgram.setSampler("CloudTransport", sky.texture());
@@ -79,24 +96,27 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
     }
 
     /** Clips scattering to copied world depth, leaving the already-composited sky and host depth unchanged. */
-    void world() {
+    void world(EarthLandscapeRenderer.Depth distant) {
         Frame current = frame;
         frame = null;
         Minecraft game = Minecraft.getInstance();
-        if (current == null || current.level != game.level || failed || scene == null) { return; }
+        if (current == null || current.level != game.level || failed || scene == null || !terrainDepthCaptured) { return; }
+        terrainDepthCaptured = false;
         RenderTarget main = game.getMainRenderTarget();
         if (scene.width != main.width || scene.height != main.height) { return; }
-        try (var saved = new FullscreenPass(); var masks = new CelestialBloomPipeline.ColorState()) {
+        try (var saved = new FullscreenPass(4); var masks = new CelestialBloomPipeline.ColorState()) {
             GL30.glBindFramebuffer(GL30.GL_READ_FRAMEBUFFER, main.frameBufferId);
             GL30.glBindFramebuffer(GL30.GL_DRAW_FRAMEBUFFER, scene.frameBufferId);
             GL30.glBlitFramebuffer(0, 0, main.width, main.height, 0, 0, scene.width, scene.height,
-                    GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, GL11.GL_NEAREST);
+                    GL11.GL_COLOR_BUFFER_BIT, GL11.GL_NEAREST);
             uniforms(current, main);
             geometry.bind();
             transport.safeGetUniform("GeometryPass").set(1);
+            distantUniforms(transport, distant);
             transport.setSampler("SceneDepth", scene.getDepthTextureId());
             FullscreenPass.draw(transport);
             main.bindWrite(true);
+            distantUniforms(compose, distant);
             compose.setSampler("SceneColor", scene.getColorTextureId());
             compose.setSampler("SceneDepth", scene.getDepthTextureId());
             compose.setSampler("Transport", geometry.texture());
@@ -105,6 +125,12 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
             compose.safeGetUniform("Exposure").set(current.exposure);
             FullscreenPass.draw(compose);
         }
+    }
+
+    private static void distantUniforms(ShaderInstance shader, EarthLandscapeRenderer.Depth depth) {
+        shader.safeGetUniform("DistantReady").set(depth == null ? 0 : 1);
+        shader.setSampler("DistantDepth", depth == null ? 0 : depth.texture());
+        shader.safeGetUniform("DistantInverseViewProjection").set(depth == null ? new Matrix4f() : depth.inverseViewProjection());
     }
 
     private void uniforms(Frame value, RenderTarget main) {
@@ -139,7 +165,7 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
 
     @Override
     public void close() {
-        frame = null;
+        frame = null; terrainDepthCaptured = false;
         if (sky != null) { sky.close(); sky = null; }
         if (geometry != null) { geometry.close(); geometry = null; }
         if (scene != null) { scene.destroyBuffers(); scene = null; }

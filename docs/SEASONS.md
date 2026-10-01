@@ -178,6 +178,9 @@ Cloud transport is composed into celestial HDR before bloom. A separate pass
 clips air/cloud transport to the copied opaque world depth and reconstructs
 edges conservatively. It does not paint over the hand or HUD. The host world's
 color remains its existing display-color path, not a new HDR material renderer.
+Opaque depth is captured before the Fabulous transparency resolve. Continental
+Earth additionally supplies its private distant-terrain depth with the matching
+projection, allowing clouds to obscure ground beyond loaded voxel chunks.
 Camera skylight suppresses shafts in enclosed interiors. This is **not a terrain
 shadow map**: mountains and offscreen structures do not cast complete volumetric
 shadows, and mixed indoor/outdoor views remain approximate. Transparent surfaces

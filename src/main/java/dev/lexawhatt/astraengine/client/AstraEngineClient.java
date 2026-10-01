@@ -86,8 +86,11 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(seasons::receive);
         NeoForge.EVENT_BUS.addListener(seasons::tick);
         NeoForge.EVENT_BUS.addListener(seasons::logout);
-        OverworldSkyRenderer sky = new OverworldSkyRenderer(solar, options, seasons);
+        OverworldSkyRenderer sky = new OverworldSkyRenderer(solar, options, seasons, earth);
         modEventBus.addListener(sky::registerShaders);
+        NeoForge.EVENT_BUS.addListener(sky::renderDistant);
+        NeoForge.EVENT_BUS.addListener(sky::distantFog);
+        NeoForge.EVENT_BUS.addListener(sky::captureTerrainDepth);
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingOut event) -> {
             if (RenderSystem.isOnRenderThread()) { sky.close(); }
             else { RenderSystem.recordRenderCall(sky::close); }

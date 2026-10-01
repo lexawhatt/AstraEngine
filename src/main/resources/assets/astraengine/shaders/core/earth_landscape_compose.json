@@ -1,0 +1,13 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:earth_landscape_compose",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "LandscapeColor"
+    }
+  ],
+  "uniforms": []
+}

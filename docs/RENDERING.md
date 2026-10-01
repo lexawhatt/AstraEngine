@@ -284,7 +284,9 @@ replacing the same Overworld effects need separate compatibility work.
 
 The automatic Overworld first computes reduced-resolution cloud/air transport in
 an owned RGBA16F target and composites it into the celestial HDR sky before bloom.
-At `AFTER_LEVEL`, a second RGBA16F transport target integrates only up to copied
+At `AFTER_WEATHER`, the renderer preserves opaque world depth before Minecraft's
+Fabulous transparency resolve can replace it with fullscreen-quad depth.
+At `AFTER_LEVEL`, a second RGBA16F transport target integrates only up to that preserved
 opaque scene depth, then composes with depth-aware reconstruction before the local
 GLSL editor effect. Sky pixels are excluded from this second composition. The
 renderer owns these two targets plus a full-size color/depth copy, preserves host
@@ -352,3 +354,27 @@ has no construction catalog, engineering statistics, deployment entities or
 persistent ship state. Consumer code owns authoritative movement, synchronization
 and collisions. The same draw path runs in the physically bounded flight world.
 Minecraft owns registered programs; AstraEngine owns preview/world-copy targets.
+
+## Bound Earth distant terrain
+
+`ContinentalLandscape` samples the saved continental field into 128 connected radial
+rings with 256 angular sectors. One render-owned request runs on the host background
+executor; no worker reads chunks or touches GL. Positions subtract a double-precision
+sea-level anchor before narrowing. The same near-chart/far-tangent bridge is retained
+through moving-origin rebases. A 128 m movement threshold requests a replacement;
+old valid geometry remains visible while it is built. No new terrain identity or
+world generation authority is introduced.
+
+`EarthLandscapeRenderer` draws that mesh into a private color/depth target at the
+main viewport size, using its own 4,000 km far plane. Only covered pixels compose at
+AFTER_SKY. Host opaque terrain and optional DH draw afterward. The host depth buffer
+and projection remain unchanged. Atmospheric transport receives a borrowed depth
+texture plus its actual inverse projection for this frame; it reconstructs distances
+separately and lets host geometry cover the background. Raw depths are never compared.
+Reload/logout/context retirement dispose owned mesh/targets and cancel requests.
+Program disposal remains Minecraft-owned. Allocation failure falls back to host
+terrain until reload. Shader packs keep their existing ownership and suppress this
+native background; this is not a general pack terrain/shadow integration.
+The near coverage mask excludes only procedural surfaces inside the current
+storage band. Looking straight down from an upper band therefore retains the
+geographic ground below it rather than cutting a hole for nonexistent local chunks.

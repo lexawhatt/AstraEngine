@@ -35,6 +35,26 @@ cancels guidance and preserves a nearby free observer's relative position.
 Changing time during an ascent restores its real surface source. Shader animation
 and stellar evolution keep their existing independent ownership and rates.
 
+The geographic surface also continues beyond loaded chunks as a bounded distant
+mesh from the same saved height/climate field. Oceans and mountain silhouettes
+use the physical Earth radius. Near the player, the mesh preserves the host's flat
+chart appearance; a smooth presentation transition ends at 32.768 km in the physical
+tangent view. This does not reproject host/DH blocks or change collision. Current
+chunks and DH LODs render over the background. The derived mesh contains procedural
+terrain, not saved building summaries or voxel interaction targets.
+Beach/desert materials use the same climate classification as the block generator;
+water follows the source-water surface datum. Derivative-filtered material detail
+reduces distant texture shimmer. This mesh does not generate distant voxel chunks.
+
+Terrain, ocean and cloud depth use separate, explicit projections. Clouds stop at
+the visible distant terrain instead of shining through it. In Fabulous mode,
+opaque depth is preserved before the host transparency resolve; its fullscreen
+effect cannot masquerade as a nearby obstruction and erase clouds viewed from above.
+Private color/depth
+buffers are rebuilt after resize/reload; background CPU work uses immutable geography
+and is canceled on context retirement. Active Iris packs keep their sky/terrain
+ownership; the native far background yields while a pack is active.
+
 The preset uses the real 6,371,000-meter reference radius. Six versioned cube faces
 cover the globe, including both poles. Each face has six persistent, disjoint
 4064-meter altitude bands. Band zero of positive X is `minecraft:overworld`; the
@@ -126,7 +146,13 @@ Fabulous. Native scenarios:
 ./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-earth -PverifyPhase=earth-generation-restart
 ```
 
-The separate `earth-orbit` phase verifies the presentation path. The geographic
+The separate `earth-orbit` phase verifies the orbital presentation path. The
+`earth-landscape` phase covers lowland, summit, high-altitude, coast, pole, face-edge
+and foothill views, plus resource reload and resize. It retains screenshots and
+31 asynchronous GPU timer samples per view; these measure the complete `AFTER_SKY`
+event interval, including any optional handlers, rather than total frame time.
+`earth-landscape-pack` checks the same scenes while an actual Iris pack owns rendering.
+The geographic
 travel fixture uses a fresh `earth-travel-create` directory, then
 `earth-travel-restart` in that same completed directory. It exercises actual
 navigation packets, forest and mountain departures, both polar charts, delayed

@@ -15,6 +15,7 @@ combinations or shader packs.
 | --- | --- | --- |
 | Overworld sky, clouds, fog and lightmap | Astra's automatic seasonal atmosphere, or the selected preview | The pack owns these effects, even with a forced Astra environment |
 | Opaque-world lights, flashlight, profile darkness and profile post-processing | Ordinary Astra lighting path | Disabled; the pack owns terrain lighting and post-processing |
+| Bound continental Earth distant terrain | Shared geographic background, rendered before host/DH terrain | Native background disabled; pack and DH retain terrain ownership |
 | Rocket cosmos and selected resource-profile skies | Ordinary celestial stage | Composited after the pack in non-Overworld dimensions, only into clear-depth sky pixels |
 | Bound Moon/Earth surface skies | Shared orbital frame, atmosphere and visual skylight correction | Late celestial sky composition; pack retains terrain lighting and fog |
 | Consumer ship visuals and eligible local editor shapes | Analytic depth before Astra opaque lighting | Depth-aware overlays after pack composition |
@@ -28,6 +29,13 @@ length and lighting may therefore differ from Astra's saved astronomical state.
 Turning shaders off restores the Astra sky at the current state; it does not
 reset the date or stellar event. These ownership choices apply to actual active
 pack state, including after toggling, reload and dimension changes.
+
+The continental Earth background uses a private projection and depth target.
+It does not replace DH shaders, force a render distance, copy stale DH depth into
+the host buffer, or curve existing DH meshes. Its native atmosphere clips against
+that private geographic depth as well as ordinary host depth. Active packs retain
+their own terrain, clouds and fog; this fallback is not planetary integration into
+the pack's shadow or temporal passes.
 
 The first [Moon/Earth patches](SURFACE_TRAVEL.md) use the same depth-preserving
 late sky boundary. Their land/depart/return and persisted restart scenarios pass

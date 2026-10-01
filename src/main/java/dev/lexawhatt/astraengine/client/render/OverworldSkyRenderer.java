@@ -6,6 +6,7 @@ import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarVisual;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
+import dev.lexawhatt.astraengine.client.surface.EarthStateClient;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import java.io.IOException;
@@ -35,21 +36,24 @@ public final class OverworldSkyRenderer implements AutoCloseable {
     private final SolarStateClient state;
     private final RenderOptions options;
     private final SkyStateClient seasons;
+    private final EarthLandscapeRenderer landscape;
     private ShaderInstance shader;
     private boolean yieldedToShaderPack;
 
     /** Uses the shared server-snapshot presentation and session-local environment controls. */
-    public OverworldSkyRenderer(SolarStateClient state, RenderOptions options, SkyStateClient seasons) {
+    public OverworldSkyRenderer(SolarStateClient state, RenderOptions options, SkyStateClient seasons, EarthStateClient earth) {
         if (state == null || options == null || seasons == null) {
             throw new IllegalArgumentException("Sky services must not be null");
         }
         this.state = state;
         this.options = options;
         this.seasons = seasons;
+        this.landscape = new EarthLandscapeRenderer(earth, seasons, state);
     }
 
     /** Shader reload/disposal belongs to Minecraft; a load failure restores the vanilla sky path. */
     public void registerShaders(RegisterShadersEvent event) {
+        landscape.registerShaders(event);
         bloom.registerShaders(event);
         volumes.registerShaders(event);
         try {
@@ -64,7 +68,21 @@ public final class OverworldSkyRenderer implements AutoCloseable {
 
     /** Releases owned HDR/bloom attachments; safe to repeat on the render thread. */
     @Override
-    public void close() { bloom.close(); volumes.close(); }
+    public void close() { bloom.close(); volumes.close(); landscape.close(); }
+
+    /** Adds the same geographic terrain beyond loaded chunks before host opaque rendering. */
+    public void renderDistant(RenderLevelStageEvent event) { landscape.render(event); }
+
+    /** Shares distant geographic haze with host terrain without overriding fluid or shader-pack fog. */
+    public void distantFog(net.neoforged.neoforge.client.event.ViewportEvent.RenderFog event) { landscape.fog(event); }
+
+    /** Borrows this frame's opaque depth before the host Fabulous transparency resolve replaces it. */
+    public void captureTerrainDepth(RenderLevelStageEvent event) {
+        if (event.getStage() == RenderLevelStageEvent.Stage.AFTER_WEATHER
+                && !RenderCompatibility.shaderPackActive() && !RenderCompatibility.shadowPass()) {
+            volumes.captureTerrainDepth();
+        }
+    }
 
     /** Called after world composition and before the editor's final effect; preserves terrain depth. */
     public void renderAtmosphere(RenderLevelStageEvent event) {
@@ -76,7 +94,7 @@ public final class OverworldSkyRenderer implements AutoCloseable {
             try (var saved = new FullscreenPass()) { volumes.close(); }
             return;
         }
-        volumes.world();
+        volumes.world(landscape.depth());
     }
 
     /** Whether the reload-owned program is usable; fog and lightmap can share the same fallback. */
@@ -91,6 +109,7 @@ public final class OverworldSkyRenderer implements AutoCloseable {
                           Matrix4f projection, boolean foggy, Runnable setupFog) {
         if (RenderCompatibility.shadowPass()) { return false; }
         volumes.clearFrame();
+        landscape.clearFrame();
         if (RenderCompatibility.shaderPackActive()) {
             // The pack owns Overworld atmosphere, fog and lighting. Do not layer two skies.
             yieldToShaderPack();

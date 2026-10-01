@@ -65,7 +65,9 @@ Its versioned orbital height/climate maps share the chunk generator and add prog
 R departs from the current geographic position; aiming at a visible location and pressing L
 prepares a collision-checked landing there. The ground calendar now drives the same Earth
 rotation and Sol orbital motion in flight, including frozen daylight and safe recovery
-from time commands. It remains opt-in while continuous
+from time commands. A bounded distant terrain mesh continues its oceans and mountain
+silhouettes beyond loaded chunks, with geographic lighting and cloud occlusion.
+It layers beneath host/DH geometry and yields to active Iris packs. It remains opt-in while continuous
 storage-boundary views are integrated;
 existing worlds and the current legacy landing destinations retain their behavior.
 
