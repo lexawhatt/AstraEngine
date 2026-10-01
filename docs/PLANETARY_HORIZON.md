@@ -17,7 +17,7 @@ With operator permission, use Creative flight in the new world:
 
 Enable flight to remain above the water. The supplied feet height places a
 standing player's eye approximately 1.7 meters above the nominal sea reference
-Y=64. Face south (yaw 0). The orange/white visual towers are approximately 12, 30
+Y=64, or about 1.81 meters above the visible source-water surface. Face south (yaw 0). The orange/white visual towers are approximately 12, 30
 and 60 km away, 120 meters tall and 200 meters wide. They are diagnostic targets,
 without block collision or gameplay interaction. Blocks you place in this world
 are ordinary persistent Minecraft blocks.
@@ -77,9 +77,11 @@ targets and does not borrow DH depth buffers or replace third-party programs.
 - DH composition is bounded to a 32-chunk (512 m) radius in the qualification
   fixture. At that distance Earth's tangent-plane sag is about 0.0206 m. This
   mathematical error is not a qualification of arbitrary DH distances or settings.
-- The nominal sea reference is Y=64. Vanilla source-water vertices sit about
-  0.111 m below it. Near water and DH retain their own material/fog, so this first
-  prototype does not promise an exact seamless water-material join.
+- The nominal sea reference remains Y=64. The analytic water now follows the
+  source-water height Y=63+8/9 (the host applies a further 0.001 m raster epsilon).
+  The calibration ocean and host fog share a marine color; DH's default world-fog
+  mode reads that color. Native water/DH materials and lighting still differ, so
+  this does not promise an exact seamless material join or change DH settings.
 - Active Iris shader packs retain their own sky and terrain; the spherical
   calibration pass is disabled. This fallback does not add curved terrain,
   shadows, reflections or temporal-history integration to a shader pack.
@@ -105,7 +107,8 @@ Creation refuses an existing fixture world. Restart requires its completion mark
 and compares the exact saved pose, marker and complete chest inventory. The first
 phase captures eye heights 1.7 m, 100 m, 1 km and 100 km, flat/curved comparisons,
 FOV30 close views, resource reload, resize, and disabled/out-of-dimension controls.
-TSV records the actual camera and projection; Creative flight modifies effective
+TSV records both nominal and visible-water eye altitude/radius, plus the actual
+camera and projection; Creative flight modifies effective
 FOV, so the option value alone is not a projection measurement.
 
 For plain DH, place its original JAR in another fresh profile's `mods/` and run

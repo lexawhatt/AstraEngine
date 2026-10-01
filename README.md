@@ -128,6 +128,14 @@ one, find a black-hole system on the map and select its primary object →
 
 [Controls, scale, and limits](docs/COSMOS.md) · [Sol parameter sources](docs/SOLAR_REFERENCE.md).
 
+## Continents, mountains and ocean depths
+
+Three new permanent [continental inspection worlds](docs/CONTINENTAL_WORLDS.md)
+sample a shared procedural globe: coast, alpine peaks above 8 km and abyssal
+seabeds. F3 reports physical altitude. Their explicit 4,064-block altitude windows
+preserve one-meter vertical relief; they do not yet connect into unlimited-height
+storage or a walkable globe. Existing worlds remain unchanged.
+
 ## Overworld Sun and supernova
 
 In the ordinary Overworld, `environment auto` shows an atmospheric sky with
@@ -219,6 +227,11 @@ Astra composes its cosmos in other dimensions and consumer visuals after the pac
 Forced environment previews do not replace the pack's Overworld sky. The pack does not
 automatically display Astra's seasons or stellar events. Production code never
 changes shader settings.
+
+With Distant Horizons 3.3.3, Astra suppresses DH's separate box-cloud layer while
+its own atmosphere is active. Set Minecraft Clouds to Fast or Fancy for Astra
+clouds; Off hides them. DH's startup graphics override can set this option to Off.
+The fix is verified with DH 3.3.3 + Zume 1.2.2, without Sodium.
 
 `/astra-render compatibility` reports installed versions and actual pack state.
 [Version matrix, current verification status and feature limits](docs/COMPATIBILITY.md).

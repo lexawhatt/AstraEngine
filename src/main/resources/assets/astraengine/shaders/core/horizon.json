@@ -46,6 +46,24 @@
       ]
     },
     {
+      "name": "OceanSurfaceOffset",
+      "type": "float",
+      "count": 1,
+      "values": [-0.111111111]
+    },
+    {
+      "name": "MarineWaterColor",
+      "type": "float",
+      "count": 3,
+      "values": [0.025, 0.20, 0.36]
+    },
+    {
+      "name": "MarineFogColor",
+      "type": "float",
+      "count": 3,
+      "values": [0.070, 0.240, 0.405]
+    },
+    {
       "name": "FlatComparison",
       "type": "int",
       "count": 1,

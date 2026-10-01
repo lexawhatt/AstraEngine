@@ -5,6 +5,10 @@ It adds kilometer-scale relief and expanded vertical bounds without regenerating
 the existing Overworld, Moon or Earth landing patches. It is an opt-in prototype,
 not a completed replacement for Minecraft world generation or a walkable globe.
 
+The new [continental inspection worlds](CONTINENTAL_WORLDS.md) add a separate
+versioned continental/ocean field and physical-altitude windows. This original
+highlands world and its generator remain unchanged.
+
 ## Explore
 
 With operator permission, switch to Creative and enter the mountain viewpoint:

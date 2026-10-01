@@ -69,6 +69,7 @@ public final class EngineRuntime {
         ExplorationCatalog.get(server);
         SurfaceBindings.get(server).validate(server);
         PlanetaryTerrainWorld.validate(server);
+        ContinentalWorlds.validate(server);
         PlanetaryGeographyState.get(server);
         surfaceFrames = new SurfaceFrameTracker(server);
         SurfaceWorlds.maintainBorders(server);

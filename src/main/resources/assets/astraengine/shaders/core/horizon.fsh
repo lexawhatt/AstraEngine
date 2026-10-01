@@ -3,9 +3,12 @@
 uniform mat4 InverseViewProjection;
 uniform float HorizonRadius;
 uniform float EyeAltitude;
+uniform float OceanSurfaceOffset;
 uniform int FlatComparison;
 uniform int ShowTowers;
 uniform vec3 SunDirection;
+uniform vec3 MarineWaterColor;
+uniform vec3 MarineFogColor;
 uniform vec3 TowerCenter[3];
 uniform mat3 TowerInverseBasis[3];
 in vec2 clipPosition;
@@ -14,11 +17,13 @@ out vec4 fragColor;
 // Tangent-camera origin is (0, R+h, 0) in radial space. Keeping altitude separate
 // avoids subtracting two Earth-radius floats to recover a human eye height.
 float oceanDistance(vec3 ray) {
+    float heightAboveWater = EyeAltitude - OceanSurfaceOffset;
     if (FlatComparison != 0) {
-        return ray.y < -1e-9 ? -EyeAltitude / ray.y : -1.0;
+        return ray.y < -1e-9 ? -heightAboveWater / ray.y : -1.0;
     }
     float b = (HorizonRadius + EyeAltitude) * ray.y;
-    float c = EyeAltitude * (2.0 * HorizonRadius + EyeAltitude);
+    // (R+h)^2 - (R+surfaceOffset)^2, without losing the sub-meter water surface offset.
+    float c = heightAboveWater * (2.0 * HorizonRadius + EyeAltitude + OceanSurfaceOffset);
     float discriminant = b * b - c;
     if (b >= 0.0 || discriminant < 0.0) { return -1.0; }
     // Product of the roots divided by the well-conditioned far root.
@@ -77,12 +82,13 @@ void main() {
                 : normalize(vec3(point.x, HorizonRadius + EyeAltitude + point.y, point.z));
         float facing = clamp(-dot(ray, normal), 0.0, 1.0);
         float fresnel = 0.02 + 0.98 * pow(1.0 - facing, 5.0);
-        vec3 water = mix(vec3(0.006, 0.013, 0.027), vec3(0.025, 0.20, 0.36), daylight);
-        water = mix(water, sky * 0.78, fresnel * 0.68);
+        // The bounded host/DH view and the planetary ocean share one marine fog radiance.
+        // This colors the ocean material; it never covers foreground blocks or changes their depth.
+        vec3 water = mix(MarineWaterColor, MarineFogColor, fresnel * 0.68);
         float glint = pow(max(dot(reflect(-sun, normal), -ray), 0.0), 400.0);
         water += vec3(0.7, 0.65, 0.45) * glint * daylight;
         float haze = (1.0 - exp(-ocean / 110000.0)) * exp(-EyeAltitude / 18000.0) * 0.55;
-        color = mix(water, vec3(0.50, 0.63, 0.74) * daylight, haze);
+        color = mix(water, MarineFogColor, haze);
     }
     if (ShowTowers != 0) {
         for (int i = 0; i < 3; i++) {

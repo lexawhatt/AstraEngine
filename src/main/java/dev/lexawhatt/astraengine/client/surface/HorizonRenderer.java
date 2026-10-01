@@ -21,6 +21,7 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.neoforged.neoforge.client.event.ViewportEvent;
 import net.minecraft.resources.ResourceLocation;
 import org.joml.Matrix3f;
 import org.joml.Matrix4f;
@@ -31,6 +32,13 @@ import org.joml.Matrix4f;
  * Minecraft owns the registered shader; no private targets or world references survive a frame.
  */
 public final class HorizonRenderer {
+    // The saved top water block is at Y=63. Source water beneath air has an 8/9-block visual height.
+    // Keep the permanent patch's integer sea reference and its physical radius unchanged.
+    private static final double OCEAN_SURFACE_OFFSET_METERS = -1.0 / 9.0;
+    private static final SpaceVector DAY_WATER = new SpaceVector(0.025, 0.20, 0.36);
+    private static final SpaceVector NIGHT_WATER = new SpaceVector(0.006, 0.013, 0.027);
+    private static final SpaceVector DAY_MARINE_FOG = new SpaceVector(0.070, 0.240, 0.405);
+    private static final SpaceVector NIGHT_MARINE_FOG = new SpaceVector(0.004, 0.010, 0.019);
     private ShaderInstance shader;
     private boolean enabled = true;
     private boolean towers = true;
@@ -58,7 +66,7 @@ public final class HorizonRenderer {
                 || !game.level.dimension().location().toString().equals(HorizonScene.DIMENSION_ID)) { return false; }
         var camera = game.gameRenderer.getMainCamera();
         var position = camera.getPosition();
-        double height = position.y - HorizonScene.SEA_Y;
+        double height = position.y - HorizonScene.SEA_Y - OCEAN_SURFACE_OFFSET_METERS;
         return Double.isFinite(height) && height >= 0.01 && height <= 10_000_000
                 && HorizonScene.PATCH.contains(position.x, position.z)
                 && camera.getFluidInCamera() == FogType.NONE
@@ -78,10 +86,16 @@ public final class HorizonRenderer {
                     .mul(event.getModelViewMatrix()).invert());
             shader.safeGetUniform("HorizonRadius").set((float) HorizonScene.RADIUS_METERS);
             shader.safeGetUniform("EyeAltitude").set((float) altitude);
+            shader.safeGetUniform("OceanSurfaceOffset").set((float) OCEAN_SURFACE_OFFSET_METERS);
             shader.safeGetUniform("FlatComparison").set(flat ? 1 : 0);
             shader.safeGetUniform("ShowTowers").set(towers ? 1 : 0);
-            float angle = Minecraft.getInstance().level.getSunAngle(event.getPartialTick().getGameTimeDeltaPartialTick(false));
+            float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+            float angle = Minecraft.getInstance().level.getSunAngle(partial);
             shader.safeGetUniform("SunDirection").set(-(float) Math.sin(angle), (float) Math.cos(angle), 0.0f);
+            SpaceVector water = marineColor(NIGHT_WATER, DAY_WATER, partial);
+            SpaceVector fog = marineColor(NIGHT_MARINE_FOG, DAY_MARINE_FOG, partial);
+            shader.safeGetUniform("MarineWaterColor").set((float) water.x(), (float) water.y(), (float) water.z());
+            shader.safeGetUniform("MarineFogColor").set((float) fog.x(), (float) fog.y(), (float) fog.z());
             for (int i = 0; i < 3; i++) {
                 SpaceVector center = HorizonScene.towerCenter(i);
                 SpaceVector relative = flat ? center.subtract(camera) : PlanetaryHorizon.project(patch, camera, center);
@@ -104,7 +118,35 @@ public final class HorizonRenderer {
     /** Session-local diagnostics; no server mutation, GPU readback or frame-time claim. */
     public Diagnostics diagnostics() {
         RenderSystem.assertOnRenderThread();
-        return new Diagnostics(draws, active(), HorizonScene.RADIUS_METERS, altitude);
+        return new Diagnostics(draws, active(), HorizonScene.RADIUS_METERS, altitude,
+                altitude - OCEAN_SURFACE_OFFSET_METERS);
+    }
+
+    /**
+     * Shares the analytic ocean's marine haze with host terrain fog in this calibration view only.
+     * DH's default world-fog-color mode consumes the host value without an Astra DH dependency or option change.
+     * Preserves host fluid/status-effect handling and leaves fog distances and all opaque geometry untouched.
+     */
+    public void fogColor(ViewportEvent.ComputeFogColor event) {
+        if (!active() || event.getCamera().getFluidInCamera() != FogType.NONE
+                || event.getCamera().getEntity() instanceof LivingEntity living
+                && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS)
+                    || living.hasEffect(MobEffects.NIGHT_VISION))) { return; }
+        SpaceVector fog = marineColor(NIGHT_MARINE_FOG, DAY_MARINE_FOG, (float) event.getPartialTick());
+        event.setRed((float) fog.x());
+        event.setGreen((float) fog.y());
+        event.setBlue((float) fog.z());
+    }
+
+    private static SpaceVector marineColor(SpaceVector night, SpaceVector day, float partialTick) {
+        Minecraft game = Minecraft.getInstance();
+        double sunHeight = Math.cos(game.level.getSunAngle(partialTick));
+        double daylight = Math.clamp((sunHeight + 0.12) / 0.30, 0.0, 1.0);
+        daylight = daylight * daylight * (3 - 2 * daylight);
+        double darken = game.gameRenderer.getDarkenWorldAmount(partialTick);
+        return new SpaceVector((night.x() + (day.x() - night.x()) * daylight) * (1 - darken * 0.3),
+                (night.y() + (day.y() - night.y()) * daylight) * (1 - darken * 0.4),
+                (night.z() + (day.z() - night.z()) * daylight) * (1 - darken * 0.4));
     }
 
     /** Client-only comparison control. Does not change stored world geometry or DH settings. */
@@ -141,6 +183,13 @@ public final class HorizonRenderer {
         return 1;
     }
 
-    /** Immutable presentation observation, not authoritative geographic state. */
-    public record Diagnostics(long draws, boolean active, double radiusMeters, double eyeAltitudeMeters) { }
+    /**
+     * Immutable presentation observation. Eye altitude retains the nominal patch-sea reference;
+     * ocean eye altitude is measured above the source-water visual surface, 1/9 meter below that reference.
+     */
+    public record Diagnostics(long draws, boolean active, double radiusMeters, double eyeAltitudeMeters,
+                              double oceanEyeAltitudeMeters) {
+        /** Visual water radius; canonical body/patch radius remains radiusMeters. */
+        public double oceanRadiusMeters() { return radiusMeters + OCEAN_SURFACE_OFFSET_METERS; }
+    }
 }

@@ -21,6 +21,7 @@ public final class VerificationMod {
             event.register(ArchivedConstructionGameTests.class);
             event.register(SurfaceGameTests.class);
             event.register(PlanetaryTerrainGameTests.class);
+            event.register(ContinentalTerrainGameTests.class);
             event.register(PulsarGameTests.class);
             event.register(PlanetaryGeographyGameTests.class);
             event.register(SurfaceFrameGameTests.class);

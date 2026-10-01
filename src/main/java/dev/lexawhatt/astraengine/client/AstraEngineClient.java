@@ -11,16 +11,19 @@ import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarAudioController;
 import dev.lexawhatt.astraengine.client.surface.SurfaceEffects;
 import dev.lexawhatt.astraengine.client.surface.SurfaceDebugOverlay;
+import dev.lexawhatt.astraengine.client.surface.ContinentalDebugOverlay;
 import dev.lexawhatt.astraengine.client.surface.HorizonRenderer;
 import dev.lexawhatt.astraengine.client.surface.HorizonEffects;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
 import dev.lexawhatt.astraengine.client.ship.ShipRenderer;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
+import dev.lexawhatt.astraengine.client.compat.DistantCloudCompatibility;
 import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
 import dev.lexawhatt.astraengine.surface.PlanetaryTerrain;
 import dev.lexawhatt.astraengine.surface.HorizonScene;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
@@ -39,6 +42,14 @@ import net.neoforged.neoforge.common.NeoForge;
 public final class AstraEngineClient {
     private static final ShipRenderer SHIPS = new ShipRenderer();
     private static final HorizonRenderer HORIZON = new HorizonRenderer();
+    private static DistantCloudCompatibility distantClouds;
+
+    /** Render-thread optional cloud diagnostics, available after physical-client initialization. */
+    public static DistantCloudCompatibility distantCloudCompatibility() {
+        RenderSystem.assertOnRenderThread();
+        if (distantClouds == null) { throw new IllegalStateException("Client cloud integration is not initialized"); }
+        return distantClouds;
+    }
 
     /** Render-thread calibration controls; host-owned instance survives reload while session values reset on logout. */
     public static HorizonRenderer horizonRenderer() {
@@ -64,6 +75,7 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(HORIZON::render);
         NeoForge.EVENT_BUS.addListener(HORIZON::registerCommands);
         NeoForge.EVENT_BUS.addListener(HORIZON::logout);
+        NeoForge.EVENT_BUS.addListener(HORIZON::fogColor);
         modEventBus.addListener((RegisterDimensionSpecialEffectsEvent event) -> event.register(
                 ResourceLocation.parse(HorizonScene.DIMENSION_ID), new HorizonEffects(HORIZON)));
         EnvironmentProfiles profiles = new EnvironmentProfiles();
@@ -80,6 +92,10 @@ public final class AstraEngineClient {
             else { RenderSystem.recordRenderCall(sky::close); }
         });
         AstralOverworldEffects overworld = new AstralOverworldEffects(sky, solar, options, seasons);
+        distantClouds = new DistantCloudCompatibility(
+                () -> overworld.ownsClouds(Minecraft.getInstance().level) || HORIZON.active());
+        NeoForge.EVENT_BUS.addListener(distantClouds::frame);
+        NeoForge.EVENT_BUS.addListener(distantClouds::logout);
         modEventBus.addListener((RegisterDimensionSpecialEffectsEvent event) -> event.register(
                 BuiltinDimensionTypes.OVERWORLD_EFFECTS, overworld));
         NeoForge.EVENT_BUS.addListener(overworld::fogColor);
@@ -94,6 +110,7 @@ public final class AstraEngineClient {
         SurfaceDebugOverlay surfaceDebug = new SurfaceDebugOverlay(Map.of(
                 PlanetaryTerrain.DIMENSION_ID, PlanetaryTerrain.PATCH));
         NeoForge.EVENT_BUS.addListener(surfaceDebug::debugText);
+        NeoForge.EVENT_BUS.addListener(new ContinentalDebugOverlay()::debugText);
         NeoForge.EVENT_BUS.addListener(rocket::receiveSurface);
         SurfaceEffects lunarEffects = new SurfaceEffects(rocket.surfaceState(), solar, false);
         SurfaceEffects earthEffects = new SurfaceEffects(rocket.surfaceState(), solar, true);

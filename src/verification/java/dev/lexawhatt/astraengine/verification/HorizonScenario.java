@@ -4,6 +4,8 @@ import com.mojang.blaze3d.platform.NativeImage;
 import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.client.AstraEngineClient;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
+import dev.lexawhatt.astraengine.server.ContinentalWorlds;
+import dev.lexawhatt.astraengine.surface.ContinentalRegion;
 import java.io.StringReader;
 import java.io.StringWriter;
 import java.nio.file.Files;
@@ -58,7 +60,7 @@ final class HorizonScenario {
         }
     };
     private final StringBuilder captures = new StringBuilder("capture\twidth\theight\tfov\teye_altitude_m\t"
-            + "camera_x\tcamera_y\tcamera_z\tyaw\tpitch\tprojection_m00\tprojection_m11\tradius_m\tdraws\tactive\tflat\ttowers\n");
+            + "camera_x\tcamera_y\tcamera_z\tyaw\tpitch\tprojection_m00\tprojection_m11\tradius_m\tdraws\tactive\tflat\ttowers\tnominal_eye_altitude_m\tnominal_radius_m\n");
     private CompletableFuture<?> pending = CompletableFuture.completedFuture(null);
     private Properties checkpoint = new Properties();
     private DistantTerrainProbe distant;
@@ -306,6 +308,13 @@ final class HorizonScenario {
                     verifyWorld(server);
                     require(properties(player(server)).equals(checkpoint),
                             "Process restart changed the host-owned player pose or dimension");
+                    if (Files.isRegularFile(path("upgrade-provenance.json"))) {
+                        ContinentalWorlds.validate(server);
+                        for (ContinentalRegion region : ContinentalRegion.values()) {
+                            require(server.getLevel(ContinentalWorlds.dimension(region)) != null,
+                                    "Upgraded disposable world did not add continental region " + region.id());
+                        }
+                    }
                 });
                 next();
             }
@@ -544,10 +553,10 @@ final class HorizonScenario {
         var camera = game.gameRenderer.getMainCamera();
         Vec3 position = camera.getPosition();
         captures.append(String.format(Locale.ROOT, "%s\t%d\t%d\t%d\t%.9f\t%.9f\t%.9f\t%.9f\t%.6f\t%.6f\t"
-                        + "%.9f\t%.9f\t%.3f\t%d\t%s\t%s\t%s%n", name, game.getMainRenderTarget().width,
-                game.getMainRenderTarget().height, game.options.fov().get(), observed.eyeAltitudeMeters(),
-                position.x, position.y, position.z, camera.getYRot(), camera.getXRot(), projectionM00, projectionM11, observed.radiusMeters(),
-                observed.draws(), observed.active(), flat, towers));
+                        + "%.9f\t%.9f\t%.9f\t%d\t%s\t%s\t%s\t%.9f\t%.3f%n", name, game.getMainRenderTarget().width,
+                game.getMainRenderTarget().height, game.options.fov().get(), observed.oceanEyeAltitudeMeters(),
+                position.x, position.y, position.z, camera.getYRot(), camera.getXRot(), projectionM00, projectionM11, observed.oceanRadiusMeters(),
+                observed.draws(), observed.active(), flat, towers, observed.eyeAltitudeMeters(), observed.radiusMeters()));
     }
 
     private void retain(String result) throws Exception {

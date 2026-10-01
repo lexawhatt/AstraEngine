@@ -1,0 +1,18 @@
+{
+  "type": "astraengine:continental_surface",
+  "generator": {
+    "type": "astraengine:continental_terrain",
+    "terrain_version": 1,
+    "region_version": 1,
+    "seed": 4707198747791281998,
+    "region": "abyss",
+    "anchor_latitude": -0.48544106217054683,
+    "anchor_longitude": -0.01221846648034751,
+    "half_width": 16384,
+    "altitude_origin": -5120,
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "astraengine:continental_abyss"
+    }
+  }
+}

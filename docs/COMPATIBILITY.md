@@ -175,8 +175,9 @@ The active-pack phase deliberately requires Iris; it is not an absence test.
 The independent [highlands prototype](PLANETARY_TERRAIN.md) was verified with
 original **Distant Horizons 3.3.3**, Minecraft 1.21.1 and NeoForge 21.1.252.
 [Exact publisher release](https://modrinth.com/mod/distanthorizons/version/9w34y8ai).
-DH is optional, is not bundled and is not a production compile dependency.
-The separate verification source set uses its public API 7.2 for measurements.
+DH is optional and is not bundled. Its public API is a compile-only dependency
+for the cloud-ownership bridge; the verification source set also uses API 7.2
+for measurements. No DH implementation, renderer or configuration is bundled.
 
 The plain NeoForge experiment passed with native render distance **4 chunks**,
 DH radius **32 chunks**, fixed midday and the real 2048-block generator. Same-pose
@@ -215,14 +216,56 @@ paths from the highlands experiment.
 Local original artifacts, hashes, source audit and native evidence are under
 `Workflow/verification/planetary-terrain-2026-09-30/`. They are not shipped in the JAR.
 
+## Distant Horizons cloud ownership
+
+DH 3.3.3 renders its own box clouds independently of NeoForge's ordinary
+`DimensionSpecialEffects.renderClouds` hook. Astra's volumetric atmosphere and
+those DH clouds can otherwise overlap, even without Sodium. The optional bridge
+uses DH's public cancellable generic-object event and suppresses only the exact
+`DistantHorizons:Clouds` group in the currently rendered dimension while Astra
+owns that sky. Terrain LODs and unrelated generic objects retain DH ownership.
+See the upstream [cloud-group construction](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/core/src/main/java/com/seibel/distanthorizons/core/render/renderer/CloudRenderHandler.java)
+and [cancellable event contract](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/api/src/main/java/com/seibel/distanthorizons/api/methods/events/abstractEvents/DhApiBeforeGenericObjectRenderEvent.java).
+
+The engine does not rewrite DH, Minecraft cloud, or shader-pack settings. With
+Astra's Overworld atmosphere active, Minecraft Clouds ON shows Astra's clouds;
+Clouds OFF hides them and does not reveal a second DH cloud layer. Disabling the
+Astra environment restores DH ownership. An actual active Iris pack retains
+cloud ownership and receives no Astra cloud cancellation. Missing Astra shaders
+restore the host sky. An unavailable optional event API leaves DH clouds untouched
+and logs one failure; it does not change graphics preferences.
+The listener binds once per connection, survives reload without duplication and
+unbinds on logout. It retains no world, player or GPU resource.
+
+DH's own `overrideVanillaGraphicsSettings` option can change Minecraft Clouds to
+OFF during its initial renderer setup. Astra honors that resulting choice; it
+does not silently turn clouds back on. Select Clouds ON to display Astra's
+volumetric clouds. This startup behavior is in the upstream
+[LOD renderer](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/core/src/main/java/com/seibel/distanthorizons/core/render/renderer/LodRenderer.java).
+
+The native `dh-clouds` fixture uses original DH 3.3.3 and Zume 1.2.2 without
+Sodium. The 2026-10-01 native run passed Fancy/OFF/Fast, disabled-Astra fallback
+and reload comparisons, with one event listener before and after reload. The
+`dh-clouds-iris` run also passed with the stable Iris/add-on stack and Complementary
+r5.9.3: 4,317 observed cloud groups and zero Astra cancellations while the pack
+remained active. Both runs retain six captures and unchanged pack/API settings.
+For reproduction, add the original Zume 1.2.2 artifact to a fresh profile and run
+`runVerifyClient -PverifyPhase=dh-clouds` or `dh-clouds-iris` with the corresponding
+mod stack and `-PverifyDirectory=...`.
+These are explicit verification scenarios, not a guarantee for every DH release.
+
 ## Spherical ocean calibration
 
 The separate [horizon calibration world](PLANETARY_HORIZON.md) draws its analytic
 sea/sky at `AFTER_SKY`, before plain DH terrain. It borrows no DH depth and installs
 no DH program override. Native checks cover the pinned DH 3.3.3 at 32 chunks / 512 m:
 real LOD depth and visible ON/OFF/ON composition with the spherical background.
-Its meshes stay flat. The pale near-water/fog seam is visible; seamless material
-or terrain joins and larger-distance spherical DH rendering are not qualified.
+Its meshes stay flat. The ocean now follows the source-water height and shares
+a marine fog color with the host. At the same daylight camera pose, the central
+near-water join's mean largest-channel jump fell from 150.49 to 11.00 on an 8-bit
+image, a 92.69% reduction. This is one fixed visual comparison: a smaller material
+seam remains, and seamless joins or larger-distance spherical DH geometry are
+not qualified.
 
 With the stable Iris/Sodium/Chloride stack and active Complementary Reimagined,
 the horizon pass yields completely. Native toggle/reload checks retain the actual

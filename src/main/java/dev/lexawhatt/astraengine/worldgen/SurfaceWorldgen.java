@@ -15,6 +15,7 @@ public final class SurfaceWorldgen {
     static {
         GENERATORS.register("surface_patch", () -> SurfaceChunkGenerator.CODEC);
         GENERATORS.register("planetary_terrain", () -> PlanetaryTerrainChunkGenerator.CODEC);
+        GENERATORS.register("continental_terrain", () -> ContinentalTerrainChunkGenerator.CODEC);
     }
 
     private SurfaceWorldgen() {}

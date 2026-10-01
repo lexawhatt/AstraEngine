@@ -33,6 +33,7 @@ public final class SurfaceWorlds {
     /** Reasserts bounded borders after host Overworld border delegation. Requires the server thread. */
     public static void maintainBorders(MinecraftServer server) {
         PlanetaryTerrainWorld.maintainBorder(server);
+        ContinentalWorlds.maintainBorders(server);
         for (String body : new String[]{"moon", "earth"}) {
             SurfaceDefinition definition = SurfaceDefinition.byBody(body);
             ServerLevel level = server.getLevel(dimension(definition));

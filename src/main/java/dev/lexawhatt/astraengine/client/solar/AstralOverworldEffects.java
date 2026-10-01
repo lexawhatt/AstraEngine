@@ -42,6 +42,9 @@ public final class AstralOverworldEffects extends DimensionSpecialEffects.Overwo
     /** The connection's immutable profile and derived sky can be inspected on the client thread. */
     public SkyStateClient skyState() { return seasons; }
 
+    /** Render-thread cloud ownership for optional renderer bridges; does not change any host cloud setting. */
+    public boolean ownsClouds(ClientLevel level) { return active(level); }
+
     @Override
     public boolean renderSky(ClientLevel level, int ticks, float partialTick, Matrix4f modelView,
             Camera camera, Matrix4f projection, boolean foggy, Runnable setupFog) {

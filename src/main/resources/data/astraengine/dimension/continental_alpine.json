@@ -1,0 +1,18 @@
+{
+  "type": "astraengine:continental_surface",
+  "generator": {
+    "type": "astraengine:continental_terrain",
+    "terrain_version": 1,
+    "region_version": 1,
+    "seed": 4707198747791281998,
+    "region": "alpine",
+    "anchor_latitude": -0.5452579002925138,
+    "anchor_longitude": -3.1402788132428276,
+    "half_width": 8192,
+    "altitude_origin": 7168,
+    "biome_source": {
+      "type": "minecraft:fixed",
+      "biome": "astraengine:continental_alpine"
+    }
+  }
+}
