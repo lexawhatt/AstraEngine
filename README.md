@@ -61,6 +61,7 @@ landing, a unified Earth/Overworld and orbital player-build summaries remain unf
 
 The new **Astra Earth** world type provides [continental Earth storage](docs/EARTH_WORLD.md)
 in Overworld, with climate biomes, vegetation, geographic F3 and persistent blocks.
+Its versioned orbital height/climate maps share the chunk generator and add progressive close relief.
 It remains opt-in while its orbital travel and storage-boundary views are integrated;
 existing worlds and the current legacy landing destinations retain their behavior.
 

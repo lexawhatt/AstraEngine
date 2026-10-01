@@ -13,7 +13,6 @@ import dev.lexawhatt.astraengine.network.FlightControlPayload;
 import dev.lexawhatt.astraengine.network.FlightSpeedPayload;
 import dev.lexawhatt.astraengine.network.SystemPayload;
 import dev.lexawhatt.astraengine.network.EarthContextPayload;
-import dev.lexawhatt.astraengine.surface.EarthChart;
 import dev.lexawhatt.astraengine.systems.StellarSystem;
 import java.util.UUID;
 import net.minecraft.commands.Commands;
@@ -95,7 +94,7 @@ public final class EngineRuntime {
 
     private void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
-            PacketDistributor.sendToPlayer(player, new EarthContextPayload(EarthWorlds.active(server) ? EarthChart.VERSION : 0));
+            PacketDistributor.sendToPlayer(player, new EarthContextPayload(EarthWorlds.terrainVersion(server)));
             if (travel != null) { travel.recover(player); }
             if (rocket != null) { rocket.recover(player); }
             if (solar != null) { solar.send(player); }

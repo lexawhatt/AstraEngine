@@ -88,6 +88,7 @@ float fbm(vec3 p) {
 #moj_import <astraengine:black_hole.glsl>
 #moj_import <astraengine:planet_atmosphere.glsl>
 #moj_import <astraengine:surface_geography.glsl>
+#moj_import <astraengine:continental_surface.glsl>
 #moj_import <astraengine:surface_height_cache.glsl>
 #moj_import <astraengine:lunar.glsl>
 #moj_import <astraengine:pulsar.glsl>
@@ -187,7 +188,7 @@ vec3 mappedEarthAlbedo(vec3 p, float height, uint seed, float footprint, float w
 }
 
 vec3 mappedEarthNormal(vec3 p, uint seed, float footprint, float radiusMeters) {
-    if (footprint > 0.00015) { return p; }
+    if (footprint > (ContinentalEarth != 0 ? 0.006 : 0.00015)) { return p; }
     vec3 tangent = normalize(cross(p, abs(p.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0)));
     vec3 bitangent = cross(p, tangent);
     float stepAngle = max(2.0 / radiusMeters, footprint * 1.25);
@@ -222,7 +223,8 @@ vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 paramet
                     normalFootprint, geography.z, true);
         } else {
             water = 1.0 - smoothstep(-0.3, 0.4, height);
-            albedo = mappedEarthAlbedo(p, height, geographySeed, normalFootprint, water);
+            albedo = ContinentalEarth != 0 ? continentalAlbedo(p, water)
+                    : mappedEarthAlbedo(p, height, geographySeed, normalFootprint, water);
             vec3 reliefNormal = mappedEarthNormal(p, geographySeed, normalFootprint, geography.z);
             vec3 fixedLight = surfaceCoordinates(light, tilt, spin);
             diffuse = max(dot(reliefNormal, fixedLight), 0.0)
@@ -319,7 +321,8 @@ float reliefResidual(vec3 up, vec3 ray, float distanceMeters, float altitude, fl
     float footprint = pixelAngle * max(travel, 0.01)
             / (radiusMeters * max(0.025, abs(dot(p, ray))));
     // Sea occludes the negative seabed; this does not fill excavated host blocks.
-    float displacement = 1.0 - smoothstep(80000.0, 100000.0, altitude);
+    float displacement = ContinentalEarth != 0 ? 1.0 - smoothstep(450000.0, 500000.0, altitude)
+            : 1.0 - smoothstep(80000.0, 100000.0, altitude);
     return height - max(0.0, earthHeight(p, seed, footprint)) * displacement;
 }
 
@@ -331,13 +334,14 @@ float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, ui
     float radiusMeters = geography.z;
     float altitude = geography.y;
     float distanceMeters = radiusMeters + altitude;
-    if (geography.w < 0.5 || altitude > 100000.0 || altitude < -48.0 || distanceMeters <= 0.0) {
+    if (geography.w < 0.5 || altitude > (ContinentalEarth != 0 ? 500000.0 : 100000.0)
+            || altitude < (ContinentalEarth != 0 ? -7000.0 : -48.0) || distanceMeters <= 0.0) {
         return nominalHit;
     }
     vec3 up = surfaceCoordinates(-center, tilt, spin);
     vec3 fixedRay = surfaceCoordinates(ray, tilt, spin);
     float along = distanceMeters * dot(up, fixedRay);
-    vec2 outer = reliefShell(along, altitude, radiusMeters, 112.0);
+    vec2 outer = reliefShell(along, altitude, radiusMeters, ContinentalEarth != 0 ? 10000.0 : 112.0);
     if (outer.y <= 0.0 || outer.y < outer.x) { return -1.0; }
     float start = max(0.0, outer.x);
     float finish = outer.y;
@@ -349,8 +353,8 @@ float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, ui
     }
     // The displacement is subpixel in broad orbital views. Smooth material
     // filtering still runs; skip the costly march where it cannot be resolved.
-    if (pixelAngle * max(start, 1.0) > 300.0) { return nominalHit; }
-    int steps = int(ReliefBudget.x);
+    if (pixelAngle * max(start, 1.0) > (ContinentalEarth != 0 ? 3000.0 : 300.0)) { return nominalHit; }
+    int steps = int(ReliefBudget.x) * (ContinentalEarth != 0 ? 4 : 1);
     vec3 p;
     float previous = start;
     float startResidual = reliefResidual(up, fixedRay, distanceMeters, altitude, radiusMeters,
@@ -362,7 +366,7 @@ float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, ui
     // Version-one Earth has less than 0.17 m/m maximum geometric slope.
     // Steep descending rays have one crossing, so refine the enclosing bracket
     // directly instead of marching all its empty samples. Grazing views still march.
-    if (dot(up, fixedRay) < -0.3 && inner.x > start && inner.y >= inner.x) {
+    if (ContinentalEarth == 0 && dot(up, fixedRay) < -0.3 && inner.x > start && inner.y >= inner.x) {
         float low = start;
         float high = finish;
         for (int refine = 0; refine < int(ReliefBudget.y); refine++) {
@@ -385,7 +389,7 @@ float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, ui
         if (residual <= 0.0) {
             float low = previous;
             float high = travel;
-            for (int refine = 0; refine < int(ReliefBudget.z); refine++) {
+            for (int refine = 0; refine < int(ReliefBudget.z) + (ContinentalEarth != 0 ? 5 : 0); refine++) {
                 float mid = (low + high) * 0.5;
                 float error = reliefResidual(up, fixedRay, distanceMeters, altitude, radiusMeters,
                         along, mid, seed, pixelAngle, p);
@@ -442,7 +446,7 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
         return pulsarRadiance(color, ray, center, radius, material.rgb, tilt,
                               BodySpin[index], parameters.x, pixelAngle);
     }
-    bool insideRelief = BodyGeography[index].w > 0.5 && BodyGeography[index].y <= 112.0;
+    bool insideRelief = BodyGeography[index].w > 0.5 && BodyGeography[index].y <= (ContinentalEarth != 0 ? 10000.0 : 112.0);
     if (along <= 0.0 && radius <= 1.0 && index != AtmosphereBodyIndex && !insideRelief) { return color; }
     float separation = length(center - ray * along);
     vec3 normal = vec3(0);
@@ -496,7 +500,7 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
     if (BodyGeography[index].w > 0.5) {
         hit = mappedEarthHit(ray, center, hit, BodyGeography[index], uint(BodyGeographySeed[index]),
                 tilt, BodySpin[index], pixelAngle, normal);
-        if (hit > 0.0 && BodyGeography[index].y < 100000.0) {
+        if (hit > 0.0 && BodyGeography[index].y < (ContinentalEarth != 0 ? 500000.0 : 100000.0)) {
             float displacedRadius = length(ray * hit - center);
             // Separation is sin(angle), not angle. Near a human-height horizon
             // its derivative approaches zero; an unscaled angular width leaks
@@ -536,7 +540,8 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
         color = planetaryAtmosphere(color, ray, AtmosphereObserver, light,
                 EvolutionIndex >= 0 ? SolarLight.x + SolarLight.y * 0.6 : 1.0,
                 hit > 0.0 ? 1.0 - discCoverage : 1.0,
-                EvolutionIndex >= 0 ? BodyDirectionRadius[EvolutionIndex].w : 0.00465);
+                EvolutionIndex >= 0 ? BodyDirectionRadius[EvolutionIndex].w : 0.00465,
+                hit > 0.0 ? hit * (BodyGeography[index].z + BodyGeography[index].y) * 0.001 : -1.0);
     }
     return color;
 }

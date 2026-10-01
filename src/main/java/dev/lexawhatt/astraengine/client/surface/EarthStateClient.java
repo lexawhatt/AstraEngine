@@ -9,17 +9,20 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 
 /** Client-main-thread connection owner. Resource reload retains geography; disconnect discards it. */
 public final class EarthStateClient {
-    private boolean active;
+    private int terrainVersion;
 
     /** Receives validated server context. Client presentation never infers Earth from a dimension name alone. */
-    public void receive(EarthContextReceivedEvent event) { active = event.payload().version() == EarthChart.VERSION; }
+    public void receive(EarthContextReceivedEvent event) { terrainVersion = event.payload().version(); }
 
     /** True only after this connection's server explicitly binds the new Earth preset. */
-    public boolean active() { return active; }
+    public boolean active() { return terrainVersion != 0; }
+
+    /** Server-selected terrain identity, or zero while unbound. */
+    public int terrainVersion() { return terrainVersion; }
 
     /** Current connection's permanent Earth chart, excluding legacy diagnostic surfaces. */
     public Optional<EarthChart> chart(String dimensionId) {
-        return active ? EarthChart.ALL.stream().filter(value -> value.dimensionId().equals(dimensionId)).findFirst()
+        return active() ? EarthChart.all(terrainVersion).stream().filter(value -> value.dimensionId().equals(dimensionId)).findFirst()
                 : Optional.empty();
     }
 
@@ -31,5 +34,5 @@ public final class EarthStateClient {
     }
 
     /** Drops server context, including when the next connection uses a vanilla or legacy Overworld. */
-    public void logout(ClientPlayerNetworkEvent.LoggingOut event) { active = false; }
+    public void logout(ClientPlayerNetworkEvent.LoggingOut event) { terrainVersion = 0; }
 }

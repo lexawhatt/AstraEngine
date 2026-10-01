@@ -61,10 +61,10 @@ final class EarthGenerationScenario {
                     var level = server.overworld();
                     var player = player(server);
                     require(player.level().dimension().equals(Level.OVERWORLD), "Earth creation did not spawn in Overworld");
-                    require(AstraGeography.planetaryReference(level).orElseThrow().geographyId().equals(EarthChart.GEOGRAPHY_ID),
-                            "Earth Overworld is missing its authoritative geography binding");
                     var generator = (EarthChunkGenerator) level.getChunkSource().getGenerator();
-                    var chart = new EarthChart(CubeFace.POSITIVE_X, 0);
+                    require(AstraGeography.planetaryReference(level).orElseThrow().geographyId().equals(generator.chart().geographyId()),
+                            "Earth Overworld is missing its authoritative geography binding");
+                    var chart = generator.chart();
                     int ground = (int) Math.floor(generator.terrain().sample(chart.normal(8.5, 8.5)).heightMeters());
                     var marker = new BlockPos(8, ground + 3, 8);
                     if (!restart) {

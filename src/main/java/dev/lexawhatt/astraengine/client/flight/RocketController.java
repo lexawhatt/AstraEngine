@@ -4,6 +4,7 @@ import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.blaze3d.systems.RenderSystem;
+import dev.lexawhatt.astraengine.client.surface.EarthStateClient;
 import dev.lexawhatt.astraengine.client.render.CosmosRenderer;
 import dev.lexawhatt.astraengine.client.render.RenderOptions;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
@@ -76,6 +77,7 @@ public final class RocketController {
     private final KeyMapping rollRight = key("roll_right", GLFW.GLFW_KEY_E);
     private final KeyMapping faster = key("faster", GLFW.GLFW_KEY_EQUAL);
     private final KeyMapping slower = key("slower", GLFW.GLFW_KEY_MINUS);
+    private final EarthStateClient earth;
     private final FlightCamera flightCamera = new FlightCamera();
     private final Map<String, CosmosSystem> systems = new HashMap<>();
     private String targetSystem = "";
@@ -110,7 +112,9 @@ public final class RocketController {
     private Matrix4f viewProjection;
 
     /** Shares visual quality controls with the existing renderer, keeping independent flight ownership. */
-    public RocketController(RenderOptions options, SolarStateClient solar) {
+    public RocketController(RenderOptions options, SolarStateClient solar, EarthStateClient earth) {
+        if (earth == null) { throw new IllegalArgumentException("Earth connection owner is required"); }
+        this.earth = earth;
         this.options = options; this.solar = solar; renderer.setBloomOptions(options);
     }
 
@@ -510,6 +514,7 @@ public final class RocketController {
         var stage = RenderCompatibility.lateWorldPasses()
                 ? RenderLevelStageEvent.Stage.AFTER_LEVEL : RenderLevelStageEvent.Stage.AFTER_SKY;
         if (event.getStage() != stage) { return; }
+        renderer.setContinentalEarth(ground == null ? earth.terrainVersion() : 0);
         renderer.setQuality(options.quality().ordinal());
         renderer.setGalaxySeed(snapshot == null ? 0 : snapshot.galaxySeed());
         renderer.setSolarVisual(solar.visual());

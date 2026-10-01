@@ -24,11 +24,18 @@ public final class FullscreenPass implements AutoCloseable {
     private final int activeTexture = GL11.glGetInteger(GL13.GL_ACTIVE_TEXTURE);
     private final int program = GL11.glGetInteger(GL20.GL_CURRENT_PROGRAM);
     private final int[] viewport = new int[4];
-    private final int[] textures = new int[3];
+    private final int[] textures;
     private final ShaderInstance previousShader = RenderSystem.getShader();
 
     /** Captures the state before allocating or drawing into intermediate targets. Render thread only. */
-    public FullscreenPass() {
+    public FullscreenPass() { this(3); }
+
+    /** Captures the first1..12 texture units used by a bounded owned shader. Render thread only. */
+    public FullscreenPass(int samplerCount) {
+        if (samplerCount < 1 || samplerCount > 12) {
+            throw new IllegalArgumentException("Fullscreen sampler count must be in [1,12]");
+        }
+        textures = new int[samplerCount];
         GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);
         for (int i = 0; i < textures.length; i++) {
             RenderSystem.activeTexture(GL13.GL_TEXTURE0 + i);

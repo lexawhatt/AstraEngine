@@ -12,7 +12,7 @@ import java.util.stream.Stream;
  * bands; host Y is translated, never scaled. Horizontal coordinates are gnomonic chart meters, not an equal-area
  * or globally unit-metric block grid. This immutable value owns no worlds, chunks, clocks or transfer state.
  */
-public record EarthChart(CubeFace face, int band) implements GeographicReference {
+public record EarthChart(CubeFace face, int band, int terrainVersion) implements GeographicReference {
     public static final int VERSION = 1;
     public static final int MIN_Y = -2032;
     public static final int HEIGHT = 4064;
@@ -24,8 +24,22 @@ public record EarthChart(CubeFace face, int band) implements GeographicReference
     public static final List<EarthChart> ALL = Stream.of(CubeFace.values()).flatMap(face ->
             IntStream.rangeClosed(MIN_BAND, MAX_BAND).mapToObj(band -> new EarthChart(face, band))).toList();
 
+    private static final List<EarthChart> SECOND_GENERATION = ALL.stream()
+            .map(value -> new EarthChart(value.face(), value.band(), ContinentalTerrain.CURRENT_VERSION)).toList();
+
+    /** Retains the original version-one geography for existing callers and saved identities. */
+    public EarthChart(CubeFace face, int band) { this(face, band, ContinentalTerrain.VERSION); }
+
+    /** Complete storage coverage for one supported saved terrain version. */
+    public static List<EarthChart> all(int terrainVersion) {
+        if (terrainVersion == ContinentalTerrain.VERSION) { return ALL; }
+        new ContinentalTerrain(terrainVersion, ContinentalTerrain.SEED);
+        return SECOND_GENERATION;
+    }
+
     public EarthChart {
-        if (face == null || band < MIN_BAND || band > MAX_BAND) {
+        if (face == null || band < MIN_BAND || band > MAX_BAND
+                || (terrainVersion != ContinentalTerrain.VERSION && terrainVersion != ContinentalTerrain.CURRENT_VERSION)) {
             throw new IllegalArgumentException("Earth storage requires a cube face and altitude band in [-2,3]");
         }
     }
@@ -39,7 +53,7 @@ public record EarthChart(CubeFace face, int band) implements GeographicReference
     /** Exact physical sea-level altitude to add to host Y, in meters. */
     public int altitudeOriginMeters() { return band * HEIGHT; }
 
-    @Override public String geographyId() { return GEOGRAPHY_ID; }
+    @Override public String geographyId() { return "astraengine:sol/earth/continental_v" + terrainVersion; }
     @Override public PlanetaryTopology topology() { return TOPOLOGY; }
 
     /**
@@ -92,7 +106,7 @@ public record EarthChart(CubeFace face, int band) implements GeographicReference
      */
     public Optional<SpaceVector> resolve(GeographicPosition address) {
         if (address == null) { throw new IllegalArgumentException("An Earth geographic address is required"); }
-        if (!owner(address).map(this::equals).orElse(false)) { return Optional.empty(); }
+        if (!owner(address, terrainVersion).map(this::equals).orElse(false)) { return Optional.empty(); }
         SpaceVector direction = address.normal();
         double forward = direction.dot(face.outward());
         return Optional.of(new SpaceVector(direction.dot(face.u()) * RADIUS_METERS / forward,
@@ -102,13 +116,19 @@ public record EarthChart(CubeFace face, int band) implements GeographicReference
 
     /** Canonical owner of a finite geographic address; absence means outside the stored physical altitude range. */
     public static Optional<EarthChart> owner(GeographicPosition address) {
+        return owner(address, ContinentalTerrain.VERSION);
+    }
+
+    /** Canonical owner within a specific supported saved terrain version; no implicit migration. */
+    public static Optional<EarthChart> owner(GeographicPosition address, int terrainVersion) {
+        new ContinentalTerrain(terrainVersion, ContinentalTerrain.SEED);
         if (address == null) { throw new IllegalArgumentException("An Earth geographic address is required"); }
         // Adding half a band before division can round nextDown(boundary) into the following band.
         // Comparing the original altitude to exact integer boundaries preserves half-open ownership.
         for (int band = MIN_BAND; band <= MAX_BAND; band++) {
             int lower = MIN_Y + band * HEIGHT;
             if (address.altitudeMeters() >= lower && address.altitudeMeters() < lower + HEIGHT) {
-                return Optional.of(new EarthChart(CubeFace.containing(address.normal()), band));
+                return Optional.of(new EarthChart(CubeFace.containing(address.normal()), band, terrainVersion));
             }
         }
         return Optional.empty();

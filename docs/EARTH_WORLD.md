@@ -28,6 +28,12 @@ fractional/overflowing identities fail validation. Startup rejects a partial or
 changed active Earth preset instead of allocating replacement worlds. Ordinary
 host chunk storage retains builds and block entities through shutdown and restart.
 
+New Earth worlds select terrain version 2, with domain-warped gradient noise,
+rotated octaves and connected mountain ridges. Version 1 remains readable without
+changing its heights or biomes. Terrain and biome source versions must agree;
+the server sends the saved terrain version to clients (Earth context protocol 2).
+The seed and full generator definition remain world-owned, not renderer settings.
+
 The immutable continental sampler supplies elevation, temperature and moisture.
 Twelve named climate classes select registry-owned ocean, beach, snow, alpine,
 desert, savanna, jungle, taiga, forest and plains biomes. Their normal vegetation
@@ -46,6 +52,18 @@ The sky reads geographic latitude/longitude and physical altitude from these cha
 Its 1800..3200-meter cloud layer retains the same sea-level datum in every altitude
 band; see [seasons and atmosphere](SEASONS.md).
 
+In space, the server-selected Earth uses samples of this exact field. A 1025x513
+global height/climate map and four 513x513 local tiles at 4/32/256/1024-meter spacing
+provide progressive detail. Tile edges blend into coarser levels. Height interpolation uses shader float
+arithmetic instead of limited-precision hardware filter weights, preventing
+meter-high terraces in kilometer-scale relief. These RGBA32F
+textures occupy about 24.1 MiB; generation runs on a cancellable host worker request,
+never through synchronous chunk generation in a render callback. Resource reload
+and logout release owned textures. Legacy saves retain their versioned geography.
+The bounded relief march resolves height-dependent silhouette and parallax; its
+step budget still limits very thin terrain features at grazing angles. Atmospheric
+transport ends at the actual mountain hit, avoiding haze integrated behind terrain.
+
 The server announces the Earth binding at login. The client retains it across
 resource reload and clears it on logout. F3 then displays longitude, latitude and
 physical altitude in these charts; reduced-debug privacy is preserved. It never
@@ -61,12 +79,19 @@ current chart and retains the operator, travel-ownership and host-veto checks.
 Verification includes every chart codec, actual generated ProtoChunks, independent
 column/heightmap agreement, pole/edge coordinates, altitude ownership, climate
 temperature, native tree decoration, geographic F3 and an independent-process
-restart retaining player pose, placed blocks and chest inventory. Native scenarios:
+restart retaining player pose, placed blocks and chest inventory. New version-two
+creation and a saved version-one world both pass independent-process restart.
+The orbital fixture checks full-globe and close relief, exact uploaded terrain
+texels, resource reload, cache retirement and texture-binding restoration on
+Fabulous. Native scenarios:
 
 ```sh
 ./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-earth -PverifyPhase=earth-generation-create
 ./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-earth -PverifyPhase=earth-generation-restart
 ```
+
+The separate `earth-orbit` phase verifies the presentation path; it is not a
+substitute for an integrated landing test.
 
 Use a fresh disposable directory for creation. Restart accepts only that completed
 fixture; verification code and worlds are not included in the distributed JAR.

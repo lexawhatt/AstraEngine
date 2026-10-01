@@ -107,7 +107,7 @@ public final class AstraEngineClient {
         modEventBus.addListener((RegisterClientReloadListenersEvent event) -> event.registerReloadListener(profiles));
         NeoForge.EVENT_BUS.addListener(options::registerCommands);
         NeoForge.EVENT_BUS.addListener(RenderCompatibility::registerCommands);
-        RocketController rocket = new RocketController(options, solar);
+        RocketController rocket = new RocketController(options, solar, earth);
         SurfaceDebugOverlay surfaceDebug = new SurfaceDebugOverlay(earth);
         NeoForge.EVENT_BUS.addListener(surfaceDebug::debugText);
         NeoForge.EVENT_BUS.addListener(rocket::receiveSurface);

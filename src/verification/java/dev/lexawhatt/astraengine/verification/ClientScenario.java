@@ -90,6 +90,7 @@ public final class ClientScenario {
     private ContinentalScenario continentalScenario;
     private EarthGenerationScenario earthGenerationScenario;
     private EarthAtmosphereScenario earthAtmosphereScenario;
+    private ContinentalOrbitScenario continentalOrbitScenario;
     private LunarPulsarVisualScenario lunarPulsarVisualScenario;
     private PulsarAtlasScenario pulsarAtlasScenario;
     private SurfacePayload latestSurface;
@@ -203,7 +204,7 @@ public final class ClientScenario {
                         || phase.equals("surface-failures") || phase.equals("surface-boundaries")
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
-                        || phase.equals("earth-atmosphere") || phase.equals("earth-generation-create") || phase.equals("continental-create")
+                        || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || phase.equals("earth-generation-create") || phase.equals("continental-create")
                         || phase.startsWith("dh-clouds")
                         || phase.equals("lunar-pulsar") || phase.equals("pulsar-create")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
@@ -237,7 +238,7 @@ public final class ClientScenario {
             boolean solarPhase = phase.equals("solar") || phase.equals("solar-restart");
             boolean cameraPhase = phase.equals("camera") || phase.equals("camera-restart");
             boolean celestialPhase = phase.equals("celestial");
-            boolean celestialPolishPhase = phase.equals("celestial-polish") || phase.equals("lunar-pulsar");
+            boolean celestialPolishPhase = phase.equals("earth-orbit") || phase.equals("celestial-polish") || phase.equals("lunar-pulsar");
             boolean surfacePhase = phase.startsWith("surface-");
             if (phase.equals("surface-boundaries")) {
                 require(!(minecraft.screen instanceof AdvancementsScreen),
@@ -262,6 +263,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.equals("earth-orbit")) {
+                if (continentalOrbitScenario == null) { continentalOrbitScenario = new ContinentalOrbitScenario(); }
+                if (continentalOrbitScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.equals("earth-atmosphere")) {
                 if (earthAtmosphereScenario == null) { earthAtmosphereScenario = new EarthAtmosphereScenario(); }
                 if (earthAtmosphereScenario.tick()) { finish(); }

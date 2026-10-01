@@ -22,6 +22,7 @@ float earthHeightFromBands(vec3 bands, float footprint) {
 }
 
 float earthHeight(vec3 p, uint seed, float footprint) {
+    if (ContinentalEarth != 0) { return continentalSample(p).x; }
     float cached = 0.0;
     float coverage = 0.0;
     float forward = dot(p, EarthHeightUp);

@@ -64,10 +64,15 @@ public final class CelestialBloomPipeline implements AutoCloseable {
      * Exposure is the final exposure, not an additional multiplier of the shared options value.
      */
     public boolean render(ShaderInstance celestial, RenderOptions options, float exposure) {
+        return render(celestial, options, exposure, 3);
+    }
+
+    /** Renders while preserving the specified1..12 sampler units used by the celestial source. */
+    public boolean render(ShaderInstance celestial, RenderOptions options, float exposure, int samplerCount) {
         if (options == null || allocationFailed || downsample == null || upsample == null || composite == null) {
             return false;
         }
-        try (var saved = new FullscreenPass(); var masks = new ColorState()) {
+        try (var saved = new FullscreenPass(samplerCount); var masks = new ColorState()) {
             int destination = GL11.glGetInteger(GL30.GL_DRAW_FRAMEBUFFER_BINDING);
             int[] viewport = new int[4];
             GL11.glGetIntegerv(GL11.GL_VIEWPORT, viewport);

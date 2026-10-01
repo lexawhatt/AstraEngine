@@ -47,13 +47,13 @@ final class EarthAtmosphereScenario {
         pending.join();
         if (step == 0) {
             var selected = OBSERVERS.get(index);
-            double ground = new ContinentalTerrain(ContinentalTerrain.VERSION, ContinentalTerrain.SEED)
+            double ground = new ContinentalTerrain(ContinentalTerrain.CURRENT_VERSION, ContinentalTerrain.SEED)
                     .sample(selected.normal()).heightMeters();
             observer = new GeographicPosition(selected.latitudeRadians(), selected.longitudeRadians(),
                     Math.max(selected.altitudeMeters(), ground + 40));
             server(server -> {
                 EarthWorlds.validate(server);
-                var chart = EarthChart.owner(observer).orElseThrow();
+                var chart = EarthChart.owner(observer, ContinentalTerrain.CURRENT_VERSION).orElseThrow();
                 var level = server.getLevel(EarthWorlds.dimension(chart));
                 var feet = chart.resolve(observer).orElseThrow();
                 var player = server.getPlayerList().getPlayers().getFirst();
@@ -69,7 +69,7 @@ final class EarthAtmosphereScenario {
             step = 1;
             return false;
         }
-        var chart = EarthChart.owner(observer).orElseThrow();
+        var chart = EarthChart.owner(observer, ContinentalTerrain.CURRENT_VERSION).orElseThrow();
         if (frames < 35 || !game.level.dimension().equals(EarthWorlds.dimension(chart))) { return false; }
         require(game.level.effects() instanceof AstralOverworldEffects, "Earth chart lost its shared atmosphere effects");
         var effects = (AstralOverworldEffects) game.level.effects();

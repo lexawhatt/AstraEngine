@@ -179,7 +179,7 @@ class ContinentalTerrainTest {
     void invalidVersionsDirectionsAndSampleValuesRejectExplicitly() {
         ContinentalTerrain terrain = terrain(ContinentalTerrain.SEED);
         assertThrows(IllegalArgumentException.class, () -> new ContinentalTerrain(0, 0));
-        assertThrows(IllegalArgumentException.class, () -> new ContinentalTerrain(ContinentalTerrain.VERSION + 1, 0));
+        assertThrows(IllegalArgumentException.class, () -> new ContinentalTerrain(ContinentalTerrain.CURRENT_VERSION + 1, 0));
         assertThrows(IllegalArgumentException.class, () -> terrain.sample(null));
         assertThrows(IllegalArgumentException.class, () -> terrain.sample(SpaceVector.ZERO));
         for (double height : new double[]{Double.NaN, Double.POSITIVE_INFINITY, -7001, 10001}) {

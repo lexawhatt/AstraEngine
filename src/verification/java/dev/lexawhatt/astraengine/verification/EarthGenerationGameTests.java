@@ -55,7 +55,7 @@ public final class EarthGenerationGameTests {
         var ops = RegistryOps.create(JsonOps.INSTANCE, helper.getLevel().registryAccess());
         var dimensions = preset(helper).getAsJsonObject("dimensions");
         helper.assertTrue(dimensions.size() == 38, "Earth preset is missing charts or host Nether/End worlds");
-        for (var chart : EarthChart.ALL) {
+        for (var chart : EarthChart.all(ContinentalTerrain.CURRENT_VERSION)) {
             var resource = dimensions.getAsJsonObject(chart.dimensionId());
             helper.assertTrue(resource != null && resource.get("type").getAsString().equals("astraengine:earth_surface"),
                     "Missing Earth chart storage type: " + chart);
@@ -93,6 +93,15 @@ public final class EarthGenerationGameTests {
         rejected(helper, invalid, "Biome face differs from stored blocks");
         invalid = valid.deepCopy(); invalid.getAsJsonObject("biome_source").getAsJsonObject("palette").remove("forest");
         rejected(helper, invalid, "Incomplete biome palette");
+        invalid = valid.deepCopy(); invalid.getAsJsonObject("biome_source").addProperty("terrain_version", 1);
+        rejected(helper, invalid, "Biome algorithm differs from stored blocks");
+        JsonObject legacy = valid.deepCopy(); legacy.addProperty("terrain_version", 1);
+        legacy.getAsJsonObject("biome_source").remove("terrain_version");
+        var oldGenerator = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, legacy).getOrThrow();
+        helper.assertTrue(oldGenerator.terrain().version() == 1 && oldGenerator.chart().terrainVersion() == 1,
+                "Legacy Earth generator was silently migrated");
+        helper.assertTrue(Math.abs(oldGenerator.terrain().sample(new dev.lexawhatt.astraengine.cosmos.SpaceVector(1, 0, 0))
+                .heightMeters() - 713.2982624938669) < 1e-8, "Legacy canonical relief changed");
         helper.succeed();
     }
 
@@ -104,7 +113,7 @@ public final class EarthGenerationGameTests {
         var height = LevelHeightAccessor.create(EarthChart.MIN_Y, EarthChart.HEIGHT);
         var random = level.getChunkSource().randomState();
         int minY = EarthChart.MIN_Y, maxY = minY + EarthChart.HEIGHT;
-        for (var chart : EarthChart.ALL) {
+        for (var chart : EarthChart.all(ContinentalTerrain.CURRENT_VERSION)) {
             var generator = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops,
                     dimensions.getAsJsonObject(chart.dimensionId()).get("generator")).getOrThrow();
             var position = new ChunkPos(7, -11);

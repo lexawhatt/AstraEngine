@@ -13,6 +13,21 @@
     },
     {
       "name": "EarthHeightTile2"
+    },
+    {
+      "name": "ContinentalGlobe"
+    },
+    {
+      "name": "ContinentalTile0"
+    },
+    {
+      "name": "ContinentalTile1"
+    },
+    {
+      "name": "ContinentalTile2"
+    },
+    {
+      "name": "ContinentalTile3"
     }
   ],
   "uniforms": [
@@ -3108,6 +3123,71 @@
         24,
         10,
         7
+      ]
+    },
+    {
+      "name": "ContinentalEarth",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "ContinentalReady",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "ContinentalTilesReady",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "ContinentalUp",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ContinentalEast",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "name": "ContinentalSouth",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        -1,
+        0
+      ]
+    },
+    {
+      "name": "ContinentalSpacing",
+      "type": "float",
+      "count": 4,
+      "values": [
+        4,
+        32,
+        256,
+        1024
       ]
     }
   ]

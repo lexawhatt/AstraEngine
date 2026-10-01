@@ -10,6 +10,7 @@ import dev.lexawhatt.astraengine.cosmos.SpaceVector;
  */
 public record ContinentalTerrain(int version, long seed) {
     public static final int VERSION = 1;
+    public static final int CURRENT_VERSION = 2;
     public static final long SEED = 0x4153545241434F4EL;
     public static final double RADIUS_METERS = 6_371_000;
     public static final double MIN_ELEVATION = -7000;
@@ -17,7 +18,7 @@ public record ContinentalTerrain(int version, long seed) {
 
     /** Unknown algorithm versions are rejected; every long seed is a valid deterministic geographic field. */
     public ContinentalTerrain {
-        if (version != VERSION) {
+        if (version != VERSION && version != CURRENT_VERSION) {
             throw new IllegalArgumentException("Unsupported continental terrain version: " + version);
         }
     }
@@ -52,6 +53,7 @@ public record ContinentalTerrain(int version, long seed) {
             throw new IllegalArgumentException("Continental terrain direction is required");
         }
         SpaceVector normal = direction.normalized();
+        if (version == 2) { return ContinentalTerrainV2.sample(normal, seed); }
         double x = normal.x() * RADIUS_METERS;
         double y = normal.y() * RADIUS_METERS;
         double z = normal.z() * RADIUS_METERS;

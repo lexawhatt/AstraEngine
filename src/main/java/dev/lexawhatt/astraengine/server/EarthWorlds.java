@@ -19,7 +19,12 @@ public final class EarthWorlds {
     public static boolean active(MinecraftServer server) {
         requireServer(server);
         return server.overworld().getChunkSource().getGenerator() instanceof EarthChunkGenerator generator
-                && generator.chart().equals(new EarthChart(CubeFace.POSITIVE_X, 0));
+                && generator.chart().face() == CubeFace.POSITIVE_X && generator.chart().band() == 0;
+    }
+
+    /** Saved terrain algorithm of the active Earth; zero means unbound. Requires the owning server thread. */
+    public static int terrainVersion(MinecraftServer server) {
+        return active(server) ? ((EarthChunkGenerator) server.overworld().getChunkSource().getGenerator()).terrain().version() : 0;
     }
 
     /** Exact permanent dimension key; null fails. This lookup performs no loading or mutation. */
@@ -34,6 +39,7 @@ public final class EarthWorlds {
         var server = level.getServer();
         if (!active(server) || server.getLevel(level.dimension()) != level) { return Optional.empty(); }
         if (level.getChunkSource().getGenerator() instanceof EarthChunkGenerator generator
+                && generator.terrain().version() == terrainVersion(server)
                 && dimension(generator.chart()).equals(level.dimension())) { return Optional.of(generator.chart()); }
         return Optional.empty();
     }
@@ -48,7 +54,7 @@ public final class EarthWorlds {
             throw new IllegalStateException("Saved Earth Overworld is not positive-X altitude band zero");
         }
         if (!active(server)) { return; }
-        for (var expected : EarthChart.ALL) {
+        for (var expected : EarthChart.all(terrainVersion(server))) {
             var level = server.getLevel(dimension(expected));
             if (level == null || !chart(level).map(expected::equals).orElse(false)
                     || level.getMinBuildHeight() != EarthChart.MIN_Y || level.getHeight() != EarthChart.HEIGHT) {

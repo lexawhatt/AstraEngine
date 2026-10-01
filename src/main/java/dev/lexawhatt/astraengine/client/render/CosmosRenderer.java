@@ -37,6 +37,8 @@ public final class CosmosRenderer implements AutoCloseable {
     private final CelestialBloomPipeline bloom = new CelestialBloomPipeline("cosmos");
     private final LateSkyRenderer lateSky = new LateSkyRenderer("cosmos");
     private final SurfaceHeightCache earthHeights = new SurfaceHeightCache();
+    private final ContinentalSurfaceCache continental = new ContinentalSurfaceCache();
+    private int continentalVersion;
     private RenderOptions options;
     private ShaderInstance shader;
     private int quality = 1;
@@ -51,6 +53,7 @@ public final class CosmosRenderer implements AutoCloseable {
     /** Registers the reload-owned shader; an unavailable program leaves the host's black sky. */
     public void registerShaders(RegisterShadersEvent event) {
         earthHeights.close();
+        continental.close();
         bloom.registerShaders(event);
         lateSky.registerShaders(event);
         try {
@@ -73,6 +76,7 @@ public final class CosmosRenderer implements AutoCloseable {
     @Override
     public void close() {
         earthHeights.close();
+        continental.close();
         bloom.close();
         lateSky.close();
         galaxySeed = 0;
@@ -81,6 +85,12 @@ public final class CosmosRenderer implements AutoCloseable {
         catalogStars.clear();
         galaxyCount = 0;
         regionCount = 0;
+    }
+
+    /** Selects the server-confirmed new Earth geography; legacy worlds retain their saved surface field. */
+    public void setContinentalEarth(int version) {
+        if (version < 0 || version > 2) { throw new IllegalArgumentException("Unknown continental terrain version"); }
+        continentalVersion = version;
     }
 
     /** Sets the procedural detail budget: 0 low, 1 balanced, 2 high. Render thread only. */
@@ -179,6 +189,9 @@ public final class CosmosRenderer implements AutoCloseable {
         int atmosphereIndex = -1;
         int nucleusIndex = -1;
         boolean nearbyEarth = false;
+        SpaceVector continentalObserver = null;
+        boolean mappedContinent = continentalVersion != 0 && system.id().equals("sol");
+        shader.safeGetUniform("ContinentalEarth").set(mappedContinent ? 1 : 0);
         boolean atlasNucleus = system.id().startsWith("u_")
                 && UniverseGenerator.isAtlasSystemId(system.id()) && system.id().endsWith("_0");
         if (atlasNucleus) {
@@ -190,11 +203,15 @@ public final class CosmosRenderer implements AutoCloseable {
             CelestialFrame.Body frame = frames.get(i);
             CelestialBody body = frame.descriptor();
             SurfaceDefinition definition = SurfaceDefinition.find(system.id(), body.id()).orElse(null);
-            if (definition != null && definition.geography().kind() == SurfaceGeography.Kind.EARTH
+            if (!mappedContinent && definition != null && definition.geography().kind() == SurfaceGeography.Kind.EARTH
                     && frame.distance() > body.radiusMeters() - 1000 && frame.distance() < body.radiusMeters() + 120_000) {
                 nearbyEarth = true;
                 earthHeights.update(definition.frame(system, timeSeconds, timeSeconds * 20).toBodyPoint(cameraMeters),
                         body.radiusMeters(), definition.geography());
+            }
+            if (mappedContinent && body.id().equals("earth") && definition != null
+                    && frame.distance() > body.radiusMeters() - 7000 && frame.distance() < body.radiusMeters() + 520_000) {
+                continentalObserver = definition.frame(system, timeSeconds, timeSeconds * 20).toBodyPoint(cameraMeters);
             }
             if (system.id().equals("sol") && body.id().equals("sun")) { evolutionIndex = i; }
             if (atlasNucleus && body.id().equals("primary") && body.kind() == CelestialBody.Kind.BLACK_HOLE) {
@@ -246,6 +263,9 @@ public final class CosmosRenderer implements AutoCloseable {
         }
         if (!nearbyEarth) { earthHeights.close(); }
         earthHeights.bind(shader);
+        if (mappedContinent) { continental.update(continentalVersion, continentalObserver); }
+        else { continental.close(); }
+        continental.bind(shader);
         shader.safeGetUniform("EvolutionIndex").set(evolutionIndex);
         shader.safeGetUniform("AtmosphereBodyIndex").set(atmosphereIndex);
         shader.safeGetUniform("SurfaceHorizon").set((float) up.x(), (float) up.y(), (float) up.z(),
@@ -262,9 +282,9 @@ public final class CosmosRenderer implements AutoCloseable {
     }
 
     private void drawSky(float exposure) {
-        if (!bloom.render(shader, options, exposure)) {
+        if (!bloom.render(shader, options, exposure, 8)) {
             shader.safeGetUniform("HdrOutput").set(0);
-            try (var state = new FullscreenPass()) { FullscreenPass.draw(shader); }
+            try (var state = new FullscreenPass(8)) { FullscreenPass.draw(shader); }
         }
     }
 

@@ -71,8 +71,8 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 
     private EarthChunkGenerator(Definition definition) {
         super(definition.biomes());
-        chart = new EarthChart(CubeFace.fromId(definition.face()), definition.band());
-        if (definition.chartVersion() != EarthChart.VERSION || definition.terrainVersion() != ContinentalTerrain.VERSION
+        chart = new EarthChart(CubeFace.fromId(definition.face()), definition.band(), definition.terrainVersion());
+        if (definition.chartVersion() != EarthChart.VERSION || definition.terrainVersion() != definition.biomes().terrainVersion()
                 || definition.seed() != ContinentalTerrain.SEED || definition.biomes().face() != chart.face()) {
             throw new IllegalArgumentException("Earth generator does not match its pinned terrain and chart identity");
         }
@@ -161,7 +161,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
 
     private static Definition definition(EarthChart chart, EarthBiomeSource biomes) {
         if (chart == null || biomes == null) { throw new IllegalArgumentException("Earth generation requires a chart and biomes"); }
-        return new Definition(EarthChart.VERSION, ContinentalTerrain.VERSION, ContinentalTerrain.SEED,
+        return new Definition(EarthChart.VERSION, chart.terrainVersion(), ContinentalTerrain.SEED,
                 chart.face().id(), chart.band(), biomes);
     }
 

@@ -10,7 +10,7 @@ vec2 planetAtmosphereInterval(vec3 origin, vec3 ray, float radius) {
 }
 
 vec3 planetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight,
-                        float irradiance, float skyCoverage, float sunRadius) {
+                        float irradiance, float skyCoverage, float sunRadius, float surfaceDistanceKm) {
     float radius = observer.w;
     vec3 origin = observer.xyz;
     float observerHeight = length(origin) - radius;
@@ -21,6 +21,9 @@ vec3 planetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight
     float finish = outer.y;
     vec2 ground = planetAtmosphereInterval(origin, ray, radius);
     if (ground.x > 0.0 && ground.y > ground.x) { finish = min(finish, ground.x); }
+    // Relief can end the visible air column kilometers above the reference sea sphere.
+    // Integrating behind opaque mountain faces would brighten them with nonexistent foreground haze.
+    if (surfaceDistanceKm > 0.0) { finish = min(finish, surfaceDistanceKm); }
     if (finish <= start) { return background; }
     // The artistic sky gain is brighter than opaque-surface reflection. Limit
     // that aerial veil over ground while preserving the sky and grazing limb;
