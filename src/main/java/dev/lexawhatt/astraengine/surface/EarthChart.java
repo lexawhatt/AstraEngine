@@ -42,6 +42,26 @@ public record EarthChart(CubeFace face, int band) implements GeographicReference
     @Override public String geographyId() { return GEOGRAPHY_ID; }
     @Override public PlanetaryTopology topology() { return TOPOLOGY; }
 
+    /**
+     * Rotates a geographic east/up/south direction into this face's local radial tangent axes. The observer
+     * may lie in the chart's visual extension but must face its outward hemisphere. Rotation preserves units;
+     * unlike velocity conversion this is an orthonormal camera/light transform, not a position differential.
+     */
+    public SpaceVector localSkyDirection(GeographicPosition observer, SpaceVector direction) {
+        if (observer == null || direction == null || observer.normal().dot(face.outward()) <= 0) {
+            throw new IllegalArgumentException("Sky direction requires an observer in the chart hemisphere");
+        }
+        SpaceVector up = observer.normal();
+        double latitude = observer.latitudeRadians(), longitude = observer.longitudeRadians();
+        SpaceVector east = new SpaceVector(-Math.sin(longitude), 0, -Math.cos(longitude));
+        SpaceVector south = new SpaceVector(Math.sin(latitude) * Math.cos(longitude), -Math.cos(latitude),
+                -Math.sin(latitude) * Math.sin(longitude));
+        SpaceVector body = east.multiply(direction.x()).add(up.multiply(direction.y())).add(south.multiply(direction.z()));
+        SpaceVector chartX = face.u().subtract(up.multiply(up.dot(face.u()))).normalized();
+        SpaceVector chartZ = PlanetaryFrame.cross(chartX, up);
+        return new SpaceVector(body.dot(chartX), body.dot(up), body.dot(chartZ));
+    }
+
     /** Unit body-fixed direction. Supports chart extensions for projection, without granting storage ownership. */
     public SpaceVector normal(double hostX, double hostZ) {
         if (!Double.isFinite(hostX) || !Double.isFinite(hostZ)) {

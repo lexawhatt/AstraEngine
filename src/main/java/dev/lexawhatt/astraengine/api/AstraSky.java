@@ -5,6 +5,7 @@ import dev.lexawhatt.astraengine.server.SkyState;
 import dev.lexawhatt.astraengine.sky.PlanetarySkyProfile;
 import dev.lexawhatt.astraengine.sky.SkyEphemeris;
 import dev.lexawhatt.astraengine.sky.SkySample;
+import dev.lexawhatt.astraengine.surface.GeographicPosition;
 import net.minecraft.server.MinecraftServer;
 
 /**
@@ -36,5 +37,15 @@ public final class AstraSky {
     public static SkySample snapshot(MinecraftServer server) {
         PlanetarySkyProfile profile = profile(server);
         return SkyEphemeris.sample(profile, server.overworld().getDayTime(), 0);
+    }
+
+    /**
+     * Samples the same authoritative date for a physical observer. Longitude changes only the local hour
+     * angle; latitude changes daylight. Returns geographic east/up/south direction, not chart axes. Null
+     * observer/server or off-thread access fails. No world binding, chunk loading or movement is performed.
+     */
+    public static SkySample snapshotAt(MinecraftServer server, GeographicPosition observer) {
+        PlanetarySkyProfile profile = profile(server);
+        return SkyEphemeris.sampleAt(profile, server.overworld().getDayTime(), 0, observer);
     }
 }

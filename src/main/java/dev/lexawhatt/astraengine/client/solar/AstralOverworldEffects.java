@@ -14,7 +14,6 @@ import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.material.FogType;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import org.joml.Matrix4f;
@@ -73,7 +72,7 @@ public final class AstralOverworldEffects extends DimensionSpecialEffects.Overwo
                 && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS)
                     || living.hasEffect(MobEffects.NIGHT_VISION))) { return; }
         float partial = (float) event.getPartialTick();
-        var sun = seasons.sample(level, partial).sunDirection();
+        var sun = seasons.toHostDirection(level, seasons.sample(level, partial).sunDirection());
         var look = camera.getLookVector();
         SolarVisual visual = solar.visual();
         SpaceVector haze = SkyIllumination.fog(sun.y(), sun.x() * look.x + sun.y() * look.y + sun.z() * look.z,
@@ -115,7 +114,7 @@ public final class AstralOverworldEffects extends DimensionSpecialEffects.Overwo
 
     private boolean active(ClientLevel level) {
         return !RenderCompatibility.shaderPackActive() && !RenderCompatibility.shadowPass()
-                && level != null && renderer.available() && level.dimension().equals(Level.OVERWORLD)
-                && options.astronomicalOverworld();
+                && level != null && renderer.available() && seasons.surfaceLevel(level)
+                && options.astronomicalSurface(level.dimension().location().toString());
     }
 }

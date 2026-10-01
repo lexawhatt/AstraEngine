@@ -18,7 +18,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.Level;
 import net.minecraft.world.level.LightLayer;
 import net.minecraft.world.level.material.FogType;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
@@ -73,7 +72,7 @@ public final class OverworldSkyRenderer implements AutoCloseable {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) { return; }
         if (RenderCompatibility.shaderPackActive()) { yieldToShaderPack(); return; }
         ClientLevel level = Minecraft.getInstance().level;
-        if (level == null || !level.dimension().equals(Level.OVERWORLD) || !options.astronomicalOverworld()) {
+        if (level == null || !seasons.surfaceLevel(level) || !options.astronomicalSurface(level.dimension().location().toString())) {
             try (var saved = new FullscreenPass()) { volumes.close(); }
             return;
         }
@@ -98,7 +97,7 @@ public final class OverworldSkyRenderer implements AutoCloseable {
             return false;
         }
         yieldedToShaderPack = false;
-        if (shader == null || !options.astronomicalOverworld() || !level.dimension().equals(Level.OVERWORLD)) {
+        if (shader == null || !options.astronomicalSurface(level.dimension().location().toString()) || !seasons.surfaceLevel(level)) {
             return false;
         }
         setupFog.run();
@@ -112,23 +111,24 @@ public final class OverworldSkyRenderer implements AutoCloseable {
         Matrix4f inverseViewProjection = new Matrix4f(projection).mul(view).invert();
         shader.safeGetUniform("InverseViewProjection").set(inverseViewProjection);
         var sample = seasons.sample(level, partialTick);
-        var sun = sample.sunDirection();
+        var sun = seasons.toHostDirection(level, sample.sunDirection());
+        var localProfile = seasons.localProfile(level);
         shader.safeGetUniform("SunDirection").set((float) sun.x(), (float) sun.y(), (float) sun.z());
         shader.safeGetUniform("SunRadius").set((float) (SOLAR_RADIUS_RATIO
-                * seasons.profile().sunSizeMultiplier() / sample.orbitalDistanceAu()));
-        double latitude = Math.toRadians(seasons.profile().latitudeDegrees());
+                * localProfile.sunSizeMultiplier() / sample.orbitalDistanceAu()));
+        double latitude = Math.toRadians(localProfile.latitudeDegrees());
         double spin = sample.siderealAngleRadians();
         double sinSpin = Math.sin(spin);
         double cosSpin = Math.cos(spin);
         double sinLatitude = Math.sin(latitude);
         double cosLatitude = Math.cos(latitude);
-        shader.safeGetUniform("SkyNorth").set((float) -sinSpin,
-                (float) (cosLatitude * cosSpin), (float) (sinLatitude * cosSpin));
-        shader.safeGetUniform("SkyEast").set((float) cosSpin,
-                (float) (cosLatitude * sinSpin), (float) (sinLatitude * sinSpin));
-        shader.safeGetUniform("SkyPole").set(0, (float) sinLatitude, (float) -cosLatitude);
+        vector("SkyNorth", seasons.toHostDirection(level, new SpaceVector(-sinSpin,
+                cosLatitude * cosSpin, sinLatitude * cosSpin)));
+        vector("SkyEast", seasons.toHostDirection(level, new SpaceVector(cosSpin,
+                cosLatitude * sinSpin, sinLatitude * sinSpin)));
+        vector("SkyPole", seasons.toHostDirection(level, new SpaceVector(0, sinLatitude, -cosLatitude)));
         float warmth = (float) (0.5 + 0.5 * Math.sin(sample.seasonPhase() * Math.PI * 2)
-                * Math.clamp(seasons.profile().latitudeDegrees() / 30, -1, 1));
+                * Math.clamp(localProfile.latitudeDegrees() / 30, -1, 1));
         float aerosol = 0.65f + warmth * 0.65f + level.getRainLevel(partialTick) * 0.7f;
         float cloudCover = Minecraft.getInstance().options.getCloudsType() == CloudStatus.OFF ? 0
                 : options.cloudCover(0.38f + (1 - warmth) * 0.09f + level.getRainLevel(partialTick) * 0.48f);
@@ -161,10 +161,11 @@ public final class OverworldSkyRenderer implements AutoCloseable {
                 * night * visual.luminosity();
         float skyAccess = level.getBrightness(LightLayer.SKY, BlockPos.containing(position)) / 15.0f;
         var volumeFrame = new AtmosphereVolumeRenderer.Frame(level, inverseViewProjection,
-                new SpaceVector(wrappedKm(position.x), position.y / 1000, wrappedKm(position.z)), sun,
+                new SpaceVector(wrappedKm(position.x), seasons.altitudeMeters(level, position.y) / 1000, wrappedKm(position.z)), sun,
                 (float) (12 * Math.sin(windAngle)), (float) (12 * (Math.cos(windAngle) - 1)),
                 cloudCover, aerosol, visual.luminosity(), moonlight, level.getRainLevel(partialTick),
-                level.getThunderLevel(partialTick), skyAccess, options.exposure(), options.shafts(), options.quality());
+                level.getThunderLevel(partialTick), skyAccess, options.exposure(), options.shafts(), options.quality(),
+                (float) seasons.cloudBaseKm(level), (float) seasons.cloudTopKm(level));
         boolean volume = fluid == FogType.NONE && volumes.sky(volumeFrame, shader);
         shader.safeGetUniform("VolumeEnabled").set(volume ? 1 : 0);
         if (!bloom.render(shader, options, options.exposure())) {
@@ -172,6 +173,10 @@ public final class OverworldSkyRenderer implements AutoCloseable {
             try (var saved = new FullscreenPass()) { FullscreenPass.draw(shader); }
         }
         return true;
+    }
+
+    private void vector(String name, SpaceVector value) {
+        shader.safeGetUniform(name).set((float) value.x(), (float) value.y(), (float) value.z());
     }
 
     private void yieldToShaderPack() {

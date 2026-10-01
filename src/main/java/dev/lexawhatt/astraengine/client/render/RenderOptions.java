@@ -42,6 +42,12 @@ public final class RenderOptions {
     public boolean astronomicalOverworld() {
         return environment.equals("auto") && profiles.get("minecraft:overworld") == null;
     }
+
+    /** Automatic atmosphere yields to an explicitly authored profile for the actual bound surface dimension. */
+    public boolean astronomicalSurface(String dimensionId) {
+        if (dimensionId == null) { throw new IllegalArgumentException("Surface atmosphere requires a dimension identity"); }
+        return environment.equals("auto") && profiles.get(dimensionId) == null;
+    }
     public boolean lighting() { return lighting; }
     public boolean bloom() { return bloom; }
     public float bloomStrength() { return bloomStrength; }

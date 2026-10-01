@@ -79,7 +79,10 @@ public final class AstraEngineClient {
         EnvironmentProfiles profiles = new EnvironmentProfiles();
         RenderOptions options = new RenderOptions(profiles);
         SolarStateClient solar = new SolarStateClient();
-        SkyStateClient seasons = new SkyStateClient();
+        EarthStateClient earth = new EarthStateClient();
+        NeoForge.EVENT_BUS.addListener(earth::receive);
+        NeoForge.EVENT_BUS.addListener(earth::logout);
+        SkyStateClient seasons = new SkyStateClient(earth);
         NeoForge.EVENT_BUS.addListener(seasons::receive);
         NeoForge.EVENT_BUS.addListener(seasons::tick);
         NeoForge.EVENT_BUS.addListener(seasons::logout);
@@ -105,9 +108,6 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(options::registerCommands);
         NeoForge.EVENT_BUS.addListener(RenderCompatibility::registerCommands);
         RocketController rocket = new RocketController(options, solar);
-        EarthStateClient earth = new EarthStateClient();
-        NeoForge.EVENT_BUS.addListener(earth::receive);
-        NeoForge.EVENT_BUS.addListener(earth::logout);
         SurfaceDebugOverlay surfaceDebug = new SurfaceDebugOverlay(earth);
         NeoForge.EVENT_BUS.addListener(surfaceDebug::debugText);
         NeoForge.EVENT_BUS.addListener(rocket::receiveSurface);

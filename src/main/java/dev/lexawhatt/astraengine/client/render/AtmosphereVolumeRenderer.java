@@ -29,7 +29,7 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
     record Frame(ClientLevel level, Matrix4f inverseViewProjection, SpaceVector originKm, SpaceVector sun,
                  float windX, float windZ, float coverage, float aerosol, float incident, float moonlight,
                  float rain, float thunder, float skyAccess, float exposure, boolean shafts,
-                 RenderOptions.Quality quality) {
+                 RenderOptions.Quality quality, float cloudBaseKm, float cloudTopKm) {
         Frame { inverseViewProjection = new Matrix4f(inverseViewProjection); }
     }
 
@@ -113,6 +113,7 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
                 (float) value.originKm.z());
         transport.safeGetUniform("SunDirection").set((float) value.sun.x(), (float) value.sun.y(), (float) value.sun.z());
         transport.safeGetUniform("CloudWind").set(value.windX, value.windZ);
+        transport.safeGetUniform("CloudLayer").set(value.cloudBaseKm, value.cloudTopKm);
         transport.safeGetUniform("CloudParams").set(value.coverage, value.aerosol, value.incident, value.moonlight);
         transport.safeGetUniform("Weather").set(value.rain, value.thunder);
         transport.safeGetUniform("ViewSteps").set(32 + value.quality.ordinal() * 16);

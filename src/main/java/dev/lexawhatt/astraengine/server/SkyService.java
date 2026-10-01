@@ -8,6 +8,7 @@ import dev.lexawhatt.astraengine.network.SkyProfilePayload;
 import dev.lexawhatt.astraengine.sky.PlanetarySkyProfile;
 import dev.lexawhatt.astraengine.sky.SkyEphemeris;
 import dev.lexawhatt.astraengine.sky.SkySample;
+import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import java.util.Locale;
 import java.util.function.DoubleFunction;
 import net.minecraft.commands.CommandSourceStack;
@@ -93,9 +94,15 @@ public final class SkyService {
     private static int status(CommandSourceStack source) {
         SkyState state = SkyState.get(source.getServer());
         PlanetarySkyProfile profile = state.profile();
-        SkySample sample = AstraSky.snapshot(source.getServer());
+        var chart = EarthWorlds.chart(source.getLevel()).orElse(null);
+        var position = source.getPosition();
+        var feet = new SpaceVector(position.x, position.y, position.z);
+        var observer = chart != null && chart.contains(feet) ? chart.geographic(feet) : null;
+        double latitude = observer == null ? profile.latitudeDegrees() : Math.toDegrees(observer.latitudeRadians());
+        SkySample sample = observer == null ? AstraSky.snapshot(source.getServer())
+                : AstraSky.snapshotAt(source.getServer(), observer);
         source.sendSuccess(() -> Component.translatable("astraengine.season.status", profile.yearDays(),
-                number(profile.latitudeDegrees()), number(profile.axialTiltDegrees()), number(sample.seasonPhase() * 360),
+                number(latitude), number(profile.axialTiltDegrees()), number(sample.seasonPhase() * 360),
                 number(sample.daylightHours()), number(Math.toDegrees(sample.solarAltitudeRadians())),
                 number(profile.lightPollution()), number(profile.sunSizeMultiplier()), state.revision()), false);
         return 1;

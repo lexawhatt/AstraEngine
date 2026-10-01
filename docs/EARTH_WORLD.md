@@ -42,6 +42,10 @@ Legacy worlds retain the original predicate. Submerged storage ceilings cannot
 become artificial ice surfaces. This is the base climate calculation; a seasonal
 snow accumulation/melting simulation is not supplied by this hook.
 
+The sky reads geographic latitude/longitude and physical altitude from these charts.
+Its 1800..3200-meter cloud layer retains the same sea-level datum in every altitude
+band; see [seasons and atmosphere](SEASONS.md).
+
 The server announces the Earth binding at login. The client retains it across
 resource reload and clears it on logout. F3 then displays longitude, latitude and
 physical altitude in these charts; reduced-debug privacy is preserved. It never

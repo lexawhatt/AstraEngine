@@ -3,8 +3,9 @@
 // premultiplied in-scattering; alpha is transmittance, not opacity.
 // Caller provides normalized directions, Detail, Weather, SunDirection, CloudWind,
 // and atmosphereTransmission(). Camera XZ may wrap every 64 km without a seam.
-const float CLOUD_VOLUME_BASE_KM = 0.36;
-const float CLOUD_VOLUME_TOP_KM = 0.86;
+uniform vec2 CloudLayer;
+#define CLOUD_VOLUME_BASE_KM CloudLayer.x
+#define CLOUD_VOLUME_TOP_KM CloudLayer.y
 const float CLOUD_VOLUME_PERIOD_KM = 64.0;
 const float CLOUD_VOLUME_RANGE_KM = 16.0;
 const float CLOUD_VOLUME_EXTINCTION = 36.0;

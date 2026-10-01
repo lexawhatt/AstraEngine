@@ -89,6 +89,7 @@ public final class ClientScenario {
     private DhCloudScenario dhCloudScenario;
     private ContinentalScenario continentalScenario;
     private EarthGenerationScenario earthGenerationScenario;
+    private EarthAtmosphereScenario earthAtmosphereScenario;
     private LunarPulsarVisualScenario lunarPulsarVisualScenario;
     private PulsarAtlasScenario pulsarAtlasScenario;
     private SurfacePayload latestSurface;
@@ -104,7 +105,7 @@ public final class ClientScenario {
         try {
             require((System.nanoTime() - startedAt) < (phase.startsWith("surface-") || phase.startsWith("terrain-")
                     || phase.startsWith("horizon-") || phase.startsWith("dh-clouds")
-                    || phase.startsWith("earth-generation-") || phase.startsWith("continental-") ? 900_000_000_000L
+                    || phase.startsWith("earth-") || phase.startsWith("continental-") ? 900_000_000_000L
                     : phase.startsWith("seasonal") || phase.equals("volumetric")
                     || phase.equals("render-compat") || phase.equals("celestial-polish")
                     || phase.equals("lunar-pulsar") || phase.startsWith("pulsar-")
@@ -189,7 +190,7 @@ public final class ClientScenario {
                         || phase.equals("atlas") || phase.equals("atlas-restart")
                         || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("celestial-polish")
                         || phase.startsWith("surface-") || phase.startsWith("terrain-") || phase.startsWith("horizon-")
-                        || phase.startsWith("earth-generation-") || phase.startsWith("continental-") || phase.startsWith("dh-clouds")
+                        || phase.startsWith("earth-") || phase.startsWith("continental-") || phase.startsWith("dh-clouds")
                         || phase.equals("lunar-pulsar") || phase.startsWith("pulsar-")) {
                     minecraft.options.guiScale().set(2);
                 }
@@ -202,7 +203,7 @@ public final class ClientScenario {
                         || phase.equals("surface-failures") || phase.equals("surface-boundaries")
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
-                        || phase.equals("earth-generation-create") || phase.equals("continental-create")
+                        || phase.equals("earth-atmosphere") || phase.equals("earth-generation-create") || phase.equals("continental-create")
                         || phase.startsWith("dh-clouds")
                         || phase.equals("lunar-pulsar") || phase.equals("pulsar-create")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
@@ -210,7 +211,7 @@ public final class ClientScenario {
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
                             new LevelSettings("AstraEngine verification", GameType.CREATIVE, false,
                                     Difficulty.PEACEFUL, true, new GameRules(), WorldDataConfiguration.DEFAULT),
-                            new WorldOptions(20260927L, false, false), registry -> phase.startsWith("earth-generation-")
+                            new WorldOptions(20260927L, false, false), registry -> phase.startsWith("earth-")
                                     ? registry.registryOrThrow(net.minecraft.core.registries.Registries.WORLD_PRESET)
                                             .get(net.minecraft.resources.ResourceLocation.parse("astraengine:earth")).createWorldDimensions()
                                     : WorldPresets.createNormalWorldDimensions(registry),
@@ -261,6 +262,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.equals("earth-atmosphere")) {
+                if (earthAtmosphereScenario == null) { earthAtmosphereScenario = new EarthAtmosphereScenario(); }
+                if (earthAtmosphereScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.startsWith("earth-generation-")) {
                 if (earthGenerationScenario == null) { earthGenerationScenario = new EarthGenerationScenario(phase); }
                 if (earthGenerationScenario.tick()) { finish(); }

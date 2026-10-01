@@ -7,11 +7,20 @@ later sunrise and earlier sunset; summer has longer daylight. Transitions are
 continuous. The default observation latitude is **45 degrees north**, with a
 **23.44-degree axial tilt** and orbital eccentricity **0.0167**.
 
+In the **Astra Earth** preset, observer latitude and longitude come from the
+server-bound planetary chart instead. Traveling east changes local solar time;
+traveling north changes daylight length. Orbital date remains global. Polar faces
+rotate light and stars into their actual local tangent axes. `/astra season status`
+reports this local observer; the profile's `latitude` setting remains the fallback
+for an ordinary Overworld. `AstraSky.snapshotAt` exposes the same geographic sample
+on the server without advancing time or loading chunks.
+
 The atmosphere has wavelength-dependent extinction and a bounded scattering
 integral. Low sunlight warms the horizon and illuminates procedural cloud edges
 and undersides. Cloud coverage and haze respond to weather and orbital season;
 colors follow lighting rather than four fixed color filters. Minecraft retains
-terrain, precipitation, biome temperature and its weather scheduler. Seasonal
+terrain, precipitation and its weather scheduler. The Earth preset applies its
+physical climate temperature to snow/freezing; legacy biome behavior is unchanged. Seasonal
 snow, foliage changes, crop rules and terrain shadows are separate features.
 
 Clouds use a ray-marched 3D density field with eroded billows, finite thickness
@@ -55,8 +64,8 @@ they adjust a saved orbital offset without changing world time or builds.
 | `/astra season pollution 0.02` | Background light pollution in 0..1 |
 | `/astra season sun-size 3` | Apparent Overworld solar disk scale in 1..8 |
 
-Latitude is a world profile setting, not a conversion of block Z into a spherical
-planet coordinate. Southern latitudes reverse the northern seasonal pattern;
+In a legacy Overworld, latitude is a world profile setting rather than a conversion
+of block Z. In Astra Earth, the spherical chart supplies the actual coordinates. Southern latitudes reverse the northern seasonal pattern;
 polar settings support polar day and night. Daylight hours in `status` use the
 geometric solar center, excluding atmospheric refraction and display enlargement.
 At the default latitude the solstices give approximately 8.57 and 15.43 hours out
@@ -122,8 +131,11 @@ compatibility and a universal frame-rate target have not been established.
 
 ## Volumetric clouds and light shafts
 
-The automatic Overworld owns one procedural cloud slab from **Y=360 to Y=860**,
-using one block as one meter for this visual. Cloud/air integration is bounded
+The legacy Overworld owns one procedural cloud slab from **Y=360 to Y=860**,
+using one block as one meter for this visual. Astra Earth uses **1800 to 3200 meters
+above sea level**; camera altitude includes the current storage band offset. Clouds
+therefore remain at the same physical altitude when the host Y coordinate rebases.
+The same atmosphere effects operate on every server-bound Earth chart. Cloud/air integration is bounded
 at **16 km**. Horizontal density repeats continuously every **64 km**; wrapping
 camera coordinates before float conversion preserves detail far from spawn.
 Wind uses the host game clock, independent of the seasonal `dayTime` clock.

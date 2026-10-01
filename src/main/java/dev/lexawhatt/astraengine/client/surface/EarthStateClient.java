@@ -17,12 +17,16 @@ public final class EarthStateClient {
     /** True only after this connection's server explicitly binds the new Earth preset. */
     public boolean active() { return active; }
 
+    /** Current connection's permanent Earth chart, excluding legacy diagnostic surfaces. */
+    public Optional<EarthChart> chart(String dimensionId) {
+        return active ? EarthChart.ALL.stream().filter(value -> value.dimensionId().equals(dimensionId)).findFirst()
+                : Optional.empty();
+    }
+
     /** Immutable projection for the current connection, or absence for an unsupported world. */
     public Optional<GeographicReference> reference(String dimensionId) {
-        if (active) {
-            var chart = EarthChart.ALL.stream().filter(value -> value.dimensionId().equals(dimensionId)).findFirst();
-            if (chart.isPresent()) { return chart.map(value -> value); }
-        }
+        var chart = chart(dimensionId);
+        if (chart.isPresent()) { return chart.map(value -> value); }
         return SurfaceReferences.forDimension(dimensionId).map(value -> value);
     }
 

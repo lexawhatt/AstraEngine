@@ -1,6 +1,7 @@
 package dev.lexawhatt.astraengine.sky;
 
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
+import dev.lexawhatt.astraengine.surface.GeographicPosition;
 
 /**
  * Deterministic Kepler orbit and uniform axial rotation. This is a reusable game ephemeris, not a civil-date
@@ -22,6 +23,23 @@ public final class SkyEphemeris {
      * Negative times wrap periodically. Both profiles and results are immutable and safe on either side.
      */
     public static SkySample sample(PlanetarySkyProfile profile, long dayTime, double partialTick) {
+        return sample(profile, dayTime, partialTick, 0);
+    }
+
+    /**
+     * Samples an actual geographic observer. Longitude changes local hour angle, never the global orbital
+     * date; latitude changes daylight and solar elevation. Altitude is not used for refraction here. The result
+     * uses geographic east/up/south, which a storage chart may rotate into its own local axes. Null is invalid.
+     */
+    public static SkySample sampleAt(PlanetarySkyProfile profile, long dayTime, double partialTick,
+            GeographicPosition observer) {
+        requireProfile(profile);
+        if (observer == null) { throw new IllegalArgumentException("Sky sampling requires a geographic observer"); }
+        return sample(profile.withLatitudeDegrees(Math.toDegrees(observer.latitudeRadians())), dayTime, partialTick,
+                observer.longitudeRadians());
+    }
+
+    private static SkySample sample(PlanetarySkyProfile profile, long dayTime, double partialTick, double longitudeRadians) {
         requireProfile(profile);
         if (!Double.isFinite(partialTick) || partialTick < 0 || partialTick > 1) {
             throw new IllegalArgumentException("Sky partial tick must be in [0, 1]");
@@ -37,7 +55,7 @@ public final class SkyEphemeris {
         double declination = Math.asin(clamp(Math.sin(tilt) * Math.sin(longitude)));
         double rightAscension = Math.atan2(Math.cos(tilt) * Math.sin(longitude), Math.cos(longitude));
         double dayFraction = wrap(Math.floorMod(dayTime, TICKS_PER_DAY) + partialTick, TICKS_PER_DAY) / TICKS_PER_DAY;
-        double siderealAngle = wrap(TAU * (dayFraction - 0.25 + phase), TAU);
+        double siderealAngle = wrap(TAU * (dayFraction - 0.25 + phase) + longitudeRadians, TAU);
         double hourAngle = siderealAngle - rightAscension;
         double latitude = Math.toRadians(profile.latitudeDegrees());
         double sinLatitude = Math.sin(latitude);
