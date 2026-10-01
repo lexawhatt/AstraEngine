@@ -345,7 +345,7 @@ speed. Existing v4-v6 visits remain exact. For v1-v3, only charted Sol and the c
 system are inferred as visited on migration:
 an old scan is not proof of physical travel. Old neighbors stay on the map, and
 the current neighborhood is refreshed on login. Malformed data is rejected.
-Navigation snapshots use protocol v7, actions v6, controls v3, numeric speed v1, and custom
+Navigation snapshots use protocol v8, actions v6, controls v3, numeric speed v1, and custom
 definition synchronization v3, so client and server need matching mod versions. Only a player's
 discovered custom definitions are sent, before navigation refers to them; client
 resource reload retains them and logout clears them. The aggregate custom
@@ -359,14 +359,28 @@ login returns the player to the original real world; re-entering Rocket mode use
 the saved navigation record. An unreadable existing catalog is not replaced by
 an empty one.
 
-The shared orbital clock advances while at least one living player is in Rocket
-mode or on a bound surface patch/continental Earth chart; it does not accumulate absent or offline time.
-This is a shared visual navigation clock, separate from each discovered system's resource evolution.
+The occupied navigation clock advances while at least one living player is in Rocket
+mode or an implemented surface world. It pauses when none are present. Legacy worlds
+and generated/custom systems sample orbits from this clock. On the bound Astra Earth
+preset, Sol instead derives its orbital epoch and full Earth rotation from the saved
+Overworld calendar/profile (365 game days per Earth revolution by default). Navigation
+v8 and surface-context v2 carry the matching signed orbital epoch, Earth quaternion
+and discontinuity epoch with each camera snapshot. Rendering interpolates them together;
+it never substitutes an independently predicted client date. Material animation remains
+on the occupied clock. This does not modify the separate stellar resource-evolution clock.
+
+Nearby free inspection follows the nearest body's orbital translation within six
+physical radii, without rotating the camera or adding inertial drift. Guided approaches
+predict the same calendar, including frozen daylight. Calendar or orbital-profile jumps
+cancel guidance safely rather than sweeping the camera through a discontinuous orbit.
+The client resets interpolation at that discontinuity; ordinary input ownership and
+navigation epochs retain their existing purpose.
+
 Extraction and stage state in the [first-slice API](API.md) remain a separate
 contract. The diagnostic Sun state is stored in `data/astraengine_solar.dat`:
-its clock advances only with a living Overworld or Sol surface observer, or an active Rocket
-pilot in `sol`. Pilots in other systems can advance the orbital clock without
-advancing the solar supernova.
+its clock advances only with a living Overworld or Sol surface observer, or an
+active Rocket pilot in `sol`. Pilots in other systems can advance the occupied
+navigation clock without advancing the solar supernova.
 
 A procedural descriptor does not allocate a new dimension. The persistent
 `alpha` and `beta` building worlds belong to the first slice; binding an arbitrary

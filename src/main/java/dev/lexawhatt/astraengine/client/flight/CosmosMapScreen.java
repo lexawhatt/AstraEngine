@@ -220,7 +220,7 @@ public final class CosmosMapScreen extends Screen {
             }
         } else if (controller.snapshot() != null) {
             CosmosSystem system = controller.currentSystem();
-            double time = controller.timeSeconds();
+            double time = controller.orbitalSeconds();
             for (CelestialBody body : system.bodies()) {
                 if (body.orbitMeters() <= 0) { continue; }
                 SpaceVector parent = body.parentId().isEmpty() ? SpaceVector.ZERO : system.positionAt(body.parentId(), time);
@@ -267,7 +267,7 @@ public final class CosmosMapScreen extends Screen {
         CosmosSystem system = controller.currentSystem();
         CelestialBody selected = system.bodies().stream().filter(body -> body.id().equals(selection)).findFirst().orElse(null);
         if (selected == null) { return; }
-        SpaceVector position = system.positionAt(selected, controller.timeSeconds());
+        SpaceVector position = system.positionAt(selected, controller.orbitalSeconds());
         double radius = selected.radiusMeters() * 12;
         if (!selected.parentId().isEmpty()) {
             radius = Math.max(radius, selected.orbitMeters() * (1 + selected.eccentricity()) * 1.5);
@@ -321,7 +321,7 @@ public final class CosmosMapScreen extends Screen {
         } else {
             CelestialBody selected = controller.currentSystem().bodies().stream().filter(value -> value.id().equals(selection)).findFirst().orElse(null);
             if (selected != null) { detail = selected.name() + "  /  R " + RocketController.distance(selected.radiusMeters())
-                    + "  /  " + RocketController.distance(controller.currentSystem().positionAt(selected, controller.timeSeconds()).distance(controller.visualPosition())); }
+                    + "  /  " + RocketController.distance(controller.currentSystem().positionAt(selected, controller.orbitalSeconds()).distance(controller.visualPosition())); }
         }
         graphics.drawString(font, font.plainSubstrByWidth(detail, canvasRight - 22), 20, height - 51, 0xFFE1D3AF);
     }

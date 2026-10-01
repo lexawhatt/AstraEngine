@@ -37,6 +37,8 @@ uniform vec4 BodyColorKind[12];
 uniform vec4 BodySurface[12];
 uniform vec4 BodyLightTilt[12];
 uniform float BodySpin[12];
+uniform int CalendarEarth;
+uniform mat3 EarthInverseRotation;
 uniform vec4 BodyGeography[12];
 uniform int BodyGeographySeed[12];
 uniform int AtmosphereBodyIndex;
@@ -200,10 +202,15 @@ vec3 mappedEarthNormal(vec3 p, uint seed, float footprint, float radiusMeters) {
     return normalize(p - tangent * slope.x - bitangent * slope.y);
 }
 
+vec3 mappedSurfaceCoordinates(vec3 direction, float tilt, float spin, vec4 geography) {
+    return CalendarEarth != 0 && geography.x > 1.5 ? EarthInverseRotation * direction
+            : surfaceCoordinates(direction, tilt, spin);
+}
+
 vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 parameters,
                    float tilt, float spin, vec4 geography, uint geographySeed, float normalFootprint) {
     int kind = int(material.w + 0.5);
-    vec3 p = surfaceCoordinates(n, tilt, spin);
+    vec3 p = mappedSurfaceCoordinates(n, tilt, spin, geography);
     vec3 seed = vec3(parameters.x * 0.071, parameters.x * 0.027, 3.7);
     float diffuse = max(dot(n, light), 0.0);
     float day = smoothstep(-0.075, 0.15, dot(n, light));
@@ -218,15 +225,15 @@ vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 paramet
         float fineWeight = 1.0 - smoothstep(0.15, 0.8, normalFootprint * geography.z / 16.0);
         float grain = fineWeight > 0.001 ? noise(p * (geography.z / 16.0)) : 0.5;
         if (surfaceKind == 1) {
-            return lunarRadiance(p, surfaceCoordinates(light, tilt, spin),
-                    surfaceCoordinates(-viewRay, tilt, spin), height, geographySeed,
+            return lunarRadiance(p, mappedSurfaceCoordinates(light, tilt, spin, geography),
+                    mappedSurfaceCoordinates(-viewRay, tilt, spin, geography), height, geographySeed,
                     normalFootprint, geography.z, true);
         } else {
             water = 1.0 - smoothstep(-0.3, 0.4, height);
             albedo = ContinentalEarth != 0 ? continentalAlbedo(p, water)
                     : mappedEarthAlbedo(p, height, geographySeed, normalFootprint, water);
             vec3 reliefNormal = mappedEarthNormal(p, geographySeed, normalFootprint, geography.z);
-            vec3 fixedLight = surfaceCoordinates(light, tilt, spin);
+            vec3 fixedLight = mappedSurfaceCoordinates(light, tilt, spin, geography);
             diffuse = max(dot(reliefNormal, fixedLight), 0.0)
                     * smoothstep(-0.006, 0.025, dot(p, fixedLight));
             // Local terrain/cloud ownership changes at handoff; the geographic map itself never scrolls.
@@ -338,8 +345,8 @@ float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, ui
             || altitude < (ContinentalEarth != 0 ? -7000.0 : -48.0) || distanceMeters <= 0.0) {
         return nominalHit;
     }
-    vec3 up = surfaceCoordinates(-center, tilt, spin);
-    vec3 fixedRay = surfaceCoordinates(ray, tilt, spin);
+    vec3 up = mappedSurfaceCoordinates(-center, tilt, spin, geography);
+    vec3 fixedRay = mappedSurfaceCoordinates(ray, tilt, spin, geography);
     float along = distanceMeters * dot(up, fixedRay);
     vec2 outer = reliefShell(along, altitude, radiusMeters, ContinentalEarth != 0 ? 10000.0 : 112.0);
     if (outer.y <= 0.0 || outer.y < outer.x) { return -1.0; }

@@ -6,6 +6,7 @@ import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.surface.EarthChart;
+import dev.lexawhatt.astraengine.surface.BodyFixedFrame;
 import dev.lexawhatt.astraengine.surface.EarthLandingTarget;
 import dev.lexawhatt.astraengine.surface.SurfaceApproach;
 import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
@@ -45,19 +46,19 @@ final class SurfaceTransfer {
     private int preparationTicks;
     private int elapsedTicks;
 
-    SurfaceTransfer(SurfaceDefinition definition, CosmosSystem system, long clockTicks,
+    SurfaceTransfer(SurfaceDefinition definition, CosmosSystem system, BodyFixedFrame frame,
             SpaceVector originalPosition, FlightOrientation originalOrientation) {
-        this(definition, null, 0, 0, system, clockTicks, originalPosition, originalOrientation);
+        this(definition, null, 0, 0, system, frame, originalPosition, originalOrientation);
     }
 
-    SurfaceTransfer(EarthLandingTarget target, CosmosSystem system, long clockTicks,
+    SurfaceTransfer(EarthLandingTarget target, CosmosSystem system, BodyFixedFrame frame,
             SpaceVector originalPosition, FlightOrientation originalOrientation) {
         this(SurfaceDefinition.byBody("earth"), target.chart(), (int) Math.floor(target.localFeet().x()),
-                (int) Math.floor(target.localFeet().z()), system, clockTicks, originalPosition, originalOrientation);
+                (int) Math.floor(target.localFeet().z()), system, frame, originalPosition, originalOrientation);
     }
 
     private SurfaceTransfer(SurfaceDefinition definition, EarthChart earthChart, int centerX, int centerZ,
-            CosmosSystem system, long clockTicks, SpaceVector originalPosition, FlightOrientation originalOrientation) {
+            CosmosSystem system, BodyFixedFrame frame, SpaceVector originalPosition, FlightOrientation originalOrientation) {
         this.definition = definition;
         this.earthChart = earthChart;
         this.centerX = centerX;
@@ -65,19 +66,17 @@ final class SurfaceTransfer {
         this.originalPosition = originalPosition;
         this.originalOrientation = originalOrientation;
         ascending = false;
-        var frame = definition.frame(system, clockTicks / 20.0, clockTicks);
         originalBodyPosition = frame.toBodyPoint(originalPosition);
         originalBodyOrientation = frame.toBodyOrientation(originalOrientation);
     }
 
-    private SurfaceTransfer(SurfaceDefinition definition, EarthChart earthChart, CosmosSystem system, long clockTicks,
+    private SurfaceTransfer(SurfaceDefinition definition, EarthChart earthChart, CosmosSystem system, BodyFixedFrame frame,
             SpaceVector localEye, FlightOrientation localOrientation, boolean departure) {
         this.definition = definition;
         this.earthChart = earthChart;
         centerX = (int) Math.floor(localEye.x());
         centerZ = (int) Math.floor(localEye.z());
         ascending = true;
-        var frame = definition.frame(system, clockTicks / 20.0, clockTicks);
         SpaceVector bodyStart = toBody(localEye);
         originalPosition = frame.toSystemPoint(bodyStart);
         startBodyOrientation = toBodyOrientation(localEye.x(), localEye.z(), localOrientation);
@@ -91,14 +90,14 @@ final class SurfaceTransfer {
         route = new SurfaceApproach(bodyStart, end, body.radiusMeters(), true);
     }
 
-    static SurfaceTransfer ascent(SurfaceDefinition definition, CosmosSystem system, long clockTicks,
+    static SurfaceTransfer ascent(SurfaceDefinition definition, CosmosSystem system, BodyFixedFrame frame,
             SpaceVector localEye, FlightOrientation localOrientation) {
-        return new SurfaceTransfer(definition, null, system, clockTicks, localEye, localOrientation, true);
+        return new SurfaceTransfer(definition, null, system, frame, localEye, localOrientation, true);
     }
 
-    static SurfaceTransfer ascent(EarthChart chart, CosmosSystem system, long clockTicks,
+    static SurfaceTransfer ascent(EarthChart chart, CosmosSystem system, BodyFixedFrame frame,
             SpaceVector localEye, FlightOrientation localOrientation) {
-        return new SurfaceTransfer(SurfaceDefinition.byBody("earth"), chart, system, clockTicks,
+        return new SurfaceTransfer(SurfaceDefinition.byBody("earth"), chart, system, frame,
                 localEye, localOrientation, true);
     }
 
@@ -115,8 +114,7 @@ final class SurfaceTransfer {
     SpaceVector originalPosition() { return originalPosition; }
     FlightOrientation originalOrientation() { return originalOrientation; }
     Vec3 landingFeet() { return landingFeet; }
-    Frame sourceFrame(CosmosSystem system, long clockTicks) {
-        var frame = definition.frame(system, clockTicks / 20.0, clockTicks);
+    Frame sourceFrame(BodyFixedFrame frame) {
         return new Frame(frame.toSystemPoint(originalBodyPosition), frame.toSystemOrientation(originalBodyOrientation));
     }
     FlightOrientation landingOrientation() {
@@ -124,7 +122,7 @@ final class SurfaceTransfer {
     }
 
     /** Polls nine bounded full chunks without synchronously requesting generation or mutating destination blocks. */
-    boolean prepare(MinecraftServer server, ServerPlayer player, CosmosSystem system, long clockTicks) {
+    boolean prepare(MinecraftServer server, ServerPlayer player) {
         preparationTicks++;
         ServerLevel level = server.getLevel(dimension());
         if (!matches(server, level)) { preparationTicks = preparationLimit() + 1; return false; }
@@ -168,10 +166,9 @@ final class SurfaceTransfer {
     }
 
     /** Applies the current orbital/spin frame to an immutable body-fixed route; no secondary simulation clock. */
-    Frame advance(CosmosSystem system, long clockTicks) {
+    Frame advance(BodyFixedFrame frame) {
         if (route == null || finished()) { throw new IllegalStateException("Surface route is not advancing"); }
         elapsedTicks++;
-        var frame = definition.frame(system, clockTicks / 20.0, clockTicks);
         return new Frame(frame.toSystemPoint(route.positionAt(elapsedTicks)),
                 frame.toSystemOrientation(route.orientationAt(elapsedTicks, startBodyOrientation, endBodyOrientation)));
     }

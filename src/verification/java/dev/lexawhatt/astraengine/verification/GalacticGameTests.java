@@ -92,6 +92,7 @@ public final class GalacticGameTests {
             }
             writeNavigationPrefix(buffer); buffer.writeVarInt(2); buffer.writeUtf("sol", 64); buffer.writeUtf("s_9_9_9", 64);
             buffer.writeLong(9); buffer.writeLong(2);
+            buffer.writeDouble(1); buffer.writeBoolean(false); buffer.writeLong(0);
             rejects(helper, () -> ExplorationPayload.CODEC.decode(buffer), "Visited wire ID absent from the chart"); buffer.clear();
             for (double speed : new double[]{FlightDynamics.MIN_SPEED, FlightDynamics.LOCAL_MAX_SPEED, FlightDynamics.MAX_SPEED}) {
                 FlightSpeedPayload value = new FlightSpeedPayload(speed); FlightSpeedPayload.CODEC.encode(buffer, value);

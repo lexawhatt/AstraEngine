@@ -22,7 +22,8 @@ import net.minecraft.resources.ResourceLocation;
 public record ExplorationPayload(long galaxySeed, long clockTicks, String systemId, SpaceVector position,
         SpaceVector velocity, boolean active, double speedMetersPerSecond, FlightOrientation orientation, int jumpTicks,
         String jumpTarget, List<String> discoveredSystems, List<String> visitedSystems, long revision,
-        long navigationEpoch) implements CustomPacketPayload {
+        long navigationEpoch, double orbitalSeconds, FlightOrientation earthOrientation, long calendarEpoch)
+        implements CustomPacketPayload {
     public static final Type<ExplorationPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(
             AstraEngine.MOD_ID, "exploration"));
     public static final StreamCodec<RegistryFriendlyByteBuf, ExplorationPayload> CODEC = StreamCodec.ofMember(
@@ -31,6 +32,10 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
     public static final int MAX_TRANSITION_TICKS = BodyApproach.MAX_TICKS;
 
     public ExplorationPayload {
+        if (!Double.isFinite(orbitalSeconds) || calendarEpoch < 0
+                || earthOrientation != null && !"sol".equals(systemId)) {
+            throw new IllegalArgumentException("Invalid navigation ephemeris snapshot");
+        }
         new FlightDynamics.State(position, velocity);
         FlightDynamics.validateSpeed(speedMetersPerSecond);
         new FlightDynamics.Input(0, 0, 0, orientation, false);
@@ -54,6 +59,22 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
         discoveredSystems = List.copyOf(discoveredSystems);
         visitedSystems = List.copyOf(visitedSystems);
     }
+    /**
+     * Existing occupied-clock adapter. A null Earth orientation explicitly denotes the legacy orbital policy;
+     * calendar-bound Sol snapshots instead carry their matching epoch seconds and full Earth rotation.
+     */
+    public ExplorationPayload(long galaxySeed, long clockTicks, String systemId, SpaceVector position,
+            SpaceVector velocity, boolean active, double speedMetersPerSecond, FlightOrientation orientation,
+            int jumpTicks, String jumpTarget, List<String> discoveredSystems, List<String> visitedSystems,
+            long revision, long navigationEpoch) {
+        this(galaxySeed, clockTicks, systemId, position, velocity, active, speedMetersPerSecond, orientation,
+                jumpTicks, jumpTarget, discoveredSystems, visitedSystems, revision, navigationEpoch,
+                clockTicks / 20.0, null, 0);
+    }
+
+    /** Whether this snapshot binds Sol orbit/frame sampling to the server's Earth calendar. */
+    public boolean calendarEarth() { return earthOrientation != null; }
+
     /** Compatibility adapter for pre-visit callers; only charted Sol/current are inferred as visited. */
     public ExplorationPayload(long galaxySeed, long clockTicks, String systemId, SpaceVector position,
             SpaceVector velocity, boolean active, double speedMetersPerSecond, FlightOrientation orientation,
@@ -63,7 +84,7 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
                 navigationEpoch);
     }
 
-    /** Compatibility adapter for former gear/yaw/pitch callers; network semantics use version seven. */
+    /** Compatibility adapter for former gear/yaw/pitch callers; network semantics use version eight. */
     public ExplorationPayload(long galaxySeed, long clockTicks, String systemId, SpaceVector position,
             SpaceVector velocity, boolean active, int speedIndex, float yaw, float pitch, int jumpTicks,
             String jumpTarget, List<String> discoveredSystems, long revision, long navigationEpoch) {
@@ -114,6 +135,12 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
         buffer.writeVarInt(visitedSystems.size());
         for (String id : visitedSystems) { buffer.writeUtf(id, 64); }
         buffer.writeLong(revision); buffer.writeLong(navigationEpoch);
+        buffer.writeDouble(orbitalSeconds); buffer.writeBoolean(earthOrientation != null);
+        if (earthOrientation != null) {
+            buffer.writeDouble(earthOrientation.x()); buffer.writeDouble(earthOrientation.y());
+            buffer.writeDouble(earthOrientation.z()); buffer.writeDouble(earthOrientation.w());
+        }
+        buffer.writeLong(calendarEpoch);
     }
     private static ExplorationPayload read(RegistryFriendlyByteBuf buffer) {
         long seed = buffer.readLong(), clock = buffer.readLong();
@@ -135,8 +162,12 @@ public record ExplorationPayload(long galaxySeed, long clockTicks, String system
         }
         List<String> visited = new ArrayList<>(visitCount);
         for (int index = 0; index < visitCount; index++) { visited.add(buffer.readUtf(64)); }
+        long revision = buffer.readLong(), navigationEpoch = buffer.readLong();
+        double orbitalSeconds = buffer.readDouble();
+        FlightOrientation earth = buffer.readBoolean() ? new FlightOrientation(buffer.readDouble(), buffer.readDouble(),
+                buffer.readDouble(), buffer.readDouble()) : null;
         return new ExplorationPayload(seed, clock, system, position, velocity, active, speed, orientation,
-                jumpTicks, target, discoveries, visited, buffer.readLong(), buffer.readLong());
+                jumpTicks, target, discoveries, visited, revision, navigationEpoch, orbitalSeconds, earth, buffer.readLong());
     }
     private static void writeVector(RegistryFriendlyByteBuf buffer, SpaceVector vector) {
         buffer.writeDouble(vector.x()); buffer.writeDouble(vector.y()); buffer.writeDouble(vector.z());

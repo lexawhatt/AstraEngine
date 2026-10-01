@@ -11,8 +11,8 @@ import dev.lexawhatt.astraengine.surface.GeographicPosition;
 public final class SkyEphemeris {
     public static final int TICKS_PER_DAY = 24_000;
     private static final double TAU = Math.PI * 2;
-    // Earth's heliocentric perihelion longitude + pi, viewed as the Sun's longitude from Earth.
-    private static final double SOLAR_PERIHELION_LONGITUDE = Math.toRadians(282.94);
+    /** Fixed sky-model solar perihelion longitude in radians; shared with the bound Earth's orbital frame. */
+    public static final double SOLAR_PERIHELION_LONGITUDE = Math.toRadians(282.94);
 
     private SkyEphemeris() {
     }

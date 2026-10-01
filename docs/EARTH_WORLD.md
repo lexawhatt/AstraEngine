@@ -24,6 +24,17 @@ source. Minecraft still owns dimension transfer and chunk loading. Preparation a
 instead of a fictional route countdown. Guided ascent/descent then show their actual
 remaining server ticks.
 
+The bound Earth uses the Overworld's saved calendar for Sol orbital motion and
+its complete axial/spin orientation. The default 365 game days span one canonical
+Earth revolution; radii and orbital descriptors retain their physical values.
+Surface sunlight, the rotating orbital height field and the landing point use
+that same frame. Free inspection within six radii follows the nearest body's
+orbital translation while preserving the camera's heading. Stopping daylight
+also stops this orbital motion. A time or season-policy discontinuity safely
+cancels guidance and preserves a nearby free observer's relative position.
+Changing time during an ascent restores its real surface source. Shader animation
+and stellar evolution keep their existing independent ownership and rates.
+
 The preset uses the real 6,371,000-meter reference radius. Six versioned cube faces
 cover the globe, including both poles. Each face has six persistent, disjoint
 4064-meter altitude bands. Band zero of positive X is `minecraft:overworld`; the
@@ -31,7 +42,12 @@ remaining charts have permanent `astraengine:earth/<face>/<band>` dimension IDs.
 Only visited/generated chunks consume voxel storage. Newly generated uniform rock
 and water sections save directly as the standard singleton palette, avoiding a
 4096-entry expansion. Edited palettes use Minecraft's normal serializer; no new
-save format or global palette patch is introduced. The whole globe is not
+save format or global palette patch is introduced. At the FEATURES stage, Earth
+heightmap priming skips section palettes which cannot satisfy the requested block
+predicate. It still reads actual blocks, including earlier mod edits, and writes
+the standard host heightmaps. Other generators retain Minecraft's original path.
+This avoids scanning thousands of water layers for a seabed outside the current
+altitude band. The whole globe is not
 generated at full block detail during creation.
 
 Host Y ranges from -2032 through 2031. Physical altitude is

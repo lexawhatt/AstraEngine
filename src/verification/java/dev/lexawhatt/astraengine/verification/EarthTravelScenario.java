@@ -37,6 +37,7 @@ import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.PacketDistributor;
 import org.lwjgl.glfw.GLFW;
@@ -50,6 +51,9 @@ final class EarthTravelScenario {
     private final boolean restart;
     private final ContinentalTerrain terrain = new ContinentalTerrain(2, ContinentalTerrain.SEED);
     private final Consumer<SurfaceReceivedEvent> listener = this::receive;
+    private final Consumer<RenderLevelStageEvent> frameListener = this::checkRenderedFrame;
+    private int checkedFrames;
+    private float maximumFrameError;
     private final StringBuilder evidence = new StringBuilder("Geographic transfer native fixture\n");
     private CompletableFuture<?> pending = CompletableFuture.completedFuture(null);
     private RocketController controller;
@@ -68,11 +72,15 @@ final class EarthTravelScenario {
     private BlockPos marker;
     private EarthChart markerChart;
     private String savedPose;
+    private int calendarProbe;
+    private long calendarBefore;
+    private SpaceVector calendarOffset;
 
     EarthTravelScenario(String phase) {
         this.phase = phase;
         restart = phase.endsWith("-restart");
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, listener);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, frameListener);
         game.options.bobView().set(false);
         game.options.hideGui = false;
         if (!restart) {
@@ -96,8 +104,10 @@ final class EarthTravelScenario {
             try {
                 var snapshot = controller.snapshot();
                 require(snapshot.clockTicks() == surface.clockTicks(), "Surface/navigation clocks differ at aim acceptance");
-                var frame = SurfaceDefinition.byBody("earth").frame(controller.currentSystem(),
-                        surface.clockTicks() / 20.0, surface.clockTicks());
+                require(snapshot.orbitalSeconds() == surface.orbitalSeconds(), "Surface/navigation orbital epochs differ");
+                require(surface.earthOrientation() != null, "Continental Earth lost its calendar rotation");
+                var frame = SurfaceDefinition.byBody("earth").calendarFrame(controller.currentSystem(),
+                        surface.orbitalSeconds(), surface.earthOrientation());
                 expected = EarthLandingTarget.aim(terrain, frame.toBodyPoint(snapshot.position()),
                         frame.toBodyDirection(snapshot.orientation().forward())).orElseThrow();
                 evidence.append("round=").append(round).append(" target=").append(expected).append('\n');
@@ -138,11 +148,12 @@ final class EarthTravelScenario {
             }
             case 4 -> {
                 if (ticks < 35) { return false; }
+                if (round == 0 && !verifyCalendarJump()) { return false; }
                 var body = controller.currentSystem().bodies().stream().filter(value -> value.id().equals("earth")).findFirst().orElseThrow();
                 var aim = RocketController.class.getDeclaredMethod("aimDirection", SpaceVector.class);
                 aim.setAccessible(true);
                 // Presentation-only camera input; navigation, aim intersection and world transfer remain production-owned.
-                require((boolean) aim.invoke(controller, controller.currentSystem().positionAt(body, controller.timeSeconds())
+                require((boolean) aim.invoke(controller, controller.currentSystem().positionAt(body, controller.orbitalSeconds())
                         .subtract(controller.visualPosition())), "Could not aim camera at Earth");
                 expected = null; observedDescent = false;
                 next();
@@ -150,9 +161,9 @@ final class EarthTravelScenario {
             case 5 -> {
                 if (ticks < 40) { return false; }
                 if (expected == null) {
-                    var frame = SurfaceDefinition.byBody("earth").frame(controller.currentSystem(),
-                            controller.timeSeconds(), controller.timeSeconds() * 20);
-                    expected = EarthLandingTarget.aim(terrain, frame.toBodyPoint(controller.visualPosition()),
+                    var display = controller.view();
+                    var frame = display.surfaceFrame(controller.currentSystem(), SurfaceDefinition.byBody("earth"));
+                    expected = EarthLandingTarget.aim(terrain, frame.toBodyPoint(display.position()),
                             frame.toBodyDirection(controller.orientation().forward())).orElseThrow();
                     PacketDistributor.sendToServer(new EarthLandingPayload(expected.chart().normal(expected.localFeet().x(),
                             expected.localFeet().z()), controller.snapshot().navigationEpoch() + 1));
@@ -188,7 +199,11 @@ final class EarthTravelScenario {
             }
             case 8 -> {
                 if (!controller.active() || !observedAscent || ticks < 12) { return false; }
-                PacketDistributor.sendToServer(new FlightActionPayload(FlightActionPayload.Action.BRAKE, ""));
+                if (round == 2) {
+                    server(server -> server.overworld().setDayTime(server.overworld().getDayTime() + 24000L));
+                } else {
+                    PacketDistributor.sendToServer(new FlightActionPayload(FlightActionPayload.Action.BRAKE, ""));
+                }
                 next();
             }
             case 9 -> {
@@ -218,6 +233,44 @@ final class EarthTravelScenario {
         return false;
     }
 
+    private boolean verifyCalendarJump() {
+        var snapshot = controller.snapshot();
+        var system = controller.currentSystem();
+        var body = system.bodies().stream().filter(value -> value.id().equals("earth")).findFirst().orElseThrow();
+        if (calendarProbe == 0) {
+            calendarBefore = snapshot.calendarEpoch();
+            calendarOffset = snapshot.position().subtract(system.positionAt(body, snapshot.orbitalSeconds()));
+            server(server -> server.overworld().setDayTime(-123L * 24000 + 6000));
+            calendarProbe = 1;
+            return false;
+        }
+        if (calendarProbe == 1) {
+            if (snapshot.calendarEpoch() == calendarBefore) { return false; }
+            require(snapshot.position().subtract(system.positionAt(body, snapshot.orbitalSeconds()))
+                    .distance(calendarOffset) < 0.01, "Calendar jump lost nearby observer reference");
+            evidence.append("backward_calendar_reference_error=").append(snapshot.position()
+                    .subtract(system.positionAt(body, snapshot.orbitalSeconds())).distance(calendarOffset)).append('\n');
+            calendarProbe = 2;
+            calendarBefore = snapshot.calendarEpoch();
+            PacketDistributor.sendToServer(new FlightActionPayload(FlightActionPayload.Action.APPROACH_BODY, "earth"));
+            return false;
+        }
+        if (calendarProbe == 2) {
+            if (!snapshot.approaching()) { return false; }
+            server(server -> server.overworld().setDayTime(183L * 24000 + 6000));
+            calendarProbe = 3;
+            return false;
+        }
+        if (calendarProbe == 3) {
+            if (snapshot.calendarEpoch() == calendarBefore || snapshot.approaching()) { return false; }
+            require(snapshot.active() && snapshot.position().distance(system.positionAt(body, snapshot.orbitalSeconds()))
+                    > body.radiusMeters(), "Interrupted calendar guidance lost its safe flight source");
+            evidence.append("calendar_guidance_cancel_epoch=").append(snapshot.calendarEpoch()).append('\n');
+            calendarProbe = 4;
+        }
+        return true;
+    }
+
     private void prepareSource(MinecraftServer server) {
         EarthWorlds.validate(server);
         require(EarthWorlds.terrainVersion(server) == 2, "Fixture requires the new Earth preset");
@@ -240,8 +293,14 @@ final class EarthTravelScenario {
                 if (level.getChunkSource().getChunkNow(center.x + x, center.z + z) == null) { return; }
             }
         }
-        server.overworld().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
-        server.overworld().setDayTime(6000);
+        server.overworld().getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(round % 2 == 1, server);
+        long date = switch (round) {
+            case 0 -> 6000;
+            case 1 -> 91L * 24000 + 6000;
+            case 2 -> 273L * 24000 + 12000;
+            default -> 365L * 24000 + 23500;
+        };
+        server.overworld().setDayTime(date);
         server.overworld().getGameRules().getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
         server.overworld().setWeatherParameters(100000, 0, false, false);
         player.teleportTo(level, sourceFeet.x(), sourceFeet.y(), sourceFeet.z(), 25, 20);
@@ -365,8 +424,12 @@ final class EarthTravelScenario {
     }
 
     private boolean finish() throws Exception {
+        require(checkedFrames > 100, "No meaningful rendered-calendar sample was collected");
+        evidence.append("rendered_frame_samples=").append(checkedFrames).append(" max_rotation_error=")
+                .append(maximumFrameError).append('\n');
         write("evidence/" + phase + ".txt", evidence.toString());
         NeoForge.EVENT_BUS.unregister(listener);
+        NeoForge.EVENT_BUS.unregister(frameListener);
         return true;
     }
     private void next() {
@@ -395,6 +458,29 @@ final class EarthTravelScenario {
         Files.createDirectories(file.getParent());
         try (NativeImage image = Screenshot.takeScreenshot(game.getMainRenderTarget())) { image.writeToFile(file); }
         require(GL11.glGetError() == GL11.GL_NO_ERROR, "OpenGL error during geographic transfer");
+    }
+
+    private void checkRenderedFrame(RenderLevelStageEvent event) {
+        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_SKY
+                || controller == null || !controller.active() || failure != null) { return; }
+        try {
+            var rendererField = RocketController.class.getDeclaredField("renderer"); rendererField.setAccessible(true);
+            Object renderer = rendererField.get(controller);
+            var shaderField = renderer.getClass().getDeclaredField("shader"); shaderField.setAccessible(true);
+            var shader = (net.minecraft.client.renderer.ShaderInstance) shaderField.get(renderer);
+            require(shader.getUniform("CalendarEarth").getIntBuffer().get(0) == 1,
+                    "Flight shader lost the calendar Earth frame");
+            var matrix = shader.getUniform("EarthInverseRotation").getFloatBuffer();
+            var inverse = new org.joml.Matrix3f(matrix);
+            var earthRotation = controller.renderedView().earthOrientation();
+            var axis = earthRotation.left();
+            var actual = inverse.transform(new org.joml.Vector3f((float) axis.x(), (float) axis.y(), (float) axis.z()));
+            float error = actual.distance(new org.joml.Vector3f(1, 0, 0));
+            require(error < 0.000002, "GPU Earth inverse frame disagrees with navigation: " + error);
+            checkedFrames++; maximumFrameError = Math.max(maximumFrameError, error);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            failure = new IllegalStateException("Rendered-calendar validation failed", exception);
+        }
     }
     private static void tap(int key) { KeyMapping.click(InputConstants.Type.KEYSYM.getOrCreate(key)); }
     private void require(boolean condition, String message) {

@@ -66,7 +66,7 @@ public final class FlightDynamics {
      */
     public static Observation observation(CosmosSystem system, CelestialBody body, double seconds) {
         if (system == null || body == null || !system.bodies().contains(body)
-                || !Double.isFinite(seconds) || seconds < 0) {
+                || !Double.isFinite(seconds)) {
             throw new IllegalArgumentException("Invalid body observation request");
         }
         boolean primary = body.id().equals(system.bodies().getFirst().id());
@@ -135,7 +135,7 @@ public final class FlightDynamics {
             List<CelestialBody> bodies, double clockSeconds) {
         if (state == null || input == null || bodies == null || bodies.size() > CosmosSystem.MAX_BODIES
                 || !Double.isFinite(seconds) || seconds < 0 || seconds > 0.1
-                || !Double.isFinite(clockSeconds) || clockSeconds < 0) {
+                || !Double.isFinite(clockSeconds)) {
             throw new IllegalArgumentException("Invalid free-camera simulation step");
         }
         double maximumSpeed = validateSpeed(speedMetersPerSecond);
@@ -189,6 +189,29 @@ public final class FlightDynamics {
     }
 
     /**
+     * Carries a nearby free observer by the nearest body's orbital translation, without rotating the view.
+     * The bounded reference ends at six body radii. Epochs may run backward after a calendar command;
+     * this is a change of reference, not a swept flight or a discovery. All coordinates use system meters.
+     */
+    public static SpaceVector followOrbitalMotion(SpaceVector position, List<CelestialBody> bodies,
+            double previousSeconds, double currentSeconds) {
+        if (position == null || bodies == null || bodies.size() > CosmosSystem.MAX_BODIES
+                || !Double.isFinite(previousSeconds) || !Double.isFinite(currentSeconds)) {
+            throw new IllegalArgumentException("Invalid orbital reference update");
+        }
+        CelestialBody nearest = null;
+        double nearestDistance = Double.POSITIVE_INFINITY;
+        for (CelestialBody body : bodies) {
+            double distance = position.distance(CelestialOrbits.positionAt(bodies, body, previousSeconds));
+            if (distance <= body.radiusMeters() * 6 && distance < nearestDistance) {
+                nearest = body; nearestDistance = distance;
+            }
+        }
+        return nearest == null ? position : position.add(CelestialOrbits.positionAt(bodies, nearest, currentSeconds)
+                .subtract(CelestialOrbits.positionAt(bodies, nearest, previousSeconds)));
+    }
+
+    /**
      * Checks a linear camera segment against moving orbital envelopes during a finite forward interval.
      * A conservative acceleration allowance covers orbital curvature between endpoint samples.
      * This method never projects a blocked camera through an object or changes its position.
@@ -221,7 +244,7 @@ public final class FlightDynamics {
         if (start == null || end == null || bodies == null || bodies.size() > CosmosSystem.MAX_BODIES
                 || !Double.isFinite(startSeconds) || !Double.isFinite(endSeconds)
                 || !Double.isFinite(curveAllowance) || curveAllowance < 0
-                || startSeconds < 0 || endSeconds < startSeconds
+                || endSeconds < startSeconds
                 || start.length() > MAX_POSITION || end.length() > MAX_POSITION) {
             throw new IllegalArgumentException("Invalid orbital collision segment");
         }

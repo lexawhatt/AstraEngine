@@ -72,6 +72,15 @@ At the default latitude the solstices give approximately 8.57 and 15.43 hours ou
 of the 24-hour model day, corresponding to about 7.14 and 12.86 real minutes at
 20 TPS. No timezone, civil calendar or leap-year model is implied.
 
+On the bound Astra Earth preset, this calendar also drives the Sol orbital frame
+used by flight and landing. Earth has the same orientation and Sun direction in
+the geographic sky and in the orbital renderer. Signed orbital epochs and the
+complete rotation travel with camera snapshots, so network interpolation cannot
+mix two independent dates. Default 365 game days map to one canonical Earth
+revolution; the physical descriptor sizes and ellipse stay unchanged. Legacy
+Overworlds retain their previous independent navigation clock. See
+[Earth travel behavior](EARTH_WORLD.md) for time-command recovery during flight.
+
 ## A more visible Sun
 
 The default Overworld disk is **three times the physical angular diameter**, about

@@ -31,6 +31,8 @@
     }
   ],
   "uniforms": [
+    { "name": "CalendarEarth", "type": "int", "count": 1, "values": [0] },
+    { "name": "EarthInverseRotation", "type": "matrix3x3", "count": 9, "values": [1,0,0,0,1,0,0,0,1] },
     {
       "name": "InverseViewProjection",
       "type": "matrix4x4",

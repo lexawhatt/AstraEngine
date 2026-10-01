@@ -1,6 +1,7 @@
 package dev.lexawhatt.astraengine.cosmos;
 
 import java.util.List;
+import dev.lexawhatt.astraengine.sky.PlanetarySkyProfile;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -61,6 +62,29 @@ class BodyApproachTest {
                     : target.kind() == CelestialBody.Kind.STAR ? 4 : 2;
             assertEquals(Math.max(target.radiusMeters() * radius, 100_000), previous.state().position()
                     .distance(sol.positionAt(target, startSeconds + route.durationTicks() / 20.0)), 0.01);
+        }
+    }
+
+    @Test
+    void calendarRoutesPredictAcceleratedAndFrozenPlanetsAtTheirActualArrivalTime() {
+        var sol = CosmosGenerator.sol();
+        for (boolean advancing : new boolean[] {false, true}) {
+            var timeline = OrbitalTimeline.calendar(PlanetarySkyProfile.EARTH, 6000, advancing);
+            var source = FlightDynamics.observation(sol, body(sol, "earth"), timeline.secondsAt(0));
+            for (String id : new String[] {"earth", "moon", "mars"}) {
+                var target = body(sol, id);
+                var route = BodyApproach.plan(sol, target, new FlightDynamics.State(source.position(), SpaceVector.ZERO),
+                        source.orientation(), timeline).orElseThrow(() -> new AssertionError("Calendar route unavailable: " + id));
+                var last = route.frame(route.durationTicks());
+                var expected = FlightDynamics.observation(sol, target, timeline.secondsAt(route.durationTicks()));
+                assertEquals(expected.position(), last.state().position());
+                for (int tick = 1; tick <= route.durationTicks(); tick++) {
+                    var previous = route.frame(tick - 1); var current = route.frame(tick);
+                    assertTrue(FlightDynamics.clearSegment(previous.state().position(), current.state().position(),
+                            sol.bodies(), timeline.secondsAt(tick - 1), timeline.secondsAt(tick)), id);
+                }
+                if (!advancing) { assertEquals(timeline.secondsAt(0), timeline.secondsAt(route.durationTicks())); }
+            }
         }
     }
 

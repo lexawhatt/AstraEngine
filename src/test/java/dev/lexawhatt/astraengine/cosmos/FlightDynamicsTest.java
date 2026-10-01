@@ -11,6 +11,27 @@ class FlightDynamicsTest {
     private static final SpaceVector ZERO = new SpaceVector(0, 0, 0);
 
     @Test
+    void nearbyReferencesFollowCalendarJumpsWithoutDraggingDistantObservers() {
+        CosmosSystem sol = CosmosGenerator.sol();
+        for (String id : List.of("earth", "moon", "mars")) {
+            var body = sol.bodies().stream().filter(value -> value.id().equals(id)).findFirst().orElseThrow();
+            SpaceVector offset = new SpaceVector(body.radiusMeters() * 1.1, 200, 300);
+            for (double epoch : new double[] {-300_000, 0, 23_000_000}) {
+                SpaceVector start = sol.positionAt(body, 17000).add(offset);
+                SpaceVector carried = FlightDynamics.followOrbitalMotion(start, sol.bodies(), 17000, epoch);
+                assertEquals(0, carried.subtract(sol.positionAt(body, epoch)).distance(offset), 0.0002);
+                var stopped = FlightDynamics.step(new FlightDynamics.State(carried, ZERO),
+                        new FlightDynamics.Input(0, 0, 0, FlightOrientation.IDENTITY, true),
+                        100.0, 0.05, sol.bodies(), epoch);
+                assertEquals(carried, stopped.position());
+                assertEquals(ZERO, stopped.velocity());
+            }
+        }
+        SpaceVector distant = new SpaceVector(1e15, 0, 0);
+        assertEquals(distant, FlightDynamics.followOrbitalMotion(distant, sol.bodies(), 0, 1e8));
+    }
+
+    @Test
     void movementUsesCameraYawAndSelectedContinuousSpeed() {
         FlightDynamics.State initial = new FlightDynamics.State(ZERO, ZERO);
         FlightDynamics.State north = FlightDynamics.step(initial,

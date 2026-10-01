@@ -8,6 +8,10 @@ import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
+import dev.lexawhatt.astraengine.surface.BodyFixedFrame;
+import dev.lexawhatt.astraengine.surface.EarthEphemeris;
+import dev.lexawhatt.astraengine.sky.PlanetarySkyProfile;
+import dev.lexawhatt.astraengine.cosmos.OrbitalTimeline;
 import dev.lexawhatt.astraengine.surface.ContinentalTerrain;
 import dev.lexawhatt.astraengine.surface.EarthChart;
 import dev.lexawhatt.astraengine.surface.EarthLandingTarget;
@@ -39,6 +43,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -55,9 +60,66 @@ public final class RocketService implements AutoCloseable {
     private final Map<UUID, Integer> lastAction = new HashMap<>();
     private final Map<UUID, List<String>> sentCustomIds = new HashMap<>();
     private final Map<UUID, Integer> recoveryAttempts = new HashMap<>();
+    private EarthEphemeris.Sample calendar;
+    private EarthEphemeris.Sample previousCalendar;
+    private PlanetarySkyProfile calendarProfile;
+    private long calendarDayTime;
+    private long calendarEpoch;
+    private boolean calendarAdvancing;
+    private boolean calendarChanged;
 
     /** Creates the service owned by one Minecraft server. */
-    public RocketService(MinecraftServer server) { this.server = server; }
+    public RocketService(MinecraftServer server) { this.server = server; refreshCalendar(); }
+
+    private void refreshCalendar() {
+        previousCalendar = calendar;
+        calendarChanged = false;
+        if (!EarthWorlds.active(server)) { calendar = null; return; }
+        PlanetarySkyProfile profile = SkyState.get(server).profile();
+        long dayTime = server.overworld().getDayTime();
+        boolean advancing = server.getGameRules().getBoolean(GameRules.RULE_DAYLIGHT);
+        if (calendar != null) {
+            long delta = dayTime - calendarDayTime;
+            calendarChanged = delta < 0 || delta > 1 || !advancing && delta != 0 || advancing != calendarAdvancing
+                    || profile.yearDays() != calendarProfile.yearDays()
+                    || profile.axialTiltDegrees() != calendarProfile.axialTiltDegrees()
+                    || profile.eccentricity() != calendarProfile.eccentricity()
+                    || profile.seasonOffsetDays() != calendarProfile.seasonOffsetDays();
+            if (calendarChanged) { calendarEpoch++; }
+        }
+        calendarProfile = profile;
+        calendarDayTime = dayTime;
+        calendarAdvancing = advancing;
+        calendar = EarthEphemeris.sample(profile, dayTime, 0);
+        if (previousCalendar == null) { previousCalendar = calendar; }
+    }
+
+    private double orbitalSeconds(ExplorationCatalog catalog, String systemId) {
+        return calendar != null && "sol".equals(systemId) ? calendar.orbitalSeconds() : catalog.clockTicks() / 20.0;
+    }
+
+    private double previousOrbitalSeconds(ExplorationCatalog catalog, String systemId) {
+        return previousCalendar != null && "sol".equals(systemId)
+                ? previousCalendar.orbitalSeconds() : Math.max(0, catalog.clockTicks() - 1) / 20.0;
+    }
+
+    private BodyFixedFrame surfaceFrame(SurfaceDefinition definition, CosmosSystem system, ExplorationCatalog catalog) {
+        return calendar != null && "sol".equals(system.id())
+                ? definition.calendarFrame(system, calendar.orbitalSeconds(), calendar.frame().bodyToSystem())
+                : definition.frame(system, catalog.clockTicks() / 20.0, catalog.clockTicks());
+    }
+
+    private OrbitalTimeline timeline(ExplorationCatalog catalog, String systemId) {
+        return calendar != null && "sol".equals(systemId)
+                ? OrbitalTimeline.calendar(calendarProfile, calendarDayTime, calendarAdvancing)
+                : OrbitalTimeline.elapsed(catalog.clockTicks() / 20.0);
+    }
+
+    private SpaceVector followBody(ExplorationCatalog catalog, CosmosSystem system, SpaceVector position) {
+        return calendar != null && "sol".equals(system.id())
+                ? FlightDynamics.followOrbitalMotion(position, system.bodies(),
+                        previousOrbitalSeconds(catalog, system.id()), orbitalSeconds(catalog, system.id())) : position;
+    }
 
     /** Whether this player is preparing or occupying rocket mode. Used to exclude other travel owners. */
     public boolean active(ServerPlayer player) { return sessions.containsKey(player.getUUID()); }
@@ -156,20 +218,20 @@ public final class RocketService implements AutoCloseable {
                 CelestialBody body = system.bodies().stream().filter(value -> value.id().equals(payload.target()))
                         .findFirst().orElse(null);
                 if (definition == null || body == null
-                        || pilot.position().distance(system.positionAt(body, catalog.clockTicks() / 20.0)) > body.radiusMeters() * 6
-                        || pilot.position().distance(system.positionAt(body, catalog.clockTicks() / 20.0)) < body.radiusMeters()) {
+                        || pilot.position().distance(system.positionAt(body, orbitalSeconds(catalog, system.id()))) > body.radiusMeters() * 6
+                        || pilot.position().distance(system.positionAt(body, orbitalSeconds(catalog, system.id()))) < body.radiusMeters()) {
                     message(player, "surface_approach_first"); return;
                 }
                 if ("sol".equals(system.id()) && "earth".equals(body.id()) && EarthWorlds.active(server)) {
-                    var frame = definition.frame(system, catalog.clockTicks() / 20.0, catalog.clockTicks());
+                    var frame = surfaceFrame(definition, system, catalog);
                     var target = EarthLandingTarget.aim(new ContinentalTerrain(EarthWorlds.terrainVersion(server),
                             ContinentalTerrain.SEED), frame.toBodyPoint(pilot.position()),
                             frame.toBodyDirection(pilot.orientation().forward()));
                     if (target.isEmpty()) { message(player, "surface_aim"); return; }
-                    session.surface = new SurfaceTransfer(target.get(), system, catalog.clockTicks(),
+                    session.surface = new SurfaceTransfer(target.get(), system, surfaceFrame(SurfaceDefinition.byBody("earth"), system, catalog),
                             pilot.position(), pilot.orientation());
                 } else {
-                    session.surface = new SurfaceTransfer(definition, system, catalog.clockTicks(),
+                    session.surface = new SurfaceTransfer(definition, system, surfaceFrame(definition, system, catalog),
                             pilot.position(), pilot.orientation());
                 }
                 beginLanding(player, session, pilot, definition.bodyId());
@@ -180,7 +242,7 @@ public final class RocketService implements AutoCloseable {
                         .findFirst().orElse(null);
                 if (body == null) { message(player, "unknown_target"); return; }
                 var route = BodyApproach.plan(system, body, new FlightDynamics.State(pilot.position(), pilot.velocity()),
-                        pilot.orientation(), catalog.clockTicks() / 20.0);
+                        pilot.orientation(), timeline(catalog, system.id()));
                 if (route.isEmpty()) { message(player, "approach_blocked"); return; }
                 session.approach = route.get(); session.approachTicks = 0;
                 session.jumpTarget = pilot.systemId(); session.jumpBody = payload.target();
@@ -207,11 +269,11 @@ public final class RocketService implements AutoCloseable {
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
         CosmosSystem system = currentSystem(catalog, pilot, session);
         if (!"sol".equals(system.id())) { return; }
-        var frame = SurfaceDefinition.byBody("earth").frame(system, catalog.clockTicks() / 20.0, catalog.clockTicks());
+        var frame = surfaceFrame(SurfaceDefinition.byBody("earth"), system, catalog);
         var target = EarthLandingTarget.visible(new ContinentalTerrain(EarthWorlds.terrainVersion(server),
                 ContinentalTerrain.SEED), frame.toBodyPoint(pilot.position()), payload.normal());
         if (target.isEmpty()) { message(player, "surface_aim"); return; }
-        session.surface = new SurfaceTransfer(target.get(), system, catalog.clockTicks(),
+        session.surface = new SurfaceTransfer(target.get(), system, surfaceFrame(SurfaceDefinition.byBody("earth"), system, catalog),
                 pilot.position(), pilot.orientation());
         beginLanding(player, session, pilot, "earth");
         catalog.setDirty(); send(player, session);
@@ -267,6 +329,7 @@ public final class RocketService implements AutoCloseable {
 
     /** Polls preparation and advances virtual flight at 20 Hz without blocking on chunk generation. */
     public void tick() {
+        refreshCalendar();
         ExplorationCatalog catalog = ExplorationCatalog.get(server);
         boolean occupied = sessions.entrySet().stream().anyMatch(entry -> {
             ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
@@ -348,8 +411,8 @@ public final class RocketService implements AutoCloseable {
                     SpaceVector localEye = new SpaceVector(player.getX(), player.getEyeY(), player.getZ());
                     var localOrientation = FlightOrientation.fromAngles(player.getYRot(), player.getXRot(), 0);
                     session.surface = session.earthTakeoff == null
-                            ? SurfaceTransfer.ascent(session.takeoff, system, catalog.clockTicks(), localEye, localOrientation)
-                            : SurfaceTransfer.ascent(session.earthTakeoff, system, catalog.clockTicks(), localEye, localOrientation);
+                            ? SurfaceTransfer.ascent(session.takeoff, system, surfaceFrame(session.takeoff, system, catalog), localEye, localOrientation)
+                            : SurfaceTransfer.ascent(session.earthTakeoff, system, surfaceFrame(SurfaceDefinition.byBody("earth"), system, catalog), localEye, localOrientation);
                     // Ground world identity, not stale navigation state, determines the departure system.
                     SpaceVector position = session.surface.originalPosition();
                     FlightOrientation view = session.surface.originalOrientation();
@@ -383,14 +446,24 @@ public final class RocketService implements AutoCloseable {
 
     private void advance(ExplorationCatalog catalog, ServerPlayer player, Session session) {
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
+        if (calendarChanged && "sol".equals(pilot.systemId())) {
+            if (session.surface != null) { cancelSurface(catalog, player, session, "surface_failed"); return; }
+            if (session.approach != null) {
+                pilot.navigate(new FlightDynamics.State(followBody(catalog, currentSystem(catalog, pilot, session),
+                        pilot.position()), ZERO), pilot.orientation());
+                finishApproach(catalog, player, session, "approach_failed"); return;
+            }
+        }
         if (session.surface != null) {
             advanceSurface(catalog, player, session);
         } else if (session.approach != null) {
             BodyApproach route = session.approach;
             BodyApproach.Frame next = route.frame(session.approachTicks + 1);
-            double endSeconds = catalog.clockTicks() / 20.0;
-            if (!FlightDynamics.clearSegment(pilot.position(), next.state().position(),
-                    currentSystem(catalog, pilot, session).bodies(), Math.max(0, endSeconds - 0.05), endSeconds)) {
+            double endSeconds = orbitalSeconds(catalog, pilot.systemId());
+            if (Math.abs(route.orbitalSecondsAt(session.approachTicks + 1) - endSeconds)
+                    > Math.max(1e-6, Math.ulp(endSeconds) * 4)
+                    || !FlightDynamics.clearSegment(pilot.position(), next.state().position(),
+                    currentSystem(catalog, pilot, session).bodies(), previousOrbitalSeconds(catalog, pilot.systemId()), endSeconds)) {
                 finishApproach(catalog, player, session, "approach_failed");
                 return;
             }
@@ -403,7 +476,7 @@ public final class RocketService implements AutoCloseable {
                 CosmosSystem system = catalog.system(session.jumpTarget);
                 CelestialBody body = session.jumpBody.isEmpty() ? system.bodies().getFirst()
                         : system.bodies().stream().filter(value -> value.id().equals(session.jumpBody)).findFirst().orElseThrow();
-                pilot.arrive(system.id(), ExplorationCatalog.arrival(system, body, catalog.clockTicks() / 20.0));
+                pilot.arrive(system.id(), ExplorationCatalog.arrival(system, body, orbitalSeconds(catalog, system.id())));
                 session.system = system;
                 session.controls.relocate(pilot.revision());
                 session.input = null; session.jumpTarget = ""; session.jumpBody = "";
@@ -417,11 +490,12 @@ public final class RocketService implements AutoCloseable {
                 input = new FlightDynamics.Input(0, 0, 0, pilot.orientation(), true);
             }
             CosmosSystem system = currentSystem(catalog, pilot, session);
-            FlightDynamics.State next = FlightDynamics.step(new FlightDynamics.State(pilot.position(), pilot.velocity()),
-                    input, pilot.speedMetersPerSecond(), 0.05, system.bodies(), catalog.clockTicks() / 20.0);
+            SpaceVector origin = followBody(catalog, system, pilot.position());
+            FlightDynamics.State next = FlightDynamics.step(new FlightDynamics.State(origin, pilot.velocity()),
+                    input, pilot.speedMetersPerSecond(), 0.05, system.bodies(), orbitalSeconds(catalog, system.id()));
             if (!input.brake() && (input.forward() != 0 || input.strafe() != 0 || input.vertical() != 0)
-                    && !next.position().equals(pilot.position())) {
-                var arrival = GalacticNavigation.firstArrival(system, pilot.position(), next.position(),
+                    && !next.position().equals(origin)) {
+                var arrival = GalacticNavigation.firstArrival(system, origin, next.position(),
                         chartedSystems(catalog, pilot, session));
                 if (arrival.isPresent()) {
                     GalacticNavigation.Arrival reached = arrival.get();
@@ -463,20 +537,22 @@ public final class RocketService implements AutoCloseable {
         SurfaceTransfer transfer = session.surface;
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
         CosmosSystem system = currentSystem(catalog, pilot, session);
+        boolean sourceAtCurrentTime = !transfer.prepared();
         if (!transfer.prepared()) {
-            SurfaceTransfer.Frame source = transfer.sourceFrame(system, catalog.clockTicks());
+            SurfaceTransfer.Frame source = transfer.sourceFrame(surfaceFrame(transfer.definition(), system, catalog));
             pilot.navigate(new FlightDynamics.State(source.position(), ZERO), source.orientation());
             catalog.setDirty();
-            if (!transfer.prepare(server, player, system, catalog.clockTicks())) {
+            if (!transfer.prepare(server, player)) {
                 if (transfer.timedOut()) { cancelSurface(catalog, player, session, "surface_failed"); }
                 return;
             }
         }
         transfer.retain(server, player.getUUID());
-        SurfaceTransfer.Frame frame = transfer.advance(system, catalog.clockTicks());
-        double seconds = catalog.clockTicks() / 20.0;
+        SurfaceTransfer.Frame frame = transfer.advance(surfaceFrame(transfer.definition(), system, catalog));
+        double seconds = orbitalSeconds(catalog, system.id());
         if (!FlightDynamics.clearSurfaceSegment(pilot.position(), frame.position(), system.bodies(),
-                Math.max(0, seconds - 0.05), seconds, transfer.definition().bodyId())) {
+                sourceAtCurrentTime ? seconds : previousOrbitalSeconds(catalog, system.id()), seconds,
+                transfer.definition().bodyId())) {
             cancelSurface(catalog, player, session, "surface_failed"); return;
         }
         pilot.navigate(new FlightDynamics.State(frame.position(), ZERO), frame.orientation());
@@ -530,7 +606,7 @@ public final class RocketService implements AutoCloseable {
         }
         transfer.release(server, player.getUUID());
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
-        SurfaceTransfer.Frame source = transfer.sourceFrame(currentSystem(catalog, pilot, session), catalog.clockTicks());
+        SurfaceTransfer.Frame source = transfer.sourceFrame(surfaceFrame(transfer.definition(), currentSystem(catalog, pilot, session), catalog));
         pilot.navigate(new FlightDynamics.State(source.position(), ZERO), source.orientation());
         session.surface = null;
         if (transfer.ascending()) {
@@ -555,6 +631,10 @@ public final class RocketService implements AutoCloseable {
             payload = new SurfacePayload("earth", clockTicks, SurfacePayload.Phase.SURFACE, 0);
         } else {
             payload = new SurfacePayload("", clockTicks, SurfacePayload.Phase.NONE, 0);
+        }
+        if (calendar != null) {
+            payload = new SurfacePayload(payload.bodyId(), clockTicks, payload.phase(), payload.remainingTicks(),
+                    calendar.orbitalSeconds(), calendar.frame().bodyToSystem(), calendarEpoch);
         }
         PacketDistributor.sendToPlayer(player, payload);
     }
@@ -630,7 +710,9 @@ public final class RocketService implements AutoCloseable {
         PacketDistributor.sendToPlayer(player, new ExplorationPayload(catalog.galaxySeed(), catalog.clockTicks(),
                 pilot.systemId(), pilot.position(), pilot.velocity(), active, pilot.speedMetersPerSecond(), pilot.orientation(),
                 active ? session.jumpTicks : 0, target, pilot.discoveredSystems(), pilot.visitedSystems(), pilot.revision(),
-                active ? session.controls.navigationEpoch() : 0));
+                active ? session.controls.navigationEpoch() : 0, orbitalSeconds(catalog, pilot.systemId()),
+                calendar != null && "sol".equals(pilot.systemId()) ? calendar.frame().bodyToSystem() : null,
+                calendar != null && "sol".equals(pilot.systemId()) ? calendarEpoch : 0));
         sendSurface(player, session);
     }
 

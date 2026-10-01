@@ -3,6 +3,7 @@ package dev.lexawhatt.astraengine.surface;
 import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.cosmos.CosmosGenerator;
 import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
+import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 
 import java.util.Optional;
 
@@ -68,6 +69,29 @@ public record SurfaceDefinition(String systemId, String bodyId, int version, lon
 
     /** Instantaneous parent-resolved frame for the exact supported system; consumes snapshots and owns no time. */
     public BodyFixedFrame frame(CosmosSystem system, double orbitalSeconds, double clockTicks) {
+        CelestialBody body = requireBody(system);
+        return BodyFixedFrame.of(system, body, orbitalSeconds, spinRadians(orbitalSeconds, clockTicks));
+    }
+
+    /**
+     * Calendar-bound Sol frame. Earth takes the authoritative full rotation; Moon retains its synchronous
+     * mean-orbit spin at the same signed orbital epoch. Null rotations and changed canonical descriptors fail.
+     * The supplied orientation is a snapshot, not permission to reconfigure a server's celestial state.
+     */
+    public BodyFixedFrame calendarFrame(CosmosSystem system, double orbitalSeconds, FlightOrientation earthOrientation) {
+        CelestialBody body = requireBody(system);
+        if (earthOrientation == null || !Double.isFinite(orbitalSeconds)) {
+            throw new IllegalArgumentException("A calendar surface frame requires finite epoch and Earth orientation");
+        }
+        if (bodyId.equals("earth")) {
+            return new BodyFixedFrame(system.positionAt(body, orbitalSeconds), earthOrientation, body.radiusMeters());
+        }
+        double spin = Math.IEEEremainder(orbitalSeconds, body.orbitalPeriodSeconds())
+                / body.orbitalPeriodSeconds() * Math.PI * 2;
+        return BodyFixedFrame.of(system, body, orbitalSeconds, spin);
+    }
+
+    private CelestialBody requireBody(CosmosSystem system) {
         if (system == null || !systemId.equals(system.id())) {
             throw new IllegalArgumentException("Surface frame system does not match its persistent binding");
         }
@@ -76,7 +100,7 @@ public record SurfaceDefinition(String systemId, String bodyId, int version, lon
         if (!body.equals(solBody(bodyId))) {
             throw new IllegalArgumentException("Surface body does not match its permanent catalog binding");
         }
-        return BodyFixedFrame.of(system, body, orbitalSeconds, spinRadians(orbitalSeconds, clockTicks));
+        return body;
     }
 
     private static SurfaceDefinition create(String bodyId, long seed, SurfaceGeography.Kind kind) {

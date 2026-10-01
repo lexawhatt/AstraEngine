@@ -17,20 +17,20 @@ public final class BodyApproach {
     private final SpaceVector control;
     private final SpaceVector destination;
     private final FlightOrientation initialOrientation;
-    private final double startSeconds;
+    private final OrbitalTimeline timeline;
     private final int durationTicks;
     private final double logarithm;
     private final FlightOrientation[] orientationGuide;
 
     private BodyApproach(CosmosSystem system, CelestialBody body, SpaceVector start, SpaceVector control,
-            SpaceVector destination, FlightOrientation initialOrientation, double startSeconds, int durationTicks) {
+            SpaceVector destination, FlightOrientation initialOrientation, OrbitalTimeline timeline, int durationTicks) {
         this.system = system;
         this.body = body;
         this.start = start;
         this.control = control;
         this.destination = destination;
         this.initialOrientation = initialOrientation;
-        this.startSeconds = startSeconds;
+        this.timeline = timeline;
         this.durationTicks = durationTicks;
         logarithm = Math.clamp(Math.log1p(start.distance(destination) / Math.max(body.radiusMeters() * 3, 100_000)),
                 0.25, 24);
@@ -44,7 +44,7 @@ public final class BodyApproach {
         control = checked.control;
         destination = checked.destination;
         initialOrientation = checked.initialOrientation;
-        startSeconds = checked.startSeconds;
+        timeline = checked.timeline;
         durationTicks = checked.durationTicks;
         logarithm = checked.logarithm;
         // Only a collision-checked candidate allocates the bounded, immutable orientation guide.
@@ -67,13 +67,19 @@ public final class BodyApproach {
      */
     public static Optional<BodyApproach> plan(CosmosSystem system, CelestialBody body, FlightDynamics.State state,
             FlightOrientation orientation, double startSeconds) {
+        return plan(system, body, state, orientation, OrbitalTimeline.elapsed(startSeconds));
+    }
+
+    /** Predicts body motion from an immutable elapsed/calendar policy; the owning server checks the policy remains current. */
+    public static Optional<BodyApproach> plan(CosmosSystem system, CelestialBody body, FlightDynamics.State state,
+            FlightOrientation orientation, OrbitalTimeline timeline) {
         if (system == null || body == null || !system.bodies().contains(body) || state == null || orientation == null
-                || !Double.isFinite(startSeconds) || startSeconds < 0) {
+                || timeline == null) {
             throw new IllegalArgumentException("A local approach requires valid system, target, navigation and time");
         }
         if (state.position().length() > FlightDynamics.MAX_POSITION
                 || !FlightDynamics.clearSegment(state.position(), state.position(), system.bodies(),
-                        startSeconds, startSeconds)) {
+                        timeline.secondsAt(0), timeline.secondsAt(0))) {
             return Optional.empty();
         }
         for (int candidate = 0; candidate < 9; candidate++) {
@@ -82,7 +88,7 @@ public final class BodyApproach {
             for (int refinement = 0; refinement < 8; refinement++) {
                 FlightDynamics.Observation arrival;
                 try {
-                    arrival = FlightDynamics.observation(system, body, startSeconds + duration / 20.0);
+                    arrival = FlightDynamics.observation(system, body, timeline.secondsAt(duration));
                 } catch (IllegalArgumentException unreachable) {
                     break;
                 }
@@ -106,7 +112,7 @@ public final class BodyApproach {
                     break;
                 }
                 BodyApproach proposed = new BodyApproach(system, body, state.position(), control, destination,
-                        orientation, startSeconds, duration);
+                        orientation, timeline, duration);
                 double curveDerivative = 2 * Math.max(state.position().distance(control),
                         control.distance(destination));
                 double minimumSeconds = curveDerivative * maximumProgressDerivative(proposed.logarithm)
@@ -143,8 +149,11 @@ public final class BodyApproach {
 
     /** System ephemeris time in seconds at planning; elapsed route ticks advance from this reference. */
     public double startSeconds() {
-        return startSeconds;
+        return timeline.secondsAt(0);
     }
+
+    /** Orbital epoch predicted for a bounded elapsed host tick; not the animation/evolution clock. */
+    public double orbitalSecondsAt(double elapsedTicks) { return timeline.secondsAt(elapsedTicks); }
 
     /**
      * Exact deterministic state at an integer route tick in [0,durationTicks]. The view follows
@@ -214,11 +223,11 @@ public final class BodyApproach {
             double timingAllowance = 0;
             for (CelestialBody obstacle : system.bodies()) {
                 double displacement = CelestialOrbits.displacementBound(system.bodies(), obstacle,
-                        (tick - previousTick) / 20);
+                        timeline.secondsAt(tick) - timeline.secondsAt(previousTick));
                 timingAllowance = Math.max(timingAllowance, displacement);
             }
-            if (!FlightDynamics.clearSegment(previous, next, system.bodies(), startSeconds + previousTick / 20,
-                    startSeconds + tick / 20, curveAllowance + timingAllowance)) {
+            if (!FlightDynamics.clearSegment(previous, next, system.bodies(), timeline.secondsAt(previousTick),
+                    timeline.secondsAt(tick), curveAllowance + timingAllowance)) {
                 return false;
             }
             previous = next;
@@ -250,7 +259,7 @@ public final class BodyApproach {
     }
 
     private SpaceVector targetDirection(double elapsedTicks) {
-        return system.positionAt(body, startSeconds + elapsedTicks / 20.0).subtract(position(elapsedTicks));
+        return system.positionAt(body, timeline.secondsAt(elapsedTicks)).subtract(position(elapsedTicks));
     }
 
     private static FlightOrientation turnToward(FlightOrientation from, SpaceVector toward) {

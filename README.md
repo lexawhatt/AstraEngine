@@ -63,7 +63,9 @@ The new **Astra Earth** world type provides [continental Earth storage](docs/EAR
 in Overworld, with climate biomes, vegetation, geographic F3 and persistent blocks.
 Its versioned orbital height/climate maps share the chunk generator and add progressive close relief.
 R departs from the current geographic position; aiming at a visible location and pressing L
-prepares a collision-checked landing there. It remains opt-in while continuous
+prepares a collision-checked landing there. The ground calendar now drives the same Earth
+rotation and Sol orbital motion in flight, including frozen daylight and safe recovery
+from time commands. It remains opt-in while continuous
 storage-boundary views are integrated;
 existing worlds and the current legacy landing destinations retain their behavior.
 

@@ -67,8 +67,7 @@ public final class SurfaceEffects extends DimensionSpecialEffects {
         if (definition == null || !definition.bodyId().equals("earth") || camera.getFluidInCamera() != FogType.NONE
                 || camera.getEntity() instanceof LivingEntity living && (living.hasEffect(MobEffects.BLINDNESS)
                 || living.hasEffect(MobEffects.DARKNESS) || living.hasEffect(MobEffects.NIGHT_VISION))) { return; }
-        double ticks = state.clockTicks();
-        var frame = definition.frame(CosmosGenerator.sol(), ticks / 20, ticks);
+        var frame = state.frame(CosmosGenerator.sol(), definition);
         Vec3 position = camera.getPosition();
         SpaceVector localSun = definition.patch().toLocalDirection(position.x, position.z,
                 frame.toBodyDirection(frame.centerMeters().multiply(-1).normalized()));
@@ -102,8 +101,7 @@ public final class SurfaceEffects extends DimensionSpecialEffects {
         var definition = state.definition(level);
         if (definition == null) { return SpaceVector.ZERO; }
         var system = CosmosGenerator.sol();
-        double ticks = state.clockTicks();
-        var frame = definition.frame(system, ticks / 20, ticks);
+        var frame = state.frame(system, definition);
         Vec3 camera = Minecraft.getInstance().gameRenderer.getMainCamera().getPosition();
         SpaceVector up = frame.toSystemDirection(definition.patch().normal(camera.x, camera.z));
         SpaceVector sunlight = frame.centerMeters().multiply(-1).normalized();

@@ -1,5 +1,6 @@
 package dev.lexawhatt.astraengine.client.flight;
 
+import dev.lexawhatt.astraengine.surface.BodyFixedFrame;
 import com.mojang.brigadier.arguments.FloatArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -98,6 +99,8 @@ public final class RocketController {
     private boolean finishingGuidance;
     private long receivedAt;
     private double previousClockSeconds;
+    private double previousOrbitalSeconds;
+    private FlightOrientation previousEarthOrientation;
     private long previousCameraTime;
     private long sequence;
     private float forward;
@@ -114,6 +117,7 @@ public final class RocketController {
     private CameraType previousCamera;
     private String targetBody = "earth";
     private Matrix4f viewProjection;
+    private View renderedView;
 
     /** Shares visual quality controls with the existing renderer, keeping independent flight ownership. */
     public RocketController(RenderOptions options, SolarStateClient solar, EarthStateClient earth) {
@@ -163,15 +167,22 @@ public final class RocketController {
                 && incoming.jumpTicks() == 0;
         boolean guidedChange = snapshot != null && snapshot.active() && incoming.active()
                 && snapshot.systemId().equals(incoming.systemId()) && (wasApproaching || incoming.approaching());
-        boolean relocated = snapshot == null || !snapshot.active() || !snapshot.systemId().equals(incoming.systemId())
+        boolean calendarRebase = snapshot != null && (snapshot.calendarEpoch() != incoming.calendarEpoch()
+                || snapshot.calendarEarth() != incoming.calendarEarth());
+        boolean relocated = calendarRebase || snapshot == null || !snapshot.active() || !snapshot.systemId().equals(incoming.systemId())
                 || (snapshot.navigationEpoch() != incoming.navigationEpoch() && !guidedChange)
                 || (snapshot.interstellarJump() && incoming.jumpTicks() == 0);
+        View currentView = view();
         previousPosition = manualRebase ? currentSystem().galaxyPosition().subtract(system(incoming.systemId()).galaxyPosition())
-                .multiply(CosmosGenerator.LIGHT_YEAR).add(visualPosition()) : relocated ? incoming.position() : visualPosition();
+                .multiply(CosmosGenerator.LIGHT_YEAR).add(currentView.position())
+                : relocated ? incoming.position() : currentView.position();
         boolean resetView = relocated && !manualRebase;
         previousOrientation = resetView ? incoming.orientation() : orientation();
-        previousClockSeconds = resetView ? incoming.clockTicks() / 20.0 : timeSeconds();
+        previousClockSeconds = resetView ? incoming.clockTicks() / 20.0 : currentView.timeSeconds();
+        previousOrbitalSeconds = resetView || calendarRebase ? incoming.orbitalSeconds() : currentView.orbitalSeconds();
+        previousEarthOrientation = resetView || calendarRebase ? incoming.earthOrientation() : currentView.earthOrientation();
         snapshot = incoming;
+        if (resetView || !incoming.active()) { renderedView = null; }
         if (incoming.systemId().equals(targetSystem)) { targetSystem = ""; }
         receivedAt = System.nanoTime();
         if (relocated || !incoming.active() || incoming.approaching()) { finishingGuidance = false; }
@@ -192,7 +203,7 @@ public final class RocketController {
             // A manual boundary changes the coordinate origin, not the live free-camera heading.
             pendingSpeedSteps = 0;
             targetBody = currentSystem().bodies().stream()
-                    .min(Comparator.comparingDouble(body -> currentSystem().positionAt(body, timeSeconds()).distance(incoming.position())))
+                    .min(Comparator.comparingDouble(body -> currentSystem().positionAt(body, orbitalSeconds()).distance(incoming.position())))
                     .map(CelestialBody::id).orElse(currentSystem().bodies().getFirst().id());
         }
         systems.keySet().retainAll(incoming.discoveredSystems());
@@ -335,30 +346,56 @@ public final class RocketController {
         return true;
     }
 
-    /** Presentation clock interpolates the same snapshots as position and stops when no new state arrives. */
-    public double timeSeconds() {
-        if (snapshot == null) { return 0; }
-        double factor = snapshotBlend();
-        return previousClockSeconds * (1 - factor) + snapshot.clockTicks() / 20.0 * factor;
+    /** Immutable system-meter camera position and seconds at one interpolation instant; null rotation denotes legacy spin. */
+    public record View(SpaceVector position, double timeSeconds, double orbitalSeconds, FlightOrientation earthOrientation) {
+        public View {
+            if (position == null || !Double.isFinite(timeSeconds) || timeSeconds < 0 || !Double.isFinite(orbitalSeconds)) {
+                throw new IllegalArgumentException("A displayed navigation frame requires a position and finite clocks");
+            }
+        }
+
+        /** Resolves the physical surface frame at this exact presentation instant. Null rotation selects legacy spin. */
+        public BodyFixedFrame surfaceFrame(CosmosSystem system, SurfaceDefinition definition) {
+            return earthOrientation == null ? definition.frame(system, orbitalSeconds, timeSeconds * 20)
+                    : definition.calendarFrame(system, orbitalSeconds, earthOrientation);
+        }
     }
+
+    /** Captures all interpolated state once on the client thread; never advances simulation or predicts another tick. */
+    public View view() {
+        if (snapshot == null) { return new View(SpaceVector.ZERO, 0, 0, null); }
+        double factor = snapshotBlend();
+        FlightOrientation rotation = snapshot.earthOrientation() == null ? null : previousEarthOrientation == null
+                ? snapshot.earthOrientation() : previousEarthOrientation.interpolate(snapshot.earthOrientation(), factor);
+        return new View(previousPosition.multiply(1 - factor).add(snapshot.position().multiply(factor)),
+                previousClockSeconds * (1 - factor) + snapshot.clockTicks() / 20.0 * factor,
+                previousOrbitalSeconds * (1 - factor) + snapshot.orbitalSeconds() * factor, rotation);
+    }
+
+    /** Last actual flight sky draw, for matching overlays; null before first draw or after disconnect. Client thread only. */
+    public View renderedView() { return renderedView; }
+    /** Occupied presentation seconds; paired position/time consumers should capture {@link #view()} once. */
+    public double timeSeconds() { return view().timeSeconds(); }
+    /** Signed orbital seconds; paired position/time consumers should capture {@link #view()} once. */
+    public double orbitalSeconds() { return view().orbitalSeconds(); }
+    /** Complete calendar rotation, or null for the legacy occupied-clock policy. */
+    public FlightOrientation earthOrientation() { return view().earthOrientation(); }
+    /** Supported body frame at the current display interpolation instant. */
+    public BodyFixedFrame surfaceFrame(SurfaceDefinition definition) { return view().surfaceFrame(currentSystem(), definition); }
+    /** Interpolates snapshots in local meters; it never accumulates an independent client trajectory. */
+    public SpaceVector visualPosition() { return view().position(); }
 
     private double snapshotBlend() { return Math.clamp((System.nanoTime() - receivedAt) / 100_000_000.0, 0, 1); }
-
-    /** Interpolates snapshots in local meters; it never accumulates an independent client trajectory. */
-    public SpaceVector visualPosition() {
-        if (snapshot == null) { return SpaceVector.ZERO; }
-        double factor = snapshotBlend();
-        return previousPosition.multiply(1 - factor).add(snapshot.position().multiply(factor));
-    }
 
     public void action(FlightActionPayload.Action action, String target) {
         if (minecraft.getConnection() != null && minecraft.player != null) {
             if (action == FlightActionPayload.Action.LAND_BODY && "earth".equals(target) && earth.active()
                     && active() && "sol".equals(currentSystem().id())) {
                 if (snapshot.jumpTicks() > 0 || automaticCamera()) { return; }
-                var frame = SurfaceDefinition.byBody("earth").frame(currentSystem(), timeSeconds(), timeSeconds() * 20);
+                View display = view();
+                var frame = display.surfaceFrame(currentSystem(), SurfaceDefinition.byBody("earth"));
                 var hit = EarthLandingTarget.aim(new ContinentalTerrain(earth.terrainVersion(), ContinentalTerrain.SEED),
-                        frame.toBodyPoint(visualPosition()), frame.toBodyDirection(orientation().forward()));
+                        frame.toBodyPoint(display.position()), frame.toBodyDirection(orientation().forward()));
                 if (hit.isEmpty()) { minecraft.player.displayClientMessage(text("surface_aim"), true); return; }
                 var point = hit.get();
                 PacketDistributor.sendToServer(new EarthLandingPayload(point.chart().normal(point.localFeet().x(),
@@ -536,13 +573,16 @@ public final class RocketController {
         renderer.setGalaxySeed(snapshot == null ? 0 : snapshot.galaxySeed());
         renderer.setSolarVisual(solar.visual());
         if (ground != null) {
-            SurfaceSkyRenderer.render(event, renderer, CosmosGenerator.sol(), ground, surface.clockTicks(), exposure());
+            SurfaceSkyRenderer.render(event, renderer, CosmosGenerator.sol(), ground, surface.clockTicks(), surface.orbitalSeconds(), surface.earthOrientation(), exposure());
             return;
         }
         Matrix4f view = new Matrix4f(event.getModelViewMatrix()).setTranslation(0, 0, 0);
         viewProjection = new Matrix4f(event.getProjectionMatrix()).mul(view);
         float warp = snapshot.interstellarJump() ? (float) Math.sin(Math.PI * (1 - snapshot.jumpTicks() / 80.0)) : 0;
-        renderer.render(event, currentSystem(), visualPosition(), timeSeconds(), warp, exposure());
+        View display = view();
+        renderer.render(event, currentSystem(), display.position(), display.timeSeconds(), display.orbitalSeconds(),
+                display.earthOrientation(), warp, exposure());
+        renderedView = display;
     }
 
     /** Replaces the walking HUD with navigation instruments while retaining the host's screen rendering. */
@@ -609,7 +649,9 @@ public final class RocketController {
         }
         CelestialBody body = currentSystem().bodies().stream().filter(value -> value.id().equals(targetBody)).findFirst().orElse(null);
         if (body == null) { return; }
-        drawTargetMarker(graphics, width, height, currentSystem().positionAt(body, timeSeconds()).subtract(visualPosition()), body.name());
+        View display = renderedView == null ? view() : renderedView;
+        drawTargetMarker(graphics, width, height, currentSystem().positionAt(body, display.orbitalSeconds())
+                .subtract(display.position()), body.name());
     }
 
     private void drawTargetMarker(GuiGraphics graphics, int width, int height, SpaceVector relative, String name) {
@@ -668,7 +710,7 @@ public final class RocketController {
 
     public void logout(ClientPlayerNetworkEvent.LoggingOut event) {
         surface.clear();
-        restoreCamera(); snapshot = null; systems.clear(); customSystems = Map.of(); previousPosition = SpaceVector.ZERO;
+        restoreCamera(); snapshot = null; renderedView = null; previousOrbitalSeconds = 0; previousEarthOrientation = null; systems.clear(); customSystems = Map.of(); previousPosition = SpaceVector.ZERO;
         targetSystem = ""; targetGalaxy = false; pendingAtlasTarget = ""; pendingAtlasTicks = 0; atlasRequested = false;
         galaxyAtlas = List.of(); targetGalaxyIndex = 0;
         forward = 0; strafe = 0; vertical = 0; sequence = 0; wasActive = false; mapRequested = false;

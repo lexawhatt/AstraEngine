@@ -28,6 +28,31 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class EngineGameTests {
     @GameTest(templateNamespace = "astraengine_verify", template = "empty")
+    public static void calendarPayloadRoundTrip(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var rotation = FlightOrientation.fromAngles(177, -134, 12);
+        var catalog = ExplorationCatalog.get(server);
+        var pilot = catalog.player(UUID.randomUUID());
+        var navigation = new ExplorationPayload(catalog.galaxySeed(), 170, "sol", pilot.position(),
+                pilot.velocity(), true, 137.25, pilot.orientation(), 0, "", pilot.discoveredSystems(),
+                pilot.visitedSystems(), pilot.revision(), 1, -23000.75, rotation, 17);
+        var surface = new dev.lexawhatt.astraengine.network.SurfacePayload("moon", 170,
+                dev.lexawhatt.astraengine.network.SurfacePayload.Phase.SURFACE, 0, -23000.75, rotation, 17);
+        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), server.registryAccess());
+        try {
+            ExplorationPayload.CODEC.encode(buffer, navigation);
+            helper.assertTrue(ExplorationPayload.CODEC.decode(buffer).equals(navigation), "Calendar navigation changed on wire");
+            helper.assertTrue(!buffer.isReadable(), "Calendar navigation left unread bytes");
+            buffer.clear();
+            dev.lexawhatt.astraengine.network.SurfacePayload.CODEC.encode(buffer, surface);
+            helper.assertTrue(dev.lexawhatt.astraengine.network.SurfacePayload.CODEC.decode(buffer).equals(surface),
+                    "Calendar ground context changed on wire");
+            helper.assertTrue(!buffer.isReadable(), "Calendar ground context left unread bytes");
+        } finally { buffer.release(); }
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty")
     public static void catalogAndPayloadRoundTrip(GameTestHelper helper) {
         var server = helper.getLevel().getServer();
         var catalog = SystemCatalog.get(server);
@@ -199,6 +224,7 @@ public final class EngineGameTests {
         buffer.writeVarInt(2); buffer.writeUtf("sol", 64); buffer.writeUtf("s_1_0_0", 64);
         buffer.writeVarInt(2); buffer.writeUtf("sol", 64); buffer.writeUtf("s_1_0_0", 64);
         buffer.writeLong(99); buffer.writeLong(epoch);
+        buffer.writeDouble(5); buffer.writeBoolean(false); buffer.writeLong(0);
     }
 
     @GameTest(templateNamespace = "astraengine_verify", template = "empty")
