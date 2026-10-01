@@ -85,6 +85,20 @@ public record EarthChart(CubeFace face, int band, int terrainVersion) implements
                 .add(face.v().multiply(hostZ)).normalized();
     }
 
+    /**
+     * Camera tangent frame at chart X/Z and physical altitude in meters. Unlike storage ownership this also
+     * accepts the observer's eye just across a band edge. It neither resolves nor loads another chart.
+     */
+    public PlanetaryFrame tangentFrame(double hostX, double hostZ, double altitudeMeters) {
+        if (!Double.isFinite(altitudeMeters) || RADIUS_METERS + altitudeMeters <= 0) {
+            throw new IllegalArgumentException("Earth camera altitude must be finite and outside the center");
+        }
+        SpaceVector up = normal(hostX, hostZ);
+        SpaceVector east = face.u().subtract(up.multiply(up.dot(face.u()))).normalized();
+        return new PlanetaryFrame(up.multiply(RADIUS_METERS + altitudeMeters), east, up,
+                PlanetaryFrame.cross(east, up));
+    }
+
     /** Geographic feet address; rejects values outside this chart's canonical face or altitude band. */
     public GeographicPosition geographic(SpaceVector feet) {
         if (!contains(feet)) { throw new IllegalArgumentException("Position is outside its Earth storage chart"); }
@@ -150,8 +164,7 @@ public record EarthChart(CubeFace face, int band, int terrainVersion) implements
         SpaceVector horizontal = face.u().multiply(velocity.x()).add(face.v().multiply(velocity.z()));
         SpaceVector physicalVelocity = horizontal.subtract(up.multiply(up.dot(horizontal)))
                 .multiply(radial / plane.length()).add(up.multiply(velocity.y()));
-        SpaceVector east = face.u().subtract(up.multiply(up.dot(face.u()))).normalized();
-        var frame = new PlanetaryFrame(up.multiply(radial), east, up, PlanetaryFrame.cross(east, up));
+        var frame = tangentFrame(feet.x(), feet.z(), feet.y() + altitudeOriginMeters());
         return new PlanetaryPose(frame.originMeters(), physicalVelocity, frame.toBodyOrientation(orientation));
     }
 }

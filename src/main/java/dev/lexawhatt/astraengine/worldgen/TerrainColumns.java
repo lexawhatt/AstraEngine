@@ -4,12 +4,10 @@ import java.util.Arrays;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.NoiseColumn;
-import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
-import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.RandomState;
 
@@ -71,8 +69,7 @@ final class TerrainColumns {
             if (uniform != null) {
                 // BIOMES has completed. Preserve its palette and derive the correct block/fluid counts in
                 // the new section. Deep ocean windows benefit from the same batching as solid rock.
-                chunk.getSections()[index] = new LevelChunkSection(new PalettedContainer<>(
-                        Block.BLOCK_STATE_REGISTRY, uniform, PalettedContainer.Strategy.SECTION_STATES), section.getBiomes());
+                chunk.getSections()[index] = new LevelChunkSection(new UniformTerrainStates(uniform), section.getBiomes());
                 continue;
             }
             section.acquire();

@@ -6,6 +6,7 @@ import dev.lexawhatt.astraengine.network.CustomSystemsReceivedEvent;
 import dev.lexawhatt.astraengine.network.ExplorationPayload;
 import dev.lexawhatt.astraengine.network.ExplorationReceivedEvent;
 import dev.lexawhatt.astraengine.network.FlightActionPayload;
+import dev.lexawhatt.astraengine.network.EarthLandingPayload;
 import dev.lexawhatt.astraengine.network.FlightControlPayload;
 import dev.lexawhatt.astraengine.network.FlightSpeedPayload;
 import dev.lexawhatt.astraengine.network.SolarPayload;
@@ -63,6 +64,9 @@ public final class AstraEngine {
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SurfaceReceivedEvent(payload)));
         event.registrar("6").playToServer(FlightActionPayload.TYPE, FlightActionPayload.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) { runtime.flightAction(player, payload); }
+        });
+        event.registrar("1").playToServer(EarthLandingPayload.TYPE, EarthLandingPayload.CODEC, (payload, context) -> {
+            if (context.player() instanceof ServerPlayer player) { runtime.earthLanding(player, payload); }
         });
         event.registrar("3").playToServer(FlightControlPayload.TYPE, FlightControlPayload.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) { runtime.flightControl(player, payload); }

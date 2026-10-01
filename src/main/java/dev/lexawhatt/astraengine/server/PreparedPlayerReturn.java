@@ -8,6 +8,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.TicketType;
+import net.minecraft.tags.FluidTags;
 import net.minecraft.world.entity.Pose;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
@@ -50,7 +51,7 @@ public final class PreparedPlayerReturn {
                 if (level.getChunkSource().getChunkNow(x, z) == null) { return false; }
             }
         }
-        return level.noCollision(player, box) && !level.containsAnyLiquid(box);
+        return level.noCollision(player, box) && safeLiquid(level, player, player.position(), box);
     }
 
     /**
@@ -120,7 +121,22 @@ public final class PreparedPlayerReturn {
 
     private static boolean clear(ServerLevel level, ServerPlayer player, Vec3 position, ChunkPos center) {
         AABB box = player.getDimensions(Pose.STANDING).makeBoundingBox(position);
-        return withinBounds(level, box, center) && level.noCollision(player, box) && !level.containsAnyLiquid(box);
+        return withinBounds(level, box, center) && level.noCollision(player, box) && safeLiquid(level, player, position, box);
+    }
+
+    private static boolean safeLiquid(ServerLevel level, ServerPlayer player, Vec3 position, AABB box) {
+        if (!level.containsAnyLiquid(box)) { return true; }
+        // Planetary sea arrivals may be swimming, but a saved return never puts the standing eye underwater.
+        // Legacy worlds retain the dry-volume contract, and every non-water fluid remains excluded.
+        if (EarthWorlds.chart(level).isEmpty()
+                || !level.getFluidState(BlockPos.containing(position.x,
+                        position.y + player.getEyeHeight(Pose.STANDING), position.z)).isEmpty()) { return false; }
+        for (BlockPos block : BlockPos.betweenClosed(BlockPos.containing(box.minX, box.minY, box.minZ),
+                BlockPos.containing(box.maxX, box.maxY, box.maxZ))) {
+            var fluid = level.getFluidState(block);
+            if (!fluid.isEmpty() && !fluid.is(FluidTags.WATER)) { return false; }
+        }
+        return true;
     }
 
     private static boolean withinBounds(ServerLevel level, AABB box, ChunkPos center) {

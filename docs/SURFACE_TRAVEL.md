@@ -1,6 +1,12 @@
-# Planetary arrival foundation
+# Planetary surface travel
 
-AstraEngine has two permanent, bounded surface patches: Sol Moon and Sol Earth.
+The [Astra Earth preset](EARTH_WORLD.md) binds its Overworld and continental
+charts to the orbital Earth. **R** departs from the current chart position, and
+**L** aims at the visible geographic location before preparing a safe landing.
+It uses the saved terrain version, actual blocks and permanent host chunk storage.
+The remaining sections describe the retained legacy patch path.
+
+For ordinary Overworld saves, AstraEngine has two permanent, bounded surface patches: Sol Moon and Sol Earth.
 They use separate `astraengine:surface_moon` and `astraengine:surface_earth`
 worlds. Existing Overworld terrain is not replaced or bound to the orbital Earth.
 This is the first surface integration, not a complete traversable spherical world.

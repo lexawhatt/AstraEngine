@@ -8,12 +8,16 @@ import dev.lexawhatt.astraengine.cosmos.CosmosSystem;
 import dev.lexawhatt.astraengine.cosmos.FlightDynamics;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
+import dev.lexawhatt.astraengine.surface.ContinentalTerrain;
+import dev.lexawhatt.astraengine.surface.EarthChart;
+import dev.lexawhatt.astraengine.surface.EarthLandingTarget;
 import dev.lexawhatt.astraengine.network.SurfacePayload;
 import dev.lexawhatt.astraengine.cosmos.GalacticNavigation;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.network.ExplorationPayload;
 import dev.lexawhatt.astraengine.network.CustomSystemsPayload;
 import dev.lexawhatt.astraengine.network.FlightActionPayload;
+import dev.lexawhatt.astraengine.network.EarthLandingPayload;
 import dev.lexawhatt.astraengine.network.FlightControlPayload;
 import dev.lexawhatt.astraengine.network.FlightSpeedPayload;
 import java.util.HashMap;
@@ -82,8 +86,10 @@ public final class RocketService implements AutoCloseable {
         ExplorationCatalog.get(server).player(player.getUUID());
         Session session = new Session(Point.of(player));
         session.takeoff = SurfaceWorlds.definition(player.serverLevel().dimension()).orElse(null);
+        session.earthTakeoff = EarthWorlds.chart(player.serverLevel()).orElse(null);
         if (session.takeoff != null && (!SurfaceBindings.get(server).matches(player.serverLevel(), session.takeoff)
-                || !canTakeOff(player, session.takeoff))) {
+                || !canTakeOff(player, session.takeoff))
+                || session.earthTakeoff != null && !canTakeOff(player, session.earthTakeoff)) {
             message(player, "surface_unavailable"); return;
         }
         sessions.put(player.getUUID(), session);
@@ -96,7 +102,8 @@ public final class RocketService implements AutoCloseable {
         if (!acceptAction(player)) { return; }
         if (payload.action() == FlightActionPayload.Action.TOGGLE) { toggle(player); return; }
         if (payload.action() == FlightActionPayload.Action.TAKE_OFF) {
-            if (!active(player) && SurfaceWorlds.definition(player.serverLevel().dimension()).isPresent()) { toggle(player); }
+            if (!active(player) && (SurfaceWorlds.definition(player.serverLevel().dimension()).isPresent()
+                    || EarthWorlds.chart(player.serverLevel()).isPresent())) { toggle(player); }
             return;
         }
         Session session = sessions.get(player.getUUID());
@@ -153,12 +160,19 @@ public final class RocketService implements AutoCloseable {
                         || pilot.position().distance(system.positionAt(body, catalog.clockTicks() / 20.0)) < body.radiusMeters()) {
                     message(player, "surface_approach_first"); return;
                 }
-                session.surface = new SurfaceTransfer(definition, system, catalog.clockTicks(),
-                        pilot.position(), pilot.orientation());
-                session.jumpTarget = pilot.systemId(); session.jumpBody = definition.bodyId(); session.jumpTicks = 1;
-                pilot.navigate(new FlightDynamics.State(pilot.position(), ZERO), pilot.orientation());
-                session.controls.relocate(pilot.revision()); session.input = null;
-                message(player, "surface_preparing");
+                if ("sol".equals(system.id()) && "earth".equals(body.id()) && EarthWorlds.active(server)) {
+                    var frame = definition.frame(system, catalog.clockTicks() / 20.0, catalog.clockTicks());
+                    var target = EarthLandingTarget.aim(new ContinentalTerrain(EarthWorlds.terrainVersion(server),
+                            ContinentalTerrain.SEED), frame.toBodyPoint(pilot.position()),
+                            frame.toBodyDirection(pilot.orientation().forward()));
+                    if (target.isEmpty()) { message(player, "surface_aim"); return; }
+                    session.surface = new SurfaceTransfer(target.get(), system, catalog.clockTicks(),
+                            pilot.position(), pilot.orientation());
+                } else {
+                    session.surface = new SurfaceTransfer(definition, system, catalog.clockTicks(),
+                            pilot.position(), pilot.orientation());
+                }
+                beginLanding(player, session, pilot, definition.bodyId());
             }
             case APPROACH_BODY -> {
                 CosmosSystem system = currentSystem(catalog, pilot, session);
@@ -180,6 +194,34 @@ public final class RocketService implements AutoCloseable {
             default -> { }
         }
         catalog.setDirty(); send(player, session);
+    }
+
+    /** Accepts a visible geographic point with current navigation ownership, sharing the discrete rate limit. */
+    public void earthLanding(ServerPlayer player, EarthLandingPayload payload) {
+        Session session = sessions.get(player.getUUID());
+        if (session == null || !session.entered || !isFlightWorld(player) || !player.isAlive()
+                || session.surface != null || session.approach != null || session.jumpTicks > 0
+                || payload.navigationEpoch() != session.controls.navigationEpoch() || !EarthWorlds.active(server)
+                || !acceptAction(player)) { return; }
+        ExplorationCatalog catalog = ExplorationCatalog.get(server);
+        ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
+        CosmosSystem system = currentSystem(catalog, pilot, session);
+        if (!"sol".equals(system.id())) { return; }
+        var frame = SurfaceDefinition.byBody("earth").frame(system, catalog.clockTicks() / 20.0, catalog.clockTicks());
+        var target = EarthLandingTarget.visible(new ContinentalTerrain(EarthWorlds.terrainVersion(server),
+                ContinentalTerrain.SEED), frame.toBodyPoint(pilot.position()), payload.normal());
+        if (target.isEmpty()) { message(player, "surface_aim"); return; }
+        session.surface = new SurfaceTransfer(target.get(), system, catalog.clockTicks(),
+                pilot.position(), pilot.orientation());
+        beginLanding(player, session, pilot, "earth");
+        catalog.setDirty(); send(player, session);
+    }
+
+    private void beginLanding(ServerPlayer player, Session session, ExplorationCatalog.Pilot pilot, String bodyId) {
+        session.jumpTarget = pilot.systemId(); session.jumpBody = bodyId; session.jumpTicks = 1;
+        pilot.navigate(new FlightDynamics.State(pilot.position(), ZERO), pilot.orientation());
+        session.controls.relocate(pilot.revision()); session.input = null;
+        message(player, "surface_preparing");
     }
 
     /** Sets inspection speed for the sender's live manual session, sharing the four-tick discrete action limit. */
@@ -231,7 +273,8 @@ public final class RocketService implements AutoCloseable {
             return entry.getValue().entered && player != null && player.isAlive() && isFlightWorld(player);
         });
         occupied |= server.getPlayerList().getPlayers().stream().anyMatch(player -> player.isAlive()
-                && SurfaceWorlds.definition(player.serverLevel().dimension()).isPresent());
+                && (SurfaceWorlds.definition(player.serverLevel().dimension()).isPresent()
+                        || EarthWorlds.chart(player.serverLevel()).isPresent()));
         catalog.tick(occupied);
         if (server.getTickCount() % 20 == 0) {
             for (var retry : Map.copyOf(recoveryAttempts).entrySet()) {
@@ -245,7 +288,8 @@ public final class RocketService implements AutoCloseable {
         if (server.getTickCount() % 5 == 0) {
             for (ServerPlayer observer : server.getPlayerList().getPlayers()) {
                 if (!sessions.containsKey(observer.getUUID())
-                        && SurfaceWorlds.definition(observer.serverLevel().dimension()).isPresent()) { sendSurface(observer, null); }
+                        && (SurfaceWorlds.definition(observer.serverLevel().dimension()).isPresent()
+                                || EarthWorlds.chart(observer.serverLevel()).isPresent())) { sendSurface(observer, null); }
             }
         }
         Iterator<Map.Entry<UUID, Session>> iterator = sessions.entrySet().iterator();
@@ -291,25 +335,28 @@ public final class RocketService implements AutoCloseable {
                     stop(player, session, false); iterator.remove(); message(player, "source_unavailable");
                     send(player, null); continue;
                 }
-                if (session.takeoff != null && !canTakeOff(player, session.takeoff)) {
+                if (session.takeoff != null && !canTakeOff(player, session.takeoff)
+                        || session.earthTakeoff != null && !canTakeOff(player, session.earthTakeoff)) {
                     stop(player, session, false); iterator.remove(); message(player, "surface_unavailable");
                     send(player, null); continue;
                 }
                 session.source = Point.of(player);
                 player.getPersistentData().put(RECOVERY, session.source.save());
                 ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
-                if (session.takeoff != null) {
-                    CosmosSystem system = catalog.system(session.takeoff.systemId());
+                if (session.takeoff != null || session.earthTakeoff != null) {
+                    CosmosSystem system = catalog.system(session.earthTakeoff == null ? session.takeoff.systemId() : "sol");
                     SpaceVector localEye = new SpaceVector(player.getX(), player.getEyeY(), player.getZ());
-                    session.surface = SurfaceTransfer.ascent(session.takeoff, system, catalog.clockTicks(), localEye,
-                            FlightOrientation.fromAngles(player.getYRot(), player.getXRot(), 0));
+                    var localOrientation = FlightOrientation.fromAngles(player.getYRot(), player.getXRot(), 0);
+                    session.surface = session.earthTakeoff == null
+                            ? SurfaceTransfer.ascent(session.takeoff, system, catalog.clockTicks(), localEye, localOrientation)
+                            : SurfaceTransfer.ascent(session.earthTakeoff, system, catalog.clockTicks(), localEye, localOrientation);
                     // Ground world identity, not stale navigation state, determines the departure system.
                     SpaceVector position = session.surface.originalPosition();
                     FlightOrientation view = session.surface.originalOrientation();
                     pilot.visit(system.id(), position, view);
                     pilot.navigate(new FlightDynamics.State(position, ZERO), view);
                     session.system = system;
-                    session.jumpTarget = system.id(); session.jumpBody = session.takeoff.bodyId();
+                    session.jumpTarget = system.id(); session.jumpBody = session.surface.definition().bodyId();
                     session.jumpTicks = session.surface.remainingTicks();
                 }
                 pilot.navigate(new FlightDynamics.State(pilot.position(), ZERO), pilot.orientation());
@@ -442,9 +489,9 @@ public final class RocketService implements AutoCloseable {
         } else if (transfer.canCommit(server, player)) {
             Vec3 feet = transfer.landingFeet();
             FlightOrientation local = transfer.landingOrientation();
-            ServerLevel target = server.getLevel(SurfaceWorlds.dimension(transfer.definition()));
+            ServerLevel target = server.getLevel(transfer.dimension());
             player.teleportTo(target, feet.x, feet.y, feet.z, Set.of(), local.yaw(), local.pitch());
-            if (player.serverLevel() != target) {
+            if (player.serverLevel() != target || player.position().distanceToSqr(feet) > 1e-6) {
                 cancelSurface(catalog, player, session, "surface_failed"); return;
             }
             player.setDeltaMovement(Vec3.ZERO); player.fallDistance = 0;
@@ -464,6 +511,16 @@ public final class RocketService implements AutoCloseable {
                 && player.getY() >= player.serverLevel().getMinBuildHeight() + 1
                 && player.getEyeY() < player.serverLevel().getMaxBuildHeight() - 1
                 && player.serverLevel().canSeeSky(player.blockPosition()) && !player.isInWater();
+    }
+
+    private static boolean canTakeOff(ServerPlayer player, EarthChart chart) {
+        return EarthWorlds.chart(player.serverLevel()).map(chart::equals).orElse(false)
+                && chart.contains(new SpaceVector(player.getX(), player.getY(), player.getZ()))
+                && player.getEyeY() + chart.altitudeOriginMeters() >= -48
+                && player.getY() >= player.serverLevel().getMinBuildHeight() + 1
+                && player.getEyeY() < player.serverLevel().getMaxBuildHeight() - 1
+                && player.serverLevel().canSeeSky(BlockPos.containing(player.getX(), player.getEyeY(), player.getZ()))
+                && player.serverLevel().getFluidState(BlockPos.containing(player.getX(), player.getEyeY(), player.getZ())).isEmpty();
     }
 
     private void cancelSurface(ExplorationCatalog catalog, ServerPlayer player, Session session, String reason) {
@@ -494,6 +551,8 @@ public final class RocketService implements AutoCloseable {
             payload = new SurfacePayload(transfer.definition().bodyId(), clockTicks, phase, transfer.remainingTicks());
         } else if (ground != null) {
             payload = new SurfacePayload(ground.bodyId(), clockTicks, SurfacePayload.Phase.SURFACE, 0);
+        } else if (EarthWorlds.chart(player.serverLevel()).isPresent()) {
+            payload = new SurfacePayload("earth", clockTicks, SurfacePayload.Phase.SURFACE, 0);
         } else {
             payload = new SurfacePayload("", clockTicks, SurfacePayload.Phase.NONE, 0);
         }
@@ -637,6 +696,7 @@ public final class RocketService implements AutoCloseable {
         private FlightDynamics.Input input;
         private BodyApproach approach;
         private SurfaceDefinition takeoff;
+        private EarthChart earthTakeoff;
         private SurfaceTransfer surface;
         private boolean surfaceCommitted;
         private boolean returnRequested;

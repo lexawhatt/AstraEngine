@@ -360,7 +360,7 @@ the saved navigation record. An unreadable existing catalog is not replaced by
 an empty one.
 
 The shared orbital clock advances while at least one living player is in Rocket
-mode or on a bound surface patch; it does not accumulate absent or offline time.
+mode or on a bound surface patch/continental Earth chart; it does not accumulate absent or offline time.
 This is a shared visual navigation clock, separate from each discovered system's resource evolution.
 Extraction and stage state in the [first-slice API](API.md) remain a separate
 contract. The diagnostic Sun state is stored in `data/astraengine_solar.dat`:
@@ -383,5 +383,7 @@ Related tools: [Overworld Sun and supernova](SOLAR_SKY.md),
 
 Sol Moon and Earth now have permanent bounded local patches, a shared geographic
 model and prepared landing/departure. See [surface travel](SURFACE_TRAVEL.md).
-Other celestial descriptors still do not create block worlds. This does not
-implement arbitrary whole-planet entry or closed planetary traversal.
+The opt-in [Astra Earth world type](EARTH_WORLD.md) instead binds continental
+Earth/Overworld storage to the same orbital height field and supports selected
+geographic landing and departure. Other celestial descriptors still do not create
+block worlds. Continuous chart/band traversal remains a separate integration.

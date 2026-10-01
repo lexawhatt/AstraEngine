@@ -89,6 +89,7 @@ public final class ClientScenario {
     private DhCloudScenario dhCloudScenario;
     private ContinentalScenario continentalScenario;
     private EarthGenerationScenario earthGenerationScenario;
+    private EarthTravelScenario earthTravelScenario;
     private EarthAtmosphereScenario earthAtmosphereScenario;
     private ContinentalOrbitScenario continentalOrbitScenario;
     private LunarPulsarVisualScenario lunarPulsarVisualScenario;
@@ -131,7 +132,7 @@ public final class ClientScenario {
                             || phase.equals("celestial-api-restart") || phase.equals("galactic-restart") || phase.equals("atlas-restart")
                             || phase.equals("seasonal-restart") || phase.equals("surface-restart") || phase.equals("surface-recover")
                             || phase.equals("surface-upgrade") || phase.equals("surface-frames-restart")
-                            || phase.equals("horizon-restart") || phase.equals("continental-restart") || phase.equals("earth-generation-restart")
+                            || phase.equals("horizon-restart") || phase.equals("continental-restart") || (phase.equals("earth-generation-restart") || phase.equals("earth-travel-restart"))
                             || phase.equals("terrain-restart") || phase.equals("pulsar-restart"))
                     && minecraft.player == null && minecraft.getOverlay() == null
                     && minecraft.screen instanceof BackupConfirmScreen screen
@@ -145,6 +146,7 @@ public final class ClientScenario {
                             : phase.substring(0, phase.length() - "-restart".length());
                     String completedPhase = phase.equals("surface-frames-restart") ? "surface-frames-create"
                             : phase.equals("horizon-restart") ? "horizon-create"
+                            : phase.equals("earth-travel-restart") ? "earth-travel-create"
                             : phase.equals("earth-generation-restart") ? "earth-generation-create"
                             : phase.equals("continental-restart") ? "continental-create"
                             : phase.equals("surface-restart") ? "surface-create"
@@ -204,7 +206,7 @@ public final class ClientScenario {
                         || phase.equals("surface-failures") || phase.equals("surface-boundaries")
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
-                        || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || phase.equals("earth-generation-create") || phase.equals("continental-create")
+                        || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || phase.equals("earth-generation-create") || phase.equals("continental-create")
                         || phase.startsWith("dh-clouds")
                         || phase.equals("lunar-pulsar") || phase.equals("pulsar-create")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
@@ -239,7 +241,7 @@ public final class ClientScenario {
             boolean cameraPhase = phase.equals("camera") || phase.equals("camera-restart");
             boolean celestialPhase = phase.equals("celestial");
             boolean celestialPolishPhase = phase.equals("earth-orbit") || phase.equals("celestial-polish") || phase.equals("lunar-pulsar");
-            boolean surfacePhase = phase.startsWith("surface-");
+            boolean surfacePhase = phase.startsWith("surface-") || phase.startsWith("earth-travel-");
             if (phase.equals("surface-boundaries")) {
                 require(!(minecraft.screen instanceof AdvancementsScreen),
                         "Flight landing key opened vanilla advancements during the boundary fixture");
@@ -271,6 +273,11 @@ public final class ClientScenario {
             if (phase.equals("earth-atmosphere")) {
                 if (earthAtmosphereScenario == null) { earthAtmosphereScenario = new EarthAtmosphereScenario(); }
                 if (earthAtmosphereScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("earth-travel-")) {
+                if (earthTravelScenario == null) { earthTravelScenario = new EarthTravelScenario(phase); }
+                if (earthTravelScenario.tick()) { finish(); }
                 return;
             }
             if (phase.startsWith("earth-generation-")) {

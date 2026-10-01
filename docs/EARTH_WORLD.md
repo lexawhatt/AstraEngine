@@ -4,14 +4,34 @@ The **Astra Earth** world type creates an Overworld backed by the shared spheric
 continental field. It is an opt-in integration build while planetary travel and
 storage-boundary presentation are being connected. Existing Overworlds, saved
 legacy landing patches and continental inspection worlds keep their generators.
-Do not select this preset expecting the complete orbital landing workflow yet:
-the current `L` landing action still targets the legacy Moon/Earth patches.
+On a bound Earth world, **R** departs from the player's actual geographic location.
+In Sol flight, aim at a visible location on Earth and press **L**. The server
+retains that body-fixed geographic point, validates its current visibility against
+the saved continental field and prepares the corresponding storage chart. Planetary
+rotation during packet delay does not move the selected latitude/longitude. The
+request includes the current navigation epoch; stale requests cannot start a route. A miss is rejected; it does not redirect to a fixed patch or pole.
+Ordinary Overworlds retain the legacy Moon/Earth landing-patch behavior.
+
+Landing polls a bounded neighborhood around the selected column, then checks
+actual saved blocks and a clear standing volume with an open departure corridor.
+Forest canopies and snow-layer tops are included. No building is cleared or
+flattened. Ocean arrivals stop at the water surface; normal swimming still belongs
+to Minecraft. A bound Earth permits departure and recovery while the standing eye
+remains above water. Submerged heads and non-water fluids remain excluded.
+Obstructed destinations can fail safely; flight remains recoverable. **B** cancels the guided route and **R** returns to its saved real
+source. Minecraft still owns dimension transfer and chunk loading. Preparation allows up to
+45 seconds of server ticks for distant tall charts; it shows a loading message
+instead of a fictional route countdown. Guided ascent/descent then show their actual
+remaining server ticks.
 
 The preset uses the real 6,371,000-meter reference radius. Six versioned cube faces
 cover the globe, including both poles. Each face has six persistent, disjoint
 4064-meter altitude bands. Band zero of positive X is `minecraft:overworld`; the
 remaining charts have permanent `astraengine:earth/<face>/<band>` dimension IDs.
-Only visited/generated chunks consume voxel storage. The whole globe is not
+Only visited/generated chunks consume voxel storage. Newly generated uniform rock
+and water sections save directly as the standard singleton palette, avoiding a
+4096-entry expansion. Edited palettes use Minecraft's normal serializer; no new
+save format or global palette patch is introduced. The whole globe is not
 generated at full block detail during creation.
 
 Host Y ranges from -2032 through 2031. Physical altitude is
@@ -90,8 +110,13 @@ Fabulous. Native scenarios:
 ./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-earth -PverifyPhase=earth-generation-restart
 ```
 
-The separate `earth-orbit` phase verifies the presentation path; it is not a
-substitute for an integrated landing test.
+The separate `earth-orbit` phase verifies the presentation path. The geographic
+travel fixture uses a fresh `earth-travel-create` directory, then
+`earth-travel-restart` in that same completed directory. It exercises actual
+navigation packets, forest and mountain departures, both polar charts, delayed
+body-fixed aiming, stale input epochs, collision-checked arrival, canceled ascent
+and persistence of pose, blocks and a chest inventory. Verification owns disposable
+worlds and never modifies a user's existing save.
 
 Use a fresh disposable directory for creation. Restart accepts only that completed
 fixture; verification code and worlds are not included in the distributed JAR.

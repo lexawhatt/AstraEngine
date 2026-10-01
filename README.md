@@ -56,13 +56,15 @@ Earth's close orbital view now uses its existing procedural height field for
 spherical parallax occlusion, slope lighting and progressively resolved surface
 materials. A bounded asynchronous height cache avoids resampling the full height
 function at every nearby ray step. Map approach frames ordinary planets/moons more closely while preserving
-their real radii. [Rendering and limits](docs/SURFACE_TRAVEL.md): arbitrary geographic
-landing, a unified Earth/Overworld and orbital player-build summaries remain unfinished.
+their real radii. [Rendering and limits](docs/SURFACE_TRAVEL.md): geographic
+landing is available in the bound Astra Earth world type below; orbital player-build summaries remain unfinished.
 
 The new **Astra Earth** world type provides [continental Earth storage](docs/EARTH_WORLD.md)
 in Overworld, with climate biomes, vegetation, geographic F3 and persistent blocks.
 Its versioned orbital height/climate maps share the chunk generator and add progressive close relief.
-It remains opt-in while its orbital travel and storage-boundary views are integrated;
+R departs from the current geographic position; aiming at a visible location and pressing L
+prepares a collision-checked landing there. It remains opt-in while continuous
+storage-boundary views are integrated;
 existing worlds and the current legacy landing destinations retain their behavior.
 
 An opt-in [horizon calibration world](docs/PLANETARY_HORIZON.md) adds an Earth-radius

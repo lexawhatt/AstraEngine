@@ -27,6 +27,10 @@ import dev.lexawhatt.astraengine.network.SurfaceReceivedEvent;
 import dev.lexawhatt.astraengine.network.SurfacePayload;
 import dev.lexawhatt.astraengine.network.CustomSystemsReceivedEvent;
 import dev.lexawhatt.astraengine.network.FlightActionPayload;
+import dev.lexawhatt.astraengine.network.EarthLandingPayload;
+import dev.lexawhatt.astraengine.surface.ContinentalTerrain;
+import dev.lexawhatt.astraengine.surface.EarthLandingTarget;
+import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
 import dev.lexawhatt.astraengine.network.FlightControlPayload;
 import dev.lexawhatt.astraengine.network.FlightSpeedPayload;
 import dev.lexawhatt.astraengine.server.RocketService;
@@ -349,7 +353,19 @@ public final class RocketController {
 
     public void action(FlightActionPayload.Action action, String target) {
         if (minecraft.getConnection() != null && minecraft.player != null) {
-            PacketDistributor.sendToServer(new FlightActionPayload(action, target));
+            if (action == FlightActionPayload.Action.LAND_BODY && "earth".equals(target) && earth.active()
+                    && active() && "sol".equals(currentSystem().id())) {
+                if (snapshot.jumpTicks() > 0 || automaticCamera()) { return; }
+                var frame = SurfaceDefinition.byBody("earth").frame(currentSystem(), timeSeconds(), timeSeconds() * 20);
+                var hit = EarthLandingTarget.aim(new ContinentalTerrain(earth.terrainVersion(), ContinentalTerrain.SEED),
+                        frame.toBodyPoint(visualPosition()), frame.toBodyDirection(orientation().forward()));
+                if (hit.isEmpty()) { minecraft.player.displayClientMessage(text("surface_aim"), true); return; }
+                var point = hit.get();
+                PacketDistributor.sendToServer(new EarthLandingPayload(point.chart().normal(point.localFeet().x(),
+                        point.localFeet().z()), snapshot.navigationEpoch()));
+            } else {
+                PacketDistributor.sendToServer(new FlightActionPayload(action, target));
+            }
         }
     }
 
@@ -367,7 +383,8 @@ public final class RocketController {
         if (!pendingAtlasTarget.isEmpty() && --pendingAtlasTicks <= 0) { pendingAtlasTarget = ""; }
         while (toggle.consumeClick()) {
             if (minecraft.screen == null) {
-                action(surface.definition(minecraft.level) != null
+                action(surface.definition(minecraft.level) != null || minecraft.level != null
+                        && earth.chart(minecraft.level.dimension().location().toString()).isPresent()
                         ? FlightActionPayload.Action.TAKE_OFF : FlightActionPayload.Action.TOGGLE, "");
             }
         }
@@ -552,7 +569,17 @@ public final class RocketController {
         int cx = width / 2, cy = height / 2;
         graphics.fill(cx - 13, cy, cx - 5, cy + 1, cyan); graphics.fill(cx + 5, cy, cx + 13, cy + 1, cyan);
         graphics.fill(cx, cy - 13, cx + 1, cy - 5, cyan); graphics.fill(cx, cy + 5, cx + 1, cy + 13, cyan);
-        if (snapshot.approaching()) {
+        SurfacePayload context = surface.snapshot();
+        if (context != null && context.phase() == SurfacePayload.Phase.PREPARING) {
+            graphics.drawCenteredString(minecraft.font, text("surface_loading", brake.getTranslatedKeyMessage()),
+                    cx, 65, 0xFFF6D4A5);
+        } else if (context != null && (context.phase() == SurfacePayload.Phase.DESCENDING
+                || context.phase() == SurfacePayload.Phase.ASCENDING)) {
+            graphics.drawCenteredString(minecraft.font, text(context.phase() == SurfacePayload.Phase.DESCENDING
+                    ? "surface_descending" : "surface_ascending",
+                    String.format(Locale.ROOT, "%.1f", context.remainingTicks() / 20.0), brake.getTranslatedKeyMessage()),
+                    cx, 65, 0xFFF6D4A5);
+        } else if (snapshot.approaching()) {
             String name = currentSystem().bodies().stream().filter(body -> body.id().equals(snapshot.approachBodyId()))
                     .map(CelestialBody::name).findFirst().orElse(snapshot.approachBodyId());
             graphics.drawCenteredString(minecraft.font, text("approaching", name,

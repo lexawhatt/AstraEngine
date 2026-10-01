@@ -9,6 +9,7 @@ import dev.lexawhatt.astraengine.api.ExtractionResult;
 import dev.lexawhatt.astraengine.api.StellarStateEvent;
 import dev.lexawhatt.astraengine.api.SystemSnapshot;
 import dev.lexawhatt.astraengine.network.FlightActionPayload;
+import dev.lexawhatt.astraengine.network.EarthLandingPayload;
 import dev.lexawhatt.astraengine.network.FlightControlPayload;
 import dev.lexawhatt.astraengine.network.FlightSpeedPayload;
 import dev.lexawhatt.astraengine.network.SystemPayload;
@@ -210,6 +211,13 @@ public final class EngineRuntime {
             return;
         }
         rocket.action(player, payload);
+    }
+
+    /** Validates a body-fixed landing proposal only on the requesting player's owning server thread. */
+    public void earthLanding(ServerPlayer player, EarthLandingPayload payload) {
+        if (rocket != null && server != null && player.getServer() == server && server.isSameThread()) {
+            rocket.earthLanding(player, payload);
+        }
     }
 
     /** Routes decoded controls to the owning server; physical flight cannot be controlled for another player. */
