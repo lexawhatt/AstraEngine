@@ -179,6 +179,7 @@ public final class EngineRuntime {
                 .then(SolarEvolutionService.commands())
                 .then(SkyService.commands())
                 .then(PlanetaryGeographyCommands.commands())
+                .then(GeographicCommands.commands(this::rejectRocketTravel))
                 .then(Commands.literal("status").executes(context -> {
                     for (String id : SystemWorlds.SYSTEM_IDS) {
                         SystemSnapshot snapshot = AstraSystems.snapshot(context.getSource().getServer(), id);

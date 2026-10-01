@@ -61,7 +61,7 @@ public final class FlightDynamics {
     }
 
     /**
-     * Frames a body from its illuminated side. Planets use four radii, rings eight, black holes twenty-four,
+     * Frames a body from its illuminated side. Planets use two radii, rings eight, black holes twenty-four,
      * a supernova primary sixty and a pulsar eighty. No body size or orbital distance is changed for this framing.
      */
     public static Observation observation(CosmosSystem system, CelestialBody body, double seconds) {
@@ -75,7 +75,7 @@ public final class FlightDynamics {
         boolean stellar = body.kind() == CelestialBody.Kind.STAR || body.kind() == CelestialBody.Kind.PULSAR
                 || blackHole || remnant;
         double radii = remnant ? 60 : blackHole ? 24 : body.kind() == CelestialBody.Kind.PULSAR ? 80
-                : body.ringOuterRatio() > 0 ? 8 : 4;
+                : body.ringOuterRatio() > 0 ? 8 : stellar ? 4 : 2;
         SpaceVector center = system.positionAt(body, seconds);
         SpaceVector observerDirection = new SpaceVector(0, 0.3, -1).normalized();
         if (!stellar) {

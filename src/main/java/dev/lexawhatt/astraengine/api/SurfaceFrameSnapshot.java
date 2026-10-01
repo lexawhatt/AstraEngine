@@ -4,6 +4,7 @@ import dev.lexawhatt.astraengine.surface.PlanetaryFrame;
 import dev.lexawhatt.astraengine.surface.PlanetaryPose;
 import dev.lexawhatt.astraengine.surface.PlanetaryTile;
 import dev.lexawhatt.astraengine.surface.PlanetaryTopology;
+import dev.lexawhatt.astraengine.surface.GeographicPosition;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.Level;
@@ -29,4 +30,9 @@ public record SurfaceFrameSnapshot(ResourceLocation geographyId, ResourceKey<Lev
 
     /** Complete pose in the tile's tangent frame. These local values are not Minecraft block coordinates. */
     public PlanetaryPose.LocalPose localPose() { return pose.inFrame(frame()); }
+
+    /** Feet latitude/longitude in radians and radial altitude in meters above this geography's reference sphere. */
+    public GeographicPosition geographicPosition() {
+        return GeographicPosition.fromBody(pose.bodyPositionMeters(), topology.radiusMeters());
+    }
 }

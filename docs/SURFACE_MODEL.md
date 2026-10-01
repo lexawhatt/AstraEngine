@@ -200,12 +200,15 @@ radius = finalRadius + remaining
 ```
 
 Both endpoint velocities approach zero. The logarithmic scale leaves the final
-seconds for human-scale altitude: from four Earth or Moon radii, the last full
+seconds for human-scale altitude: even from four Earth or Moon radii, the last full
 tick moves less than 0.1 m and the final one-eighth tick less than 1 mm. The radial
 midpoint is tens of kilometers above the destination, with the final three seconds
 starting below 250 m. Ascent is the exact time reversal. Endpoints outside the
 existing 4096-AU local navigation envelope are rejected, keeping `log1p`/`expm1`
 arithmetic finite without changing the separate global manual-flight bounds.
+
+Ordinary map approach now stops at two body radii; the four-radius example above
+remains a conservative route-precision check, not the current framing distance.
 
 The route never cuts the body as a chord. A shared terrain elevation below nominal
 radius permits the final negative-altitude shell, bounded by the geography floor.

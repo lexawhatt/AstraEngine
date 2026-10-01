@@ -57,7 +57,8 @@ class BodyApproachTest {
             FlightDynamics.Observation predicted = FlightDynamics.observation(sol, target,
                     startSeconds + route.durationTicks() / 20.0);
             assertEquals(predicted.position(), previous.state().position());
-            double radius = target.ringOuterRatio() > 0 ? 8 : 4;
+            double radius = target.ringOuterRatio() > 0 ? 8
+                    : target.kind() == CelestialBody.Kind.STAR ? 4 : 2;
             assertEquals(Math.max(target.radiusMeters() * radius, 100_000), previous.state().position()
                     .distance(sol.positionAt(target, startSeconds + route.durationTicks() / 20.0)), 0.01);
         }

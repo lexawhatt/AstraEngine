@@ -1,7 +1,7 @@
 # Live geographic frames
 
-Stage 3a connects the highlands' geographic topology to actual server-owned player
-poses. It supplies correct motion conversion, immutable frame snapshots and
+Geographic references connect all six bound planetary worlds to actual server-owned player
+poses. They supply correct motion conversion, immutable frame snapshots and
 notifications when an observed tile changes. Ordinary walking still uses the
 existing permanent Minecraft world. This does not stitch different worlds or
 transfer blocks across a globe.
@@ -24,11 +24,24 @@ Imports are `dev.lexawhatt.astraengine.api.AstraGeography` and
 `dev.lexawhatt.astraengine.surface.{PlanetaryPose, PlanetaryFrame}` (use ordinary
 explicit Java imports). The sample does not authorize mutation, load chunks,
 create worlds or grant discoveries. A null player or wrong-thread access throws;
-dead/removed players, unsupported dimensions and out-of-bounds highlands columns
-return `Optional.empty()`. Only the highlands is bound to this API in this slice.
+dead/removed players, unsupported dimensions and out-of-bounds columns
+return `Optional.empty()`. Bindings cover Moon, Earth, highlands, continental coast,
+alpine and abyss worlds. A loaded level must have the corresponding pinned generator.
 Trusted server code may also sample an unconnected host player; a successful query
 does not assert network membership. The automatic tracker observes connected players.
-The existing Moon/Earth arrival APIs retain their own unchanged bindings.
+Existing Moon/Earth arrival world identities remain unchanged.
+
+`AstraGeography.reference(level)` returns the immutable `SurfaceReference` on the
+owning server thread. Its `geographic(hostFeet)` reads exact physical altitude
+directly from host Y and the stored altitude origin. `resolve(geographic)` performs
+the inverse without clipping or substituting the patch center. The server wrapper
+`AstraGeography.resolve(level, geographic)` also checks build height and the world
+border. None of these operations loads chunks, allocates worlds or moves a player.
+
+`SurfaceReferences` supplies the same fixed references to client presentation.
+Different Earth-sized prototypes have different geography IDs. The three continental
+windows share `astraengine:continental/v1`; ordinary Overworld has no binding.
+This API does not make those independent terrain realizations one planet.
 
 `SurfaceFrameSnapshot` contains a geography ID, dimension ID, pinned topology and
 body-fixed pose. It retains no mutable player/world references. These values can
@@ -89,11 +102,26 @@ player reference beyond their callback.
 
 ## Inspect and verify
 
-F3 in the highlands shows the geographic tile and a position relative to its center,
-in addition to longitude, latitude and reference altitude. These extra rows are
+F3 in each bound world replaces primary XYZ/Block/Chunk rows with longitude,
+latitude and reference altitude, followed by geography ID and geographic tile. These rows are
 client-derived presentation, not permission or an authoritative network snapshot.
-Reduced-debug mode and unsupported worlds do not show them. Tile-local numbers
-can change at a boundary while body position and the view remain continuous.
+Reduced-debug mode reveals no coordinates. Unsupported worlds retain host F3.
+The tile ID can change at a boundary while body position and the view remain continuous.
+
+Operators can inspect or navigate within their current bound window:
+
+```text
+/astra geography here
+/astra geography tp <latitude_degrees> <longitude_degrees> <altitude_meters>
+```
+
+Latitude is in [-90, 90], longitude in [-180, 180] with +180 canonicalized to -180.
+Altitude refers to player feet above the reference sphere, including negative
+seabed altitudes. The command requires permission 2, respects the host teleport
+event and rejects route ownership conflicts, foreign dimensions, outside addresses,
+invalid event-modified targets and insufficient build-height headroom. Like vanilla
+`/tp`, it does not find safe ground or clear obstructions. Host chunks and saved
+positions remain authoritative. A successful teleport does not grant discovery.
 
 ```sh
 ./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-surface-frames -PverifyPhase=surface-frames-create

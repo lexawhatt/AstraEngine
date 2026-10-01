@@ -81,9 +81,25 @@ nearby unobstructed location; it never clears a building to make room. Failed
 returns retain recovery data. Login retries are bounded, and **R** can retry.
 
 Minecraft still performs the actual dimension transfer and client chunk loading.
-The orbital shell has a bounded local height correction; it is not a displaced
-voxel mesh. The current handoff is not a guarantee of zero loading delay or
+Earth's orbital material now intersects a procedural height field using bounded
+spherical parallax occlusion near the surface. Slope lighting and filtered material
+detail follow the same body-fixed coordinates. The Moon retains its local shell
+correction. Neither representation is a displaced voxel mesh. The current handoff is not a guarantee of zero loading delay or
 pixel-identical terrain silhouettes at every distance.
+
+Earth relief uses the existing version-one height field, with sea covering negative
+seabed elevation. Steep descending rays use a direct bracket refinement; grazing
+views use 16/24/32 march steps by quality followed by bracket refinement;
+narrow grazing peaks can still be missed. Displacement fades between 80 and 100 km,
+and unresolved orbital displacement is skipped. Material detail resolves progressively
+from kilometer scales down to 8 m, without adding a new terrain-height seed. This
+does not display saved excavations/buildings or replace Earth with the independent
+kilometer-scale continental generator. Geographic landing still targets the bounded
+prepared arrival patch, not an arbitrary selected point on the entire globe.
+
+Close procedural relief costs more GPU time than the previous spherical material.
+It currently samples the height function directly; a bounded height cache and
+sustained close-flight performance qualification remain outstanding.
 
 ## Rendering and compatibility
 
@@ -96,7 +112,7 @@ are not replaced. A shared orbit-to-ground cloud/weather simulation is not prese
 With an active Iris pack, its lighting ownership remains intact; Astra celestial
 presentation uses the existing late composition boundary. Shader-pack results
 must be verified per pack/version, as described in [COMPATIBILITY.md](COMPATIBILITY.md).
-No Distant Horizons or Voxy integration is claimed.
+This orbital relief pass does not generate Distant Horizons or Voxy terrain.
 
 F3 now shows Longitude, Latitude and reference Altitude on both patches, while
 reduced-debug mode retains its privacy. A separate

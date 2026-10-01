@@ -3,6 +3,9 @@ package dev.lexawhatt.astraengine.verification;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mojang.serialization.JsonOps;
 import dev.lexawhatt.astraengine.client.surface.SurfaceDebugCoordinates;
+import dev.lexawhatt.astraengine.api.AstraGeography;
+import dev.lexawhatt.astraengine.surface.SurfaceReferences;
+import java.util.List;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.server.ContinentalWorlds;
 import dev.lexawhatt.astraengine.surface.ContinentalRegion;
@@ -33,7 +36,10 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.chunk.ChunkGenerator;
 import net.minecraft.world.phys.Vec3;
+import net.neoforged.bus.api.EventPriority;
+import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
 import net.neoforged.neoforge.client.event.RenderFrameEvent;
+import net.neoforged.neoforge.event.entity.EntityTeleportEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import org.lwjgl.opengl.GL11;
 
@@ -52,14 +58,18 @@ final class ContinentalScenario {
     private int ticks;
     private int clearFrames;
     private int regionIndex;
+    private List<String> debugRows = List.of();
+    private final Consumer<CustomizeGuiOverlayEvent.DebugText> debug = event -> this.debugRows = List.copyOf(event.getLeft());
 
     ContinentalScenario(String phase) {
         this.phase = phase;
         restart = phase.equals("continental-restart");
+        if (!restart) { step = -2; }
         game.options.renderDistance().set(4);
         game.options.bobView().set(false);
         game.options.autoJump().set(false);
         NeoForge.EVENT_BUS.addListener(frames);
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, debug);
     }
 
     boolean tick() throws Exception {
@@ -67,6 +77,20 @@ final class ContinentalScenario {
         pending.join();
         ticks++;
         switch (step) {
+            case -2 -> {
+                require(game.level.dimension().equals(Level.OVERWORLD), "Creation fixture must begin in Overworld");
+                if (!game.getDebugOverlay().showDebugScreen()) { game.getDebugOverlay().toggleOverlay(); }
+                next();
+            }
+            case -1 -> {
+                if (clearFrames < 8 || ticks < 20) { return false; }
+                require(debugRows.stream().anyMatch(row -> row.startsWith("XYZ: "))
+                        && debugRows.stream().noneMatch(row -> row.startsWith("Longitude: ")),
+                        "Unbound Overworld lost its host coordinate display");
+                write("evidence/" + phase + "-overworld-f3.txt", String.join("\n", debugRows));
+                game.getDebugOverlay().toggleOverlay();
+                next();
+            }
             case 0 -> {
                 server(server -> {
                     ContinentalWorlds.validate(server);
@@ -119,10 +143,27 @@ final class ContinentalScenario {
             }
             case 2 -> {
                 if (!settled(20)) { return false; }
+                require(debugRows.stream().anyMatch(row -> row.startsWith("Longitude: "))
+                        && debugRows.stream().anyMatch(row -> row.startsWith("Latitude: "))
+                        && debugRows.stream().anyMatch(row -> row.startsWith("Altitude: "))
+                        && debugRows.stream().noneMatch(row -> row.startsWith("XYZ: ")),
+                        "Native F3 did not replace host coordinates");
+                write("evidence/" + phase + "-" + region().id() + "-f3.txt", String.join("\n", debugRows));
                 shot(region().id() + "-geographic-f3");
+                game.options.reducedDebugInfo().set(true);
+                step = 6; ticks = 0; clearFrames = 0;
+            }
+            case 6 -> {
+                if (!settled(20)) { return false; }
+                require(debugRows.stream().noneMatch(row -> row.startsWith("Longitude: ")
+                        || row.startsWith("Latitude: ") || row.startsWith("Altitude: ")
+                        || row.startsWith("Geography: ") || row.startsWith("XYZ: ")),
+                        "Reduced native F3 disclosed geographic coordinates");
+                write("evidence/" + phase + "-" + region().id() + "-reduced-f3.txt", String.join("\n", debugRows));
+                game.options.reducedDebugInfo().set(false);
                 game.getDebugOverlay().toggleOverlay();
                 game.options.hideGui = true;
-                next();
+                step = 3; ticks = 0; clearFrames = 0;
             }
             case 3 -> {
                 if (!settled(30)) { return false; }
@@ -148,6 +189,7 @@ final class ContinentalScenario {
             }
             case 5 -> {
                 NeoForge.EVENT_BUS.unregister(frames);
+                NeoForge.EVENT_BUS.unregister(debug);
                 write("evidence/" + phase + "-scope.txt", "Three fixed windows of a shared procedural field.\n"
                         + "Physical altitude = host Y + stored origin. No relief compression or removal of host height limits.\n"
                         + (restart ? "All three generator definitions, marker blocks and all chest slots compared after process restart.\n"
@@ -171,12 +213,68 @@ final class ContinentalScenario {
         } else {
             player.teleportTo(server.getLevel(dimension(region)), 0.5, marker(region).getY() + 35, 40.5, 180, 24);
         }
+        verifyGeography(server, player, region);
         player.setDeltaMovement(Vec3.ZERO);
         player.getAbilities().flying = true;
         player.onUpdateAbilities();
         if (region == ContinentalRegion.ABYSS) {
             player.addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 24000, 0, false, false));
         } else { player.removeEffect(MobEffects.NIGHT_VISION); }
+    }
+
+    private static void verifyGeography(MinecraftServer server, ServerPlayer player, ContinentalRegion region) {
+        var reference = AstraGeography.reference(player.serverLevel()).orElseThrow();
+        require(reference.equals(SurfaceReferences.forDimension(region.dimensionId()).orElseThrow()),
+                "Server and client reference definitions differ");
+        var feet = new SpaceVector(player.getX(), player.getY(), player.getZ());
+        var geographic = reference.geographic(feet);
+        var snapshot = AstraGeography.snapshot(player).orElseThrow();
+        require(Math.abs(snapshot.geographicPosition().altitudeMeters() - geographic.altitudeMeters()) < 1e-8,
+                "Server snapshot lost physical altitude");
+        require(AstraGeography.resolve(player.serverLevel(), geographic).orElseThrow().distance(feet) < 1e-8,
+                "Server inverse geographic lookup changed position");
+        try {
+            var source = player.createCommandSourceStack().withPermission(2);
+            var dispatcher = server.getCommands().getDispatcher();
+            String command = "astra geography tp " + Math.toDegrees(geographic.latitudeRadians()) + " "
+                    + Math.toDegrees(geographic.longitudeRadians()) + " " + geographic.altitudeMeters();
+            require(dispatcher.execute(command, source) == 1, "Geographic teleport was rejected in a valid window");
+            require(new SpaceVector(player.getX(), player.getY(), player.getZ()).distance(feet) < 1e-7,
+                    "Geographic teleport landed at another geographic point");
+            var before = player.position();
+            require(dispatcher.execute("astra geography tp 90 0 100", source) == 0,
+                    "Outside address was silently clipped to this window");
+            require(player.position().equals(before), "Rejected coordinates moved the player");
+            boolean denied = false;
+            try { dispatcher.execute(command, source.withPermission(0)); }
+            catch (com.mojang.brigadier.exceptions.CommandSyntaxException expected) { denied = true; }
+            require(denied && player.position().equals(before), "Non-operator geographic navigation was accepted");
+            require(dispatcher.execute("astra geography here", source) == 1, "Geographic position query failed");
+            Consumer<EntityTeleportEvent.TeleportCommand> veto = event -> event.setCanceled(true);
+            NeoForge.EVENT_BUS.addListener(veto);
+            try {
+                require(dispatcher.execute(command, source) == 0 && player.position().equals(before),
+                        "Host teleport veto moved the player");
+            } finally { NeoForge.EVENT_BUS.unregister(veto); }
+            Consumer<EntityTeleportEvent.TeleportCommand> invalidTarget = event -> event.setTargetY(Double.NaN);
+            NeoForge.EVENT_BUS.addListener(invalidTarget);
+            try {
+                require(dispatcher.execute(command, source) == 0 && player.position().equals(before),
+                        "Non-finite modified teleport target was accepted");
+            } finally { NeoForge.EVENT_BUS.unregister(invalidTarget); }
+            Consumer<EntityTeleportEvent.TeleportCommand> outsideTarget = event -> event.setTargetX(30000000);
+            NeoForge.EVENT_BUS.addListener(outsideTarget);
+            try {
+                require(dispatcher.execute(command, source) == 0 && player.position().equals(before),
+                        "Out-of-window modified teleport target was accepted");
+            } finally { NeoForge.EVENT_BUS.unregister(outsideTarget); }
+            require(AstraGeography.reference(server.overworld()).isEmpty(),
+                    "An ordinary Overworld was silently reinterpreted as geographic Earth");
+            require(dispatcher.execute(command, source.withLevel(server.overworld())) == 0
+                    && player.position().equals(before), "Indirect cross-world geographic teleport was accepted");
+        } catch (com.mojang.brigadier.exceptions.CommandSyntaxException failure) {
+            throw new IllegalStateException("Geographic command verification failed", failure);
+        }
     }
 
     private static void verifyWorld(MinecraftServer server, ContinentalRegion region) {

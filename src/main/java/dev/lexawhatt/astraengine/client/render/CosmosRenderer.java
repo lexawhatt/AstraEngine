@@ -13,6 +13,7 @@ import dev.lexawhatt.astraengine.cosmos.UniverseGenerator;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
+import dev.lexawhatt.astraengine.surface.SurfaceGeography;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -192,11 +193,12 @@ public final class CosmosRenderer implements AutoCloseable {
             SpaceVector light = lightDirection(system, frame.position(), body.id(), timeSeconds);
             float seed = Math.floorMod(body.id().hashCode() ^ (int) system.seed(), 1024);
             float renderRadius = frame.radiusRatio();
-            if (definition != null && frame.distance() < body.radiusMeters() + 100_000) {
+            // The legacy lunar material retains its local reference shell until its own relief intersection is added.
+            if (definition != null && definition.geography().kind() == SurfaceGeography.Kind.MOON
+                    && frame.distance() < body.radiusMeters() + 100_000) {
                 var fixed = definition.frame(system, timeSeconds, timeSeconds * 20);
                 SpaceVector bodyPoint = fixed.toBodyPoint(cameraMeters);
                 double height = bodyPoint.length() > 1 ? definition.geography().sample(bodyPoint).heightMeters() : 0;
-                if (body.atmosphere() > 0) { height = Math.max(0, height); }
                 double blend = Math.clamp((body.radiusMeters() + 100_000 - frame.distance()) / 90_000, 0, 1);
                 renderRadius = (float) ((body.radiusMeters() + height * blend) / frame.distance());
             }
@@ -210,7 +212,8 @@ public final class CosmosRenderer implements AutoCloseable {
             shader.safeGetUniform("BodyLightTilt[" + i + "]").set((float) light.x(), (float) light.y(),
                     (float) light.z(), (float) body.axialTiltRadians());
             shader.safeGetUniform("BodyGeography[" + i + "]").set(definition == null ? 0 : definition.geography().kind().ordinal() + 1,
-                    0, (float) body.radiusMeters(), 0);
+                    (float) (frame.distance() - body.radiusMeters()), (float) body.radiusMeters(),
+                    definition != null && definition.geography().kind() == SurfaceGeography.Kind.EARTH ? 1 : 0);
             shader.safeGetUniform("BodyGeographySeed[" + i + "]").set(
                     definition == null ? 0 : definition.geography().shaderSeed());
             if (definition != null && body.atmosphere() > 0) {

@@ -66,6 +66,12 @@ speed. Fractional wheel input accumulates; long bursts apply at most one step
 per four client ticks. Map approach provides a convenient way to reach objects
 across interplanetary distances.
 
+**Approach body** frames ordinary unringed planets and moons at two physical radii
+from their center (one radius above the surface), subject to the existing minimum
+distance. Earth therefore occupies about 60 degrees of the view. Stars, rings,
+black holes, supernova remnants and pulsars retain their separate viewing clearances.
+This changes camera framing, not canonical body size or orbit scale.
+
 The virtual flight envelope extends **one million light-years** from the current
 system origin. The physical player stays in the same small void. Swept movement
 checks stop the camera before a body even at high

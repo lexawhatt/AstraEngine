@@ -42,12 +42,21 @@ stage. The second stage adds [closed geographic tile addresses](docs/PLANETARY_G
 polar neighbors and saved identity metadata. Continuous planetary traversal and
 unrestricted world height remain future work.
 
-[Live geographic frames](docs/SURFACE_FRAMES.md) now provide read-only server pose
-snapshots and tile-change notifications during highlands movement. Position, velocity
+[Live geographic frames](docs/SURFACE_FRAMES.md) provide shared geographic references,
+read-only server pose snapshots and tile-change notifications in all six bound worlds.
+F3 shows longitude, latitude and physical altitude; operators can inspect and navigate
+within an existing window using `/astra geography here` and `/astra geography tp`.
+Position, velocity
 and full orientation can be re-expressed in adjacent local frames without changing
 their body-fixed values. F3 shows the current tile; Minecraft still owns movement,
 collisions, builds and saved player positions. Cross-world chunk/view stitching is
 the next traversal stage.
+
+Earth's close orbital view now uses its existing procedural height field for
+spherical parallax occlusion, slope lighting and progressively resolved surface
+materials. Map approach frames ordinary planets/moons more closely while preserving
+their real radii. [Rendering and limits](docs/SURFACE_TRAVEL.md): arbitrary geographic
+landing, a unified Earth/Overworld and orbital player-build summaries remain unfinished.
 
 An opt-in [horizon calibration world](docs/PLANETARY_HORIZON.md) adds an Earth-radius
 spherical ocean and fixed visual towers. It demonstrates altitude-dependent

@@ -90,7 +90,7 @@ class FlightDynamicsTest {
             CelestialBody planet = sol.bodies().stream().filter(value -> value.id().equals(id)).findFirst().orElseThrow();
             FlightDynamics.Observation observation = FlightDynamics.observation(sol, planet, 100);
             SpaceVector center = sol.positionAt(planet, 100);
-            double radii = planet.ringOuterRatio() > 0 ? 8 : 4;
+            double radii = planet.ringOuterRatio() > 0 ? 8 : 2;
             assertEquals(planet.radiusMeters() * radii, observation.position().distance(center), 0.001);
             SpaceVector observerDirection = observation.position().subtract(center).normalized();
             SpaceVector sunDirection = center.multiply(-1).normalized();

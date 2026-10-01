@@ -16,6 +16,13 @@ public record SurfaceDebugCoordinates(double longitudeDegrees, double latitudeDe
         }
     }
 
+    /** Formats a shared geographic position without independently interpreting host coordinates or altitude bands. */
+    public static SurfaceDebugCoordinates fromGeographic(GeographicPosition geographic) {
+        if (geographic == null) { throw new IllegalArgumentException("A geographic position is required"); }
+        return new SurfaceDebugCoordinates(Math.toDegrees(geographic.longitudeRadians()),
+                Math.toDegrees(geographic.latitudeRadians()), geographic.altitudeMeters());
+    }
+
     /** Converts local player feet in meters; camera height, orbital position and terrain edits do not alter the datum. */
     public static SurfaceDebugCoordinates fromFeet(SurfacePatch patch, SpaceVector localFeetMeters) {
         if (patch == null || localFeetMeters == null) {

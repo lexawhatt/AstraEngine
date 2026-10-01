@@ -1069,6 +1069,12 @@ final class SurfaceScenario {
                         && SurfaceBindings.get(server).matches(level, definition),
                 "Committed surface does not match its permanent geographic binding");
         require(definition.patch().contains(player.getX(), player.getZ()), "Landing escaped its geographic patch");
+        var geographicSnapshot = dev.lexawhatt.astraengine.api.AstraGeography.snapshot(player).orElseThrow();
+        var reference = dev.lexawhatt.astraengine.api.AstraGeography.reference(player.serverLevel()).orElseThrow();
+        var geographic = reference.geographic(new SpaceVector(player.getX(), player.getY(), player.getZ()));
+        require(geographicSnapshot.geographicPosition().toBody(definition.patch().radiusMeters())
+                .distance(geographic.toBody(definition.patch().radiusMeters())) < 1e-7,
+                "Landing and geographic server observation diverged");
         BlockPos position = player.blockPosition().below();
         require(!level.getBlockState(position).getCollisionShape(level, position).isEmpty(),
                 "Landing committed without a real supporting terrain block");

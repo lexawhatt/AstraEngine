@@ -158,6 +158,22 @@ vec3 mappedEarthAlbedo(vec3 p, float height, uint seed, float footprint, float w
     rock *= 0.92 + detail * 0.8;
     vec3 land = mix(sand, grass, smoothstep(2.0, 4.0, height));
     land = mix(land, rock, smoothstep(62.0, 74.0, height));
+    // Resolve fixed physical material scales progressively. This is reflectance,
+    // not a second height field: closer views never move mountains or coastlines.
+    float materialDetail = 0.0;
+    float meterScale = 2048.0;
+    float materialWeight = 0.18;
+    for (int octave = 0; octave < 5; octave++) {
+        float frequencyMeters = 6371000.0 / meterScale;
+        float resolved = 1.0 - smoothstep(0.18, 0.70, footprint * frequencyMeters);
+        if (resolved > 0.001) {
+            materialDetail += (geographyNoise(p * frequencyMeters, seed ^ (0x5391u + uint(octave))) - 0.5)
+                    * materialWeight * resolved;
+        }
+        meterScale *= 0.25;
+        materialWeight *= 0.72;
+    }
+    land *= 1.0 + materialDetail;
     float polarWidth = max(0.00015, footprint * 0.65);
     float ice = smoothstep(0.82 - polarWidth, 0.82 + polarWidth, abs(p.y));
     vec3 snow = mix(vec3(0.48, 0.58, 0.65), vec3(0.84, 0.89, 0.91), variation);
@@ -166,6 +182,19 @@ vec3 mappedEarthAlbedo(vec3 p, float height, uint seed, float footprint, float w
     vec3 ocean = mix(vec3(0.003, 0.016, 0.036), vec3(0.011, 0.071, 0.078), shelf);
     ocean *= 0.96 + detail * 0.15;
     return mix(land, ocean, water);
+}
+
+vec3 mappedEarthNormal(vec3 p, uint seed, float footprint, float radiusMeters) {
+    if (footprint > 0.00015) { return p; }
+    vec3 tangent = normalize(cross(p, abs(p.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0)));
+    vec3 bitangent = cross(p, tangent);
+    float stepAngle = max(2.0 / radiusMeters, footprint * 1.25);
+    float x0 = max(0.0, geographyHeight(normalize(p - tangent * stepAngle), 2, seed, footprint));
+    float x1 = max(0.0, geographyHeight(normalize(p + tangent * stepAngle), 2, seed, footprint));
+    float y0 = max(0.0, geographyHeight(normalize(p - bitangent * stepAngle), 2, seed, footprint));
+    float y1 = max(0.0, geographyHeight(normalize(p + bitangent * stepAngle), 2, seed, footprint));
+    vec2 slope = vec2(x1 - x0, y1 - y0) / (2.0 * stepAngle * radiusMeters);
+    return normalize(p - tangent * slope.x - bitangent * slope.y);
 }
 
 vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 parameters,
@@ -191,6 +220,10 @@ vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 paramet
         } else {
             water = 1.0 - smoothstep(-0.3, 0.4, height);
             albedo = mappedEarthAlbedo(p, height, geographySeed, normalFootprint, water);
+            vec3 reliefNormal = mappedEarthNormal(p, geographySeed, normalFootprint, geography.z);
+            vec3 fixedLight = surfaceCoordinates(light, tilt, spin);
+            diffuse = max(dot(reliefNormal, fixedLight), 0.0)
+                    * smoothstep(-0.006, 0.025, dot(p, fixedLight));
             // Local terrain/cloud ownership changes at handoff; the geographic map itself never scrolls.
             clouds = 0.0;
         }
@@ -261,6 +294,112 @@ float sphereHit(vec3 ray, vec3 center, float radius, out vec3 normal) {
     return distance;
 }
 
+// Stable ray interval through a physical height shell. The CPU supplies altitude
+// separately: subtracting two float Earth radii would destroy human-scale precision.
+vec2 reliefShell(float alongMeters, float altitude, float radiusMeters, float height) {
+    float c = (altitude - height) * (2.0 * radiusMeters + altitude + height);
+    float discriminant = alongMeters * alongMeters - c;
+    if (discriminant < 0.0) { return vec2(1.0, -1.0); }
+    float root = sqrt(discriminant);
+    float q = -alongMeters - (alongMeters >= 0.0 ? root : -root);
+    if (abs(q) < 1e-7) { return vec2(0.0); }
+    return vec2(min(q, c / q), max(q, c / q));
+}
+
+float reliefResidual(vec3 up, vec3 ray, float distanceMeters, float altitude, float radiusMeters,
+                     float alongMeters, float travel, uint seed, float pixelAngle, out vec3 p) {
+    vec3 point = up * distanceMeters + ray * travel;
+    float lengthMeters = length(point);
+    p = point / max(lengthMeters, 1.0);
+    float height = (altitude * (2.0 * radiusMeters + altitude)
+            + travel * (2.0 * alongMeters + travel)) / (lengthMeters + radiusMeters);
+    float footprint = pixelAngle * max(travel, 0.01)
+            / (radiusMeters * max(0.025, abs(dot(p, ray))));
+    // Sea occludes the negative seabed; this does not fill excavated host blocks.
+    float displacement = 1.0 - smoothstep(80000.0, 100000.0, altitude);
+    return height - max(0.0, geographyHeight(p, 2, seed, footprint)) * displacement;
+}
+
+// Bounded spherical parallax-occlusion march through the canonical Earth height
+// field, followed by a bracketed refinement. Camera motion changes occlusion and
+// the visible sample rather than sliding a texture on the nominal sphere.
+float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, uint seed,
+                     float tilt, float spin, float pixelAngle, inout vec3 normal) {
+    float radiusMeters = geography.z;
+    float altitude = geography.y;
+    float distanceMeters = radiusMeters + altitude;
+    if (geography.w < 0.5 || altitude > 100000.0 || altitude < -48.0 || distanceMeters <= 0.0) {
+        return nominalHit;
+    }
+    vec3 up = surfaceCoordinates(-center, tilt, spin);
+    vec3 fixedRay = surfaceCoordinates(ray, tilt, spin);
+    float along = distanceMeters * dot(up, fixedRay);
+    vec2 outer = reliefShell(along, altitude, radiusMeters, 112.0);
+    if (outer.y <= 0.0 || outer.y < outer.x) { return -1.0; }
+    float start = max(0.0, outer.x);
+    float finish = outer.y;
+    vec2 inner = reliefShell(along, altitude, radiusMeters, 0.0);
+    if (inner.x > start && inner.y >= inner.x) {
+        finish = min(finish, inner.x);
+        nominalHit = inner.x / distanceMeters;
+        normal = normalize(-center + ray * nominalHit);
+    }
+    // The displacement is subpixel in broad orbital views. Smooth material
+    // filtering still runs; skip the costly march where it cannot be resolved.
+    if (pixelAngle * max(start, 1.0) > 300.0) { return nominalHit; }
+    int steps = Detail >= 5 ? 32 : Detail >= 4 ? 24 : 16;
+    vec3 p;
+    float previous = start;
+    float startResidual = reliefResidual(up, fixedRay, distanceMeters, altitude, radiusMeters,
+            along, start, seed, pixelAngle, p);
+    if (startResidual <= 0.0) {
+        normal = -center;
+        return max(start, 0.01) / distanceMeters;
+    }
+    // Version-one Earth has less than 0.17 m/m maximum geometric slope.
+    // Steep descending rays have one crossing, so refine the enclosing bracket
+    // directly instead of marching all its empty samples. Grazing views still march.
+    if (dot(up, fixedRay) < -0.3 && inner.x > start && inner.y >= inner.x) {
+        float low = start;
+        float high = finish;
+        for (int refine = 0; refine < 10; refine++) {
+            float mid = (low + high) * 0.5;
+            float error = reliefResidual(up, fixedRay, distanceMeters, altitude, radiusMeters,
+                    along, mid, seed, pixelAngle, p);
+            if (error > 0.0) { low = mid; } else { high = mid; }
+        }
+        float travel = (low + high) * 0.5;
+        normal = normalize(-center + ray * (travel / distanceMeters));
+        return travel / distanceMeters;
+    }
+    for (int stepIndex = 1; stepIndex <= 32; stepIndex++) {
+        if (stepIndex > steps) { break; }
+        // Concentrate samples near the observer inside the shell. Uniform steps
+        // can otherwise skip all nearby hills along a long grazing interval.
+        float fraction = float(stepIndex) / float(steps);
+        float travel = mix(start, finish, start < 1.0 ? fraction * fraction : fraction);
+        float residual = reliefResidual(up, fixedRay, distanceMeters, altitude, radiusMeters,
+                along, travel, seed, pixelAngle, p);
+        if (residual <= 0.0) {
+            float low = previous;
+            float high = travel;
+            for (int refine = 0; refine < 7; refine++) {
+                float mid = (low + high) * 0.5;
+                float error = reliefResidual(up, fixedRay, distanceMeters, altitude, radiusMeters,
+                        along, mid, seed, pixelAngle, p);
+                if (error > 0.0) { low = mid; } else { high = mid; }
+            }
+            travel = (low + high) * 0.5;
+            normal = normalize(-center + ray * (travel / distanceMeters));
+            return travel / distanceMeters;
+        }
+        previous = travel;
+    }
+    // At a grazing ray a bounded march can miss very narrow peaks. Retain only
+    // the nominal sea hit, never an inflated enclosing shell as an opaque surface.
+    return nominalHit;
+}
+
 vec4 ringSurface(vec3 ray, vec3 center, float radius, vec3 normal, float inner, float outer,
                  vec3 light, vec3 tint, float seed, float pixelAngle, out float distance) {
     distance = -1.0;
@@ -301,7 +440,8 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
         return pulsarRadiance(color, ray, center, radius, material.rgb, tilt,
                               BodySpin[index], parameters.x, pixelAngle);
     }
-    if (along <= 0.0 && radius <= 1.0 && index != AtmosphereBodyIndex) { return color; }
+    bool insideRelief = BodyGeography[index].w > 0.5 && BodyGeography[index].y <= 112.0;
+    if (along <= 0.0 && radius <= 1.0 && index != AtmosphereBodyIndex && !insideRelief) { return color; }
     float separation = length(center - ray * along);
     vec3 normal = vec3(0);
     float hit = sphereHit(ray, center, radius, normal);
@@ -350,6 +490,21 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle) {
     }
 
     if (kind == 1) { return blackHoleRadiance(color, ray, index, pixelAngle); }
+
+    if (BodyGeography[index].w > 0.5) {
+        hit = mappedEarthHit(ray, center, hit, BodyGeography[index], uint(BodyGeographySeed[index]),
+                tilt, BodySpin[index], pixelAngle, normal);
+        if (hit > 0.0 && BodyGeography[index].y < 100000.0) {
+            float displacedRadius = length(ray * hit - center);
+            // Separation is sin(angle), not angle. Near a human-height horizon
+            // its derivative approaches zero; an unscaled angular width leaks
+            // the star background through several degrees of solid ground.
+            float limbWidth = pixelAngle * sqrt(max(0.0, 1.0 - displacedRadius * displacedRadius))
+                    + 0.5 * pixelAngle * pixelAngle;
+            discCoverage = displacedRadius > 1.0 ? 1.0
+                    : 1.0 - smoothstep(displacedRadius - limbWidth, displacedRadius + limbWidth, separation);
+        }
+    }
 
     float atmosphereRadius = radius * (1.0 + parameters.y * 0.035);
     float halo = exp(-max(0.0, separation / max(radius, 1e-20) - 1.0) * 38.0)
