@@ -68,6 +68,12 @@ public final class EarthBiomeSource extends BiomeSource {
     /** Exact saved terrain algorithm driving climate; it must match the chunk generator. */
     public int terrainVersion() { return terrain.version(); }
 
+    /** Immutable registry holder from this saved source's palette; supports consumer-defined biome palettes. */
+    public Holder<Biome> biome(EarthClimate climate) {
+        if (climate == null) { throw new IllegalArgumentException("A climate class is required"); }
+        return palette.get(climate.name().toLowerCase(Locale.ROOT));
+    }
+
     @Override protected MapCodec<? extends BiomeSource> codec() { return CODEC; }
     @Override protected Stream<Holder<Biome>> collectPossibleBiomes() { return palette.values().stream(); }
 

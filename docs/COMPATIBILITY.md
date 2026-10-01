@@ -184,7 +184,7 @@ The independent [highlands prototype](PLANETARY_TERRAIN.md) was verified with
 original **Distant Horizons 3.3.3**, Minecraft 1.21.1 and NeoForge 21.1.252.
 [Exact publisher release](https://modrinth.com/mod/distanthorizons/version/9w34y8ai).
 DH is optional and is not bundled. Its public API is a compile-only dependency
-for the cloud-ownership bridge; the verification source set also uses API 7.2
+for cloud ownership and direct Earth LOD generation; verification also uses API 7.2
 for measurements. No DH implementation, renderer or configuration is bundled.
 
 The plain NeoForge experiment passed with native render distance **4 chunks**,
@@ -211,6 +211,9 @@ fixture changes temporary API overrides in a disposable profile and restores the
 LODs use DH's own derived cache; authoritative terrain and player modifications
 remain in Minecraft's saved chunks.
 
+The CHUNKS_ONLY advice concerns the independent highlands prototype. The Astra
+Earth preset instead provides the direct geographic override described below.
+
 **This does not establish full Astra sky compatibility.** The highlands currently
 use the host sky. DH has a separate depth buffer, while Astra's late custom sky
 currently tests host depth alone. With Iris, a distant-terrain pixel can therefore
@@ -223,6 +226,60 @@ paths from the highlands experiment.
 
 Local original artifacts, hashes, source audit and native evidence are under
 `Workflow/verification/planetary-terrain-2026-09-30/`. They are not shipped in the JAR.
+
+## Direct Earth LOD generation
+
+With DH 3.3.3 / public API 7.2 installed, an actual `EarthChunkGenerator` server
+level registers its own
+[world-generator override](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/api/src/main/java/com/seibel/distanthorizons/api/interfaces/override/worldGenerator/IDhApiWorldGenerator.java).
+This applies to the Astra Earth Overworld and its saved face/altitude charts.
+Ordinary vanilla Overworlds, other generators, and client-only connections to
+servers without this integration retain DH's existing generator.
+
+The adapter returns `API_DATA_SOURCES` directly: one 64-by-64 column tile at the
+requested resolution, using Earth's saved geographic field, base block materials,
+biome palette and exact vertical storage interval. Each column contains at most
+five material/air runs. It creates no Minecraft chunks, executes no biome features
+and uses DH's supplied worker pool. The same bounded sample count covers larger
+areas at coarser detail, rather than generating every block in those areas.
+
+DH retains its configured render distance, CPU limits, generation enablement,
+database and renderer. The queue can still describe work as "generating chunks";
+that upstream label does not identify the override's actual workload. This is
+demand-driven LOD generation around requested views, not whole-planet pregeneration.
+Database writes, propagation, mesh creation and drawing still have costs.
+
+This is an undecorated base-surface approximation. Trees, caves, structures and
+player lighting enter through DH's real chunk observations. Completed approximate
+columns use DH's FEATURES priority to avoid repeated SURFACE refinement requests;
+real LIGHT-stage chunk columns have higher priority and supersede them. No saved
+Minecraft terrain or existing DH cache is deleted or rewritten as a migration.
+
+The override supplies data, not spherical geometry: existing DH meshes remain
+flat in each storage chart. It does not fix the documented late-sky/depth or
+shader-pack ownership limitations. Unsupported API major versions retain normal
+DH generation with a diagnostic; DH is not required on a server or client.
+
+The disposable `earth-dh` native phase checks the actual registration and worker
+path, four resolutions through DH's own data validator, exact base-column
+materials, negative-Y interval coverage, explicit lit air, real LIGHT-over-FEATURES
+merge priority, ON/OFF/ON rendering and reload. It records generation time separately
+from render intervals. Add original DH 3.3.3 and the desired optional stack to a
+fresh fixture's `mods/`, then run:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-earth-dh -PverifyPhase=earth-dh
+```
+
+The 2026-10-01 run passed with the author's 25-mod stack (Sodium 0.8.13,
+Chloride 1.8.1, DH 3.3.3, Zume 1.2.2; no Iris), Fancy, 4-chunk native distance,
+32-chunk DH radius and clouds off. It completed 71 tiles / 290,816 columns using
+1.733 seconds of cumulative generator worker time. This excludes queue waiting,
+database propagation and rendering; it is not end-to-end throughput. On Intel UHD
+CML GT2 / Mesa 26.2.3, 206 observed render intervals averaged 126.06 ms, p95
+166.67 ms and p99 183.35 ms. Frame-rate optimization remains necessary; no FPS
+improvement is established by this run. The isolated build also passed 277 pure
+tests and 48 dedicated GameTests without DH, including every Earth storage band.
 
 ## Distant Horizons cloud ownership
 

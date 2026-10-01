@@ -85,6 +85,11 @@ public final class EarthChunkGenerator extends ChunkGenerator {
     public EarthChart chart() { return chart; }
     /** Immutable spherical field shared by every storage chart and presentation sampler. */
     public ContinentalTerrain terrain() { return terrain; }
+    /**
+     * Worker-safe unmodified base column, including lit-air space but no decoration or player edits.
+     * Uses the exact generation sampler and band clipping, without loading chunks or allocating a voxel array.
+     */
+    public List<TerrainLayer> terrainLayers(int x, int z) { return columns.layers(x, z); }
     @Override protected MapCodec<? extends ChunkGenerator> codec() { return CODEC; }
 
     @Override

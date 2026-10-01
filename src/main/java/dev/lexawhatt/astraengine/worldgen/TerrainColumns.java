@@ -1,6 +1,8 @@
 package dev.lexawhatt.astraengine.worldgen;
 
 import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.NoiseColumn;
@@ -29,6 +31,24 @@ final class TerrainColumns {
     interface Sampler { Column sample(int x, int z); }
     record Column(int firstAir, int top, BlockState surface, BlockState subsurface) {}
     private Column column(int x, int z) { return sampler.sample(x, z); }
+
+    /** The same base materials as fill(), represented by at most five runs instead of a height-sized array. */
+    List<TerrainLayer> layers(int x, int z) {
+        Column column = column(x, z);
+        int end = minYBound + height;
+        if (column == null) { return List.of(new TerrainLayer(minYBound, end, AIR)); }
+        List<TerrainLayer> result = new ArrayList<>(5);
+        int bottom = minYBound;
+        int[] boundaries = {column.firstAir() - 5, column.firstAir() - 1, column.firstAir(), column.top(), end};
+        for (int boundary : boundaries) {
+            int top = Math.clamp(boundary, minYBound, end);
+            if (top > bottom) {
+                result.add(new TerrainLayer(bottom, top, block(column, bottom)));
+                bottom = top;
+            }
+        }
+        return List.copyOf(result);
+    }
 
     ChunkAccess fill(ChunkAccess chunk) {
         Column[] columns = new Column[256];

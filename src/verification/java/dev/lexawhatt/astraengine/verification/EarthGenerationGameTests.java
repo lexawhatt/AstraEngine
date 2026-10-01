@@ -133,6 +133,17 @@ public final class EarthGenerationGameTests {
                 int solid = Math.clamp(firstAir, minY, maxY);
                 int top = Math.clamp(Math.max(firstAir, generator.getSeaLevel()), minY, maxY);
                 var column = generator.getBaseColumn(x, z, height, random);
+                var layers = generator.terrainLayers(x, z);
+                int nextY = minY;
+                helper.assertTrue(layers.size() <= 5, "LOD base column expanded into voxels");
+                for (var layer : layers) {
+                    helper.assertTrue(layer.bottomY() == nextY, "LOD base column has a gap or overlap");
+                    for (int y = layer.bottomY(); y < layer.topY(); y++) {
+                        helper.assertTrue(layer.state().equals(column.getBlock(y)), "LOD material differs from chunk sampler");
+                    }
+                    nextY = layer.topY();
+                }
+                helper.assertTrue(nextY == maxY, "LOD base column omitted explicit air or a band edge");
                 for (int y = minY; y < maxY; y++) {
                     var actual = chunk.getBlockState(new BlockPos(x, y, z));
                     helper.assertTrue(actual.equals(column.getBlock(y)), "Stored Earth column differs from base query");

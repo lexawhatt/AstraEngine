@@ -71,6 +71,12 @@ It layers beneath host/DH geometry and yields to active Iris packs. It remains o
 storage-boundary views are integrated;
 existing worlds and the current legacy landing destinations retain their behavior.
 
+With optional Distant Horizons 3.3.3, Astra Earth supplies
+[geographic LOD columns directly](docs/COMPATIBILITY.md#direct-earth-lod-generation)
+from that same terrain source. Distant generation does not create full Minecraft
+chunks; observed chunks and player edits retain priority. This supplies base
+terrain data, while DH still owns its cache, drawing and configured work budget.
+
 An opt-in [horizon calibration world](docs/PLANETARY_HORIZON.md) adds an Earth-radius
 spherical ocean and fixed visual towers. It demonstrates altitude-dependent
 horizons and bottom-first occlusion. Near blocks and DH meshes remain flat; active

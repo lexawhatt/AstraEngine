@@ -94,6 +94,7 @@ public final class ClientScenario {
     private EarthLandscapeScenario earthLandscapeScenario;
     private EarthBoundaryScenario earthBoundaryScenario;
     private ContinentalOrbitScenario continentalOrbitScenario;
+    private EarthDistantScenario earthDistantScenario;
     private LunarPulsarVisualScenario lunarPulsarVisualScenario;
     private PulsarAtlasScenario pulsarAtlasScenario;
     private SurfacePayload latestSurface;
@@ -209,7 +210,7 @@ public final class ClientScenario {
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
                         || phase.startsWith("earth-boundary-") || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || (phase.equals("earth-landscape") || phase.equals("earth-landscape-pack")) || phase.equals("earth-generation-create") || phase.equals("continental-create")
-                        || phase.startsWith("dh-clouds")
+                        || phase.startsWith("dh-clouds") || phase.equals("earth-dh")
                         || phase.equals("lunar-pulsar") || phase.equals("pulsar-create")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
@@ -270,6 +271,11 @@ public final class ClientScenario {
             if (phase.equals("earth-orbit")) {
                 if (continentalOrbitScenario == null) { continentalOrbitScenario = new ContinentalOrbitScenario(); }
                 if (continentalOrbitScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.equals("earth-dh")) {
+                if (earthDistantScenario == null) { earthDistantScenario = new EarthDistantScenario(); }
+                if (earthDistantScenario.tick()) { finish(); }
                 return;
             }
             if ((phase.equals("earth-landscape") || phase.equals("earth-landscape-pack"))) {

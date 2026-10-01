@@ -27,6 +27,7 @@ import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -81,6 +82,15 @@ public final class AstraEngine {
     }
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
+        event.enqueueWork(() -> {
+            if (ModList.get().isLoaded("distanthorizons")) {
+                try {
+                    dev.lexawhatt.astraengine.compat.distant.DistantTerrainBridge.register();
+                } catch (LinkageError unavailableApi) {
+                    LOGGER.error("Direct Earth LOD adapter could not link to the installed DH API", unavailableApi);
+                }
+            }
+        });
         LOGGER.info("AstraEngine initialized");
     }
 }
