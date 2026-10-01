@@ -24,18 +24,21 @@ final class EarthCaveCarver {
         int startX = chunk.getPos().getMinBlockX(), startZ = chunk.getPos().getMinBlockZ();
         if (Math.abs(startX + 8.0) > EarthChart.RADIUS_METERS || Math.abs(startZ + 8.0) > EarthChart.RADIUS_METERS) { return; }
         double[] heights = new double[256];
+        boolean[] water = new boolean[256];
         SpaceVector[] normals = new SpaceVector[256];
         double lowest = Double.POSITIVE_INFINITY, highest = Double.NEGATIVE_INFINITY;
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
                 int index = x + z * 16;
                 normals[index] = chart.normal(startX + x + .5, startZ + z + .5);
-                heights[index] = Math.floor(terrain.sample(normals[index]).heightMeters());
+                var surface = terrain.sample(normals[index]);
+                heights[index] = Math.floor(surface.heightMeters());
+                water[index] = terrain.version() >= 3 && surface.water();
                 lowest = Math.min(lowest, heights[index]); highest = Math.max(highest, heights[index]);
             }
         }
         int origin = chart.altitudeOriginMeters();
-        int minY = Math.max(chunk.getMinBuildHeight(), (int) Math.floor(lowest - SubterraneanField.MAX_DEPTH_METERS) - origin);
+        int minY = Math.max(chunk.getMinBuildHeight(), (int) Math.floor(lowest - caves.maxDepthMeters()) - origin);
         int maxY = Math.min(chunk.getMaxBuildHeight(), (int) Math.ceil(highest) - origin);
         minY = Math.floorDiv(minY, STEP) * STEP;
         if (maxY <= minY) { return; }
@@ -63,7 +66,8 @@ final class EarthCaveCarver {
                                     double radius = EarthChart.RADIUS_METERS + altitude;
                                     density = caves.density(normal.x() * radius, normal.y() * radius, normal.z() * radius);
                                 }
-                                if (!SubterraneanField.isVoid(density, heights[column], altitude)) { continue; }
+                                if (water[column] && altitude > heights[column] - 12) { continue; }
+                                if (!caves.carves(density, heights[column], altitude)) { continue; }
                                 position.set(startX + x, y, startZ + z);
                                 var state = chunk.getBlockState(position);
                                 if (!state.isAir() && state.getFluidState().isEmpty() && !state.is(Blocks.BEDROCK)) {

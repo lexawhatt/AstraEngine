@@ -35,15 +35,19 @@ cancels guidance and preserves a nearby free observer's relative position.
 Changing time during an ascent restores its real surface source. Shader animation
 and stellar evolution keep their existing independent ownership and rates.
 
-New **Astra Earth** worlds also save `cave_version: 1` independently of the surface
-terrain version. The host carving stage opens connected tunnels and large irregular
-chambers from a deterministic body-fixed density field, down to 2,400 meters below
-the local terrain. Rock roofs protect shallow soil and ocean floors; broad cavities
-can break through dry land as sinkholes. This is procedural cave geometry, not an
-erosion or groundwater simulation. It does not add abandoned mineshafts or mining
+New **Astra Earth** worlds save `cave_version: 2` independently of the surface
+terrain version. A deterministic body-fixed field follows folded bedding and two
+fracture families. Ordinary passages are several meters high, with less frequent
+junction rooms and narrow connecting shafts, down to 1,200 meters below local
+terrain. Rock roofs protect shallow soil and ocean floors; some passages reach
+the dry surface as entrances. This draws on the
+[bedding and joint controls described by the National Park Service](https://www.nps.gov/maca/learn/nature/how-mammoth-cave-formed.htm).
+It is a geometric karst approximation, not an erosion, lithology or groundwater
+simulation. It does not add abandoned mineshafts or mining
 machines. Ordinary biome decoration and consumer ore features still run afterward.
 
 Missing `cave_version` decodes as zero, preserving old solid underground generators.
+Saved version one retains its original broad chambers and 2,400-meter depth envelope.
 Already saved chunks are never recarved. Changing a saved generator by hand is not
 a migration and can introduce chunk borders. The cave field uses physical altitude
 across face/band representations, but automatic traversal of those storage seams
@@ -67,6 +71,10 @@ terrain, not saved building summaries or voxel interaction targets.
 Beach/desert materials use the same climate classification as the block generator;
 water follows the source-water surface datum. Derivative-filtered material detail
 reduces distant texture shimmer. This mesh does not generate distant voxel chunks.
+The near coverage mask applies only to land within the native far plane and a
+16-to-48-meter neighborhood whose existing terrain sections have finished meshing.
+Until then, the procedural background stays visible. The mask preserves background
+water beneath translucent blocks and terrain below high-altitude views.
 
 Terrain, ocean and cloud depth use separate, explicit projections. Clouds stop at
 the visible distant terrain instead of shining through it. In Fabulous mode,
@@ -120,17 +128,48 @@ fractional/overflowing identities fail validation. Startup rejects a partial or
 changed active Earth preset instead of allocating replacement worlds. Ordinary
 host chunk storage retains builds and block entities through shutdown and restart.
 
-New Earth worlds select terrain version 2, with domain-warped gradient noise,
-rotated octaves and connected mountain ridges. Version 1 remains readable without
-changing its heights or biomes. Terrain and biome source versions must agree;
-the server sends the saved terrain version to clients (Earth context protocol 2).
-The seed and full generator definition remain world-owned, not renderer settings.
+New Earth worlds select terrain version 3. It retains the broad continental structure
+of version 2, adds plateau provinces, eroded uplands, foothills, rolling lowlands,
+basins, finer ridged mountain spurs and connected regional river valleys. Offshore
+relief includes ridges, trenches and abyssal variation. Annual-mean zonal climate
+uses latitude, altitude, coastal moderation and regional moisture variation; an
+upwind plateau sample supplies a bounded rain-shadow approximation. It does not
+simulate tectonics or atmospheric circulation. Versions 1 and 2 remain readable with their exact original relief and
+biomes. Terrain and biome source versions must agree; the server sends the saved
+terrain version to clients (Earth context protocol 3). Updating the mod does not
+upgrade a saved world's generator. Create a new **Astra Earth** world to use v3;
+editing saved version fields is not a migration.
 
-The immutable continental sampler supplies elevation, temperature and moisture.
-Twelve named climate classes select registry-owned ocean, beach, snow, alpine,
-desert, savanna, jungle, taiga, forest and plains biomes. Their normal vegetation
-features remain active; consumers can extend them through ordinary biome modifiers
-and placed features. This version does not generate structure sets or carvers.
+Regional drainage uses an original Java implementation of
+[Barnes, Lehman and Mulla's Priority-Flood algorithm](https://doi.org/10.1016/j.cageo.2013.04.024).
+Ocean cells seed a closed six-face, 256-by-256-per-face graph. A deterministic
+parent forest routes inland depressions to ocean outlets; accumulated contributing
+area controls river width. Channel profiles are breached downstream, with shared
+water elevations at confluences, meandering lowland courses and smooth valley
+cross-sections. The graph is derived once during parallel mod setup and contains
+no chunks, world references or simulation clock. There is no whole-planet voxel
+pregeneration. Noncanonical pure-model seeds prepare their own immutable atlas
+at construction and must be constructed on a startup/worker thread.
+
+The same sampler returns bed elevation, water elevation, temperature and moisture.
+Chunk columns, direct DH columns, landing queries and distant/orbital presentation
+use those observations. Regional rivers are ordinary Minecraft water over gravel;
+a twelve-meter rock roof protects submerged river beds from the cave carver.
+A dedicated saved river biome entry retains host river decoration. The twelve
+existing climate classes retain their registry-owned ocean, beach, snow, alpine,
+desert, savanna, jungle, taiga, forest and plains features. Consumers can extend
+these through biome modifiers and placed features. No structure sets are added.
+
+This is routed procedural geography, not measured Earth drainage, a hydraulic
+erosion model or a rainfall/groundwater simulation. Small streams below the
+regional graph resolution and a seasonal discharge simulation are not supplied.
+The host still represents sloping water in block-height steps. At coarser orbital
+or distant mesh resolution, channels narrower than a sample interval can disappear;
+local orbital tiles retain visible river water height and a water material mask.
+The v3 distant mesh locally bisects wet/dry edges with shared midpoint vertices;
+four bounded refinement passes reduce jagged banks without introducing cracks or
+raising the resolution of the entire planetary mesh. Geometry is capped at 60,000
+vertices per retained background mesh.
 
 Snow and freezing use physical latitude/elevation in Earth generation and server
 weather checks. A narrow `Biome.shouldSnow`/`shouldFreeze` injection replaces the
@@ -227,3 +266,11 @@ The `earth-underground` native phase creates real cave chunks, compares dark,
 flashlight, local block emission and night-vision images, and exercises rebinding,
 menu suppression, resource reload and disconnect. Pure connected-component checks
 and dedicated carver/legacy-codec/ocean-roof tests complement this visible scenario.
+
+The `earth-rivers` phase requires DH 3.3.3 in its disposable profile. It creates
+terrain v3, compares the prior and optimized DH loops over identical geographic
+requests, validates raised river water and empty flight data, and captures river
+valley, elevated river, ocean-mouth and mountain views. Six real generated river
+chunks are also checked by dedicated GameTests, including their water level,
+river biome and protected cave roofs. Pure checks cover outlet reachability,
+downhill profiles, confluences, globe seams and bounded shoreline refinement.

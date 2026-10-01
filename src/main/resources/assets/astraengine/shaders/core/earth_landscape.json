@@ -123,6 +123,14 @@
       ]
     },
     {
+      "name": "HostFarPlane",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
       "name": "MaterialOffset",
       "type": "float",
       "count": 2,

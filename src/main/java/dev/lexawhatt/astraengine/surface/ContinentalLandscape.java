@@ -60,23 +60,16 @@ public final class ContinentalLandscape {
         PlanetaryFrame frame = chart.tangentFrame(centerX, centerZ, 0);
         ContinentalTerrain terrain = new ContinentalTerrain(chart.terrainVersion(), ContinentalTerrain.SEED);
         int count = 1 + RINGS * SECTORS;
-        float[] positions = new float[count * 3], colors = new float[count * 3], normals = new float[count * 3];
-        float[] weights = new float[count];
-        boolean[] liquid = new boolean[count];
-        weights[0] = 0;
-        sampleVertex(0, frame.upAxis(), chart, centerX, centerZ, frame, terrain, palette, positions, colors, liquid);
+        SpaceVector[] directions = new SpaceVector[count];
+        directions[0] = frame.upAxis();
         for (int ring = 0; ring < RINGS; ring++) {
             if (cancelled.getAsBoolean()) { throw new CancellationException("Distant surface retired"); }
             double radius = ringRadius(ring);
-            float weight = (float) joinAmount(EarthChart.RADIUS_METERS * Math.atan(radius / EarthChart.RADIUS_METERS));
             for (int sector = 0; sector < SECTORS; sector++) {
                 double angle = sector * Math.PI * 2 / SECTORS;
-                SpaceVector direction = frame.upAxis().multiply(EarthChart.RADIUS_METERS)
+                directions[1 + ring * SECTORS + sector] = frame.upAxis().multiply(EarthChart.RADIUS_METERS)
                         .add(frame.xAxis().multiply(Math.cos(angle) * radius))
                         .add(frame.zAxis().multiply(Math.sin(angle) * radius)).normalized();
-                weights[1 + ring * SECTORS + sector] = weight;
-                sampleVertex(1 + ring * SECTORS + sector, direction, chart, centerX, centerZ,
-                        frame, terrain, palette, positions, colors, liquid);
             }
         }
         int[] triangles = new int[(SECTORS + (RINGS - 1) * SECTORS * 2) * 3];
@@ -94,6 +87,24 @@ public final class ContinentalLandscape {
                 triangles[offset++] = a; triangles[offset++] = b; triangles[offset++] = c;
                 triangles[offset++] = b; triangles[offset++] = d; triangles[offset++] = c;
             }
+        }
+        ContinentalTerrain.Sample[] observations = null;
+        if (chart.terrainVersion() >= 3) {
+            var refined = ShorelineRefinement.refine(directions, triangles, terrain, cancelled);
+            directions = refined.directions(); triangles = refined.triangles(); observations = refined.samples();
+            count = directions.length;
+        }
+        float[] positions = new float[count * 3], colors = new float[count * 3], normals = new float[count * 3];
+        float[] weights = new float[count];
+        boolean[] liquid = new boolean[count];
+        for (int i = 0; i < count; i++) {
+            if (i % SECTORS == 0 && cancelled.getAsBoolean()) { throw new CancellationException("Distant surface retired"); }
+            var direction = directions[i];
+            double arc = EarthChart.RADIUS_METERS * Math.atan2(PlanetaryFrame.cross(direction, frame.upAxis()).length(),
+                    direction.dot(frame.upAxis()));
+            weights[i] = (float) joinAmount(arc);
+            var sample = observations == null ? terrain.sample(direction) : observations[i];
+            sampleVertex(i, direction, chart, centerX, centerZ, frame, sample, palette, positions, colors, liquid);
         }
         for (int i = 0; i < triangles.length; i += 3) {
             int a = triangles[i], b = triangles[i + 1], c = triangles[i + 2];
@@ -142,12 +153,11 @@ public final class ContinentalLandscape {
     }
 
     private static void sampleVertex(int index, SpaceVector direction, EarthChart chart, double centerX,
-            double centerZ, PlanetaryFrame frame, ContinentalTerrain terrain, EarthSurfacePalette palette,
+            double centerZ, PlanetaryFrame frame, ContinentalTerrain.Sample sample, EarthSurfacePalette palette,
             float[] positions, float[] colors, boolean[] liquid) {
-        var sample = terrain.sample(direction);
-        boolean water = sample.heightMeters() < 0;
+        boolean water = sample.water();
         // The generator's first-air coordinate is the top of the last solid block, not its block index.
-        double height = water ? -1.0 / 9.0 : Math.floor(sample.heightMeters());
+        double height = water ? Math.floor(sample.waterMeters()) - 1.0 / 9.0 : Math.floor(sample.heightMeters());
         put(positions, index, project(chart, centerX, centerZ, frame, direction, height));
         liquid[index] = EarthSurfacePalette.liquid(sample);
         put(colors, index, palette.color(sample));

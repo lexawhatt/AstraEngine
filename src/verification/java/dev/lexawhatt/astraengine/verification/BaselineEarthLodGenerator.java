@@ -1,4 +1,4 @@
-package dev.lexawhatt.astraengine.compat.distant;
+package dev.lexawhatt.astraengine.verification;
 
 import com.seibel.distanthorizons.api.DhApi;
 import com.seibel.distanthorizons.api.enums.worldGeneration.EDhApiDistantGeneratorMode;
@@ -26,23 +26,19 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.LevelHeightAccessor;
 
-/**
- * Optional DH 7.2 API adapter for immutable Earth geography. DH owns scheduling, pooled data, persistence
- * and disposal. This adapter creates no Minecraft chunks, executor, level cache, or renderer. Actual lit
- * chunk data has higher DH generation priority than this undecorated geographic approximation.
- */
-public final class EarthLodGenerator implements IDhApiWorldGenerator {
+/** Frozen 80b7d35 tile loop, with only the v3 river palette added for an equal-workload cache comparison.
+ * Verification-only: not shipped, not registered, and no world mutation or independent scheduling. */
+final class BaselineEarthLodGenerator implements IDhApiWorldGenerator {
     private final EarthChunkGenerator terrain;
     private final Map<BlockState, IDhApiBlockStateWrapper> blocks;
     private final Map<EarthClimate, IDhApiBiomeWrapper> biomes;
     private final IDhApiBiomeWrapper riverBiome;
-    private final LongAdder biomeSamples = new LongAdder();
     private final LongAdder completed = new LongAdder();
     private final LongAdder columns = new LongAdder();
     private final LongAdder nanos = new LongAdder();
 
     /** Capture registry wrappers at DH level load; the wrapper and its host level are not retained. */
-    public EarthLodGenerator(IDhApiLevelWrapper level, EarthChunkGenerator terrain) {
+    public BaselineEarthLodGenerator(IDhApiLevelWrapper level, EarthChunkGenerator terrain) {
         // DH 3.3.3's ServerLevelWrapper.getMaxHeight() returns host height, not the documented upper Y.
         // Validate the actual pinned host bounds instead of deriving an incorrect negative-Y interval.
         if (level == null || terrain == null || !(level.getWrappedMcObject() instanceof LevelHeightAccessor height)
@@ -87,26 +83,15 @@ public final class EarthLodGenerator implements IDhApiWorldGenerator {
             long started = System.nanoTime();
             var values = new ArrayList<DhApiTerrainDataPoint>(5);
             int minY = terrain.getMinY();
-            // Detail 0/1 columns share quart cells. Worker-local storage avoids repeated full terrain samples
-            // without quantizing material heights or retaining cache state beyond this one DH tile.
-            int biomeWidth = spacing < 4 ? 64 * spacing / 4 : 0;
-            IDhApiBiomeWrapper[] biomeCache = new IDhApiBiomeWrapper[biomeWidth * biomeWidth];
-            long sampledBiomes = 0;
             for (int z = 0; z < 64; z++) {
                 if (Thread.currentThread().isInterrupted()) { throw new CancellationException("Earth LOD interrupted"); }
                 for (int x = 0; x < 64; x++) {
                     int blockX = Math.toIntExact(startX + (long) x * spacing + spacing / 2);
                     int blockZ = Math.toIntExact(startZ + (long) z * spacing + spacing / 2);
                     // Match the source's four-block biome cell center, including negative chart positions.
-                    int biomeIndex = biomeWidth == 0 ? 0 : x * spacing / 4 + z * spacing / 4 * biomeWidth;
-                    var biome = biomeWidth == 0 ? null : biomeCache[biomeIndex];
-                    if (biome == null) {
-                        var sample = terrain.terrain().sample(terrain.chart().normal(
-                                Math.floorDiv(blockX, 4) * 4.0 + 2, Math.floorDiv(blockZ, 4) * 4.0 + 2));
-                        biome = sample.river() ? riverBiome : biomes.get(EarthClimate.at(sample));
-                        sampledBiomes++;
-                        if (biomeWidth != 0) { biomeCache[biomeIndex] = biome; }
-                    }
+                    var sample = terrain.terrain().sample(terrain.chart().normal(
+                            Math.floorDiv(blockX, 4) * 4.0 + 2, Math.floorDiv(blockZ, 4) * 4.0 + 2));
+                    var biome = sample.river() ? riverBiome : biomes.get(EarthClimate.at(sample));
                     values.clear();
                     for (var layer : terrain.terrainLayers(blockX, blockZ)) {
                         var state = blocks.get(layer.state());
@@ -124,7 +109,6 @@ public final class EarthLodGenerator implements IDhApiWorldGenerator {
                 }
             }
             resultConsumer.accept(data);
-            biomeSamples.add(sampledBiomes);
             columns.add(64L * 64);
             completed.increment();
             nanos.add(System.nanoTime() - started);
@@ -137,7 +121,7 @@ public final class EarthLodGenerator implements IDhApiWorldGenerator {
     @Override public void close() { }
 
     /** Read-only per-level diagnostic totals; generation time excludes DH database, mesh and draw costs. */
-    public Metrics metrics() { return new Metrics(completed.sum(), columns.sum(), biomeSamples.sum(), nanos.sum()); }
+    public Metrics metrics() { return new Metrics(completed.sum(), columns.sum(), nanos.sum()); }
     /** Completed requests, sampled columns and accumulated worker nanoseconds, never an FPS estimate. */
-    public record Metrics(long requests, long columns, long biomeSamples, long workerNanos) { }
+    public record Metrics(long requests, long columns, long workerNanos) { }
 }

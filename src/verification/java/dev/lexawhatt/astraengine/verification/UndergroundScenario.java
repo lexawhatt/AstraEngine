@@ -16,6 +16,7 @@ import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.level.GameRules;
@@ -56,22 +57,16 @@ final class UndergroundScenario {
                 server(server -> {
                     var level = server.overworld();
                     var generator = (EarthChunkGenerator) level.getChunkSource().getGenerator();
-                    require(generator.caves().version() == 1, "Fresh Earth did not enable caves");
+                    require(generator.caves().version() == 2, "Fresh Earth did not enable caves");
                     level.getGameRules().getRule(GameRules.RULE_DAYLIGHT).set(false, server);
                     level.setDayTime(6000);
                     var player = server.getPlayerList().getPlayers().getFirst();
-                    // This point is inside a generated chamber, not an excavated verification room.
-                    var probe = new BlockPos(8, 40, 8);
-                    require(level.getBlockState(probe).isAir(), "Actual carver did not open the sampled chamber");
-                    int y = 40;
-                    while (y > -200 && level.getBlockState(new BlockPos(8, y, 8)).isAir()) { y--; }
-                    floor = new BlockPos(8, y, 8);
+                    var site = findPassage(level, generator);
+                    floor = site.floor();
                     originalFloor = level.getBlockState(floor);
-                    int ceiling = 40;
-                    while (ceiling < 300 && level.getBlockState(new BlockPos(8, ceiling, 8)).isAir()) { ceiling++; }
-                    require(ceiling - y > 60, "Generated cavern has no vertical scale");
-                    evidence.append("floor=").append(floor).append(" ceiling=").append(ceiling).append('\n');
-                    player.teleportTo(level, 8.5, y + 5, 8.5, 35, 18);
+                    evidence.append("floor=").append(floor).append(" ceiling=").append(site.ceiling()).append('\n');
+                    player.teleportTo(level, floor.getX() + .5, floor.getY() + 1.1,
+                            floor.getZ() + .5, site.yaw(), 6);
                     player.getAbilities().flying = true; player.onUpdateAbilities();
                     require(level.getBrightness(LightLayer.SKY, BlockPos.containing(player.position())) == 0,
                             "Fixture is exposed to daylight");
@@ -125,7 +120,8 @@ final class UndergroundScenario {
                 require(lamp > dark + .003, "Host local lamp stopped illuminating the cave: " + lamp);
                 server(server -> {
                     server.overworld().setBlockAndUpdate(floor, originalFloor);
-                    server.getPlayerList().getPlayers().getFirst().addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 4000));
+                    server.getPlayerList().getPlayers().getFirst()
+                            .addEffect(new MobEffectInstance(MobEffects.NIGHT_VISION, 4000, 0, false, false));
                 });
                 next();
             }
@@ -157,6 +153,40 @@ final class UndergroundScenario {
             default -> throw new IllegalStateException("Unknown underground verification step");
         }
         return false;
+    }
+
+    private record Passage(BlockPos floor, int ceiling, float yaw) { }
+
+    private static Passage findPassage(ServerLevel level, EarthChunkGenerator generator) {
+        // Search the actual generated passages; never excavate a room to make the lighting test pass.
+        for (int z = 8; z < 96; z += 8) {
+            for (int x = 8; x < 96; x += 8) {
+                var normal = generator.chart().normal(x + .5, z + .5);
+                int top = (int) generator.terrain().sample(normal).heightMeters();
+                for (int y = top - 100; y > Math.max(top - 900, level.getMinBuildHeight() + 32); y -= 4) {
+                    var physical = normal.multiply(dev.lexawhatt.astraengine.surface.EarthChart.RADIUS_METERS + y + .5);
+                    if (generator.caves().density(physical.x(), physical.y(), physical.z()) < 1) { continue; }
+                    if (!level.getBlockState(new BlockPos(x, y, z)).isAir()) { continue; }
+                    int floorY = y, ceiling = y;
+                    while (level.getBlockState(new BlockPos(x, floorY, z)).isAir() && y - floorY < 20) { floorY--; }
+                    while (level.getBlockState(new BlockPos(x, ceiling, z)).isAir() && ceiling - y < 20) { ceiling++; }
+                    if (ceiling - floorY < 5 || ceiling - floorY > 16) { continue; }
+                    int best = 0; float yaw = 0;
+                    for (int direction = 0; direction < 8; direction++) {
+                        double angle = direction * Math.PI / 4;
+                        int reach = 1;
+                        for (; reach < 24; reach++) {
+                            var point = BlockPos.containing(x + .5 - Math.sin(angle) * reach,
+                                    floorY + 3, z + .5 + Math.cos(angle) * reach);
+                            if (!level.getBlockState(point).isAir()) { break; }
+                        }
+                        if (reach > best) { best = reach; yaw = (float) Math.toDegrees(angle); }
+                    }
+                    if (best >= 10) { return new Passage(new BlockPos(x, floorY, z), ceiling, yaw); }
+                }
+            }
+        }
+        throw new IllegalStateException("No enclosed human-scale connected passage in the bounded test area");
     }
 
     private int unlitTexel() throws Exception {

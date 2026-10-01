@@ -4,6 +4,7 @@ uniform vec3 HazeColor;
 uniform float EyeAltitude;
 uniform float Flash;
 uniform float NearCoverage;
+uniform float HostFarPlane;
 uniform vec2 BandAltitude;
 in vec3 localPosition;
 in vec3 localNormal;
@@ -25,7 +26,10 @@ float materialNoise(vec2 p) {
 }
 void main() {
     float surfaceAltitude = localPosition.y + EyeAltitude;
-    if (max(abs(localPosition.x), abs(localPosition.z)) < NearCoverage
+    // The host cannot cover terrain beyond its far plane even directly below the camera.
+    // Water also needs a background beneath the host's translucent surface.
+    if (liquidWater < 0.5 && length(localPosition) < HostFarPlane * 0.9
+            && max(abs(localPosition.x), abs(localPosition.z)) < NearCoverage
             && surfaceAltitude > BandAltitude.x && surfaceAltitude <= BandAltitude.y) { discard; }
     vec3 normal = normalize(localNormal);
     // The native block renderer shades an upward face at full skylight. Match its face weights

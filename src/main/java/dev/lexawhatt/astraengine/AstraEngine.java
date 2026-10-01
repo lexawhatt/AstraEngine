@@ -57,7 +57,7 @@ public final class AstraEngine {
                 (payload, context) -> NeoForge.EVENT_BUS.post(new NavigationPolicyReceivedEvent(payload)));
         event.registrar("1").playToClient(EarthBoundaryPayload.TYPE, EarthBoundaryPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new EarthBoundaryReceivedEvent(payload)));
-        event.registrar("2").playToClient(EarthContextPayload.TYPE, EarthContextPayload.CODEC,
+        event.registrar("3").playToClient(EarthContextPayload.TYPE, EarthContextPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new EarthContextReceivedEvent(payload)));
         event.registrar("1").playToClient(SystemPayload.TYPE, SystemPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SystemSnapshotReceivedEvent(payload)));
@@ -87,6 +87,7 @@ public final class AstraEngine {
     }
 
     private void onCommonSetup(FMLCommonSetupEvent event) {
+        dev.lexawhatt.astraengine.surface.ContinentalTerrain.prepareCanonical();
         event.enqueueWork(NavigationRules::register);
         event.enqueueWork(() -> {
             if (ModList.get().isLoaded("distanthorizons")) {

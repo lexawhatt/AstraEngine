@@ -7,6 +7,7 @@ public enum EarthClimate {
     /** Classifies the shared immutable field, without reading Minecraft registries or changing terrain height. */
     public static EarthClimate at(ContinentalTerrain.Sample sample) {
         if (sample == null) { throw new IllegalArgumentException("Earth climate requires a terrain sample"); }
+        if (sample.river()) { return sample.temperature() < -4 ? FROZEN_OCEAN : OCEAN; }
         if (sample.heightMeters() < -5) {
             return sample.temperature() < -4 ? FROZEN_OCEAN : sample.heightMeters() < -600 ? DEEP_OCEAN : OCEAN;
         }

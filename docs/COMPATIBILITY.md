@@ -243,6 +243,18 @@ five material/air runs. It creates no Minecraft chunks, executes no biome featur
 and uses DH's supplied worker pool. The same bounded sample count covers larger
 areas at coarser detail, rather than generating every block in those areas.
 
+At detail levels zero and one, a worker-local quart-biome cache reduces full
+biome-field samples per tile from 4096 to 256 and 1024 respectively. Surface heights
+and vertical runs retain their original per-column sampling; negative coordinates
+use the exact host four-block cell centers. Version-three river levels and the
+saved river biome are included. No cache survives a request or crosses levels.
+
+The permanent `astraengine:flight` staging world also supplies direct air columns
+when its actual flat generator has empty layers, the void biome, no structures
+and no generation features. Changed datapack definitions retain their normal DH
+path. This override does not generate Minecraft chunks, and actual saved LIGHT
+columns still supersede the procedural FEATURES data.
+
 DH retains its configured render distance, CPU limits, generation enablement,
 database and renderer. The queue can still describe work as "generating chunks";
 that upstream label does not identify the override's actual workload. This is
@@ -280,6 +292,33 @@ CML GT2 / Mesa 26.2.3, 206 observed render intervals averaged 126.06 ms, p95
 166.67 ms and p99 183.35 ms. Frame-rate optimization remains necessary; no FPS
 improvement is established by this run. The isolated build also passed 277 pure
 tests and 48 dedicated GameTests without DH, including every Earth storage band.
+
+The final terrain-v3 provinces/climate `earth-rivers` fixture compares the prior uncached adapter
+with the quart cache over identical geographic requests on the same supplied DH
+executor. All 4096 columns' materials, biomes, heights and skylight match at each
+tested resolution. The copied 25-mod stack uses a 6-chunk native distance, 32-chunk
+DH radius, clouds off and a fresh world. Each row has six warmups and 30 alternating
+measured requests per implementation on Intel UHD CML GT2 / Mesa 26.2.3:
+
+| DH detail | Prior worker mean / p95 | Cached worker mean / p95 |
+| --- | --- | --- |
+| 0 (1 m spacing) | 34.152 / 46.650 ms | 19.686 / 26.572 ms |
+| 1 (2 m spacing) | 39.121 / 52.554 ms | 23.144 / 31.349 ms |
+| 4 (16 m spacing) | 38.859 / 54.245 ms | 37.941 / 56.973 ms |
+| 12 (4096 m spacing) | 44.138 / 58.984 ms | 44.939 / 60.087 ms |
+
+Inside-task elapsed time fell about 42% and 41% at the two cached resolutions;
+there is no demonstrated improvement at coarser levels. Queue-inclusive detail-0
+means were 1354.348 / 1464.627 ms with p95 2496.096 / 2913.265 ms: DH scheduling and
+other stages remain significant. These figures are neither full-pack frame timing
+nor a guarantee of lower queue latency. The fixture also validates raised river
+water and exact empty-flight air through DH's real data-source validator.
+
+Native ON/OFF captures show the new river valleys, alpine ranges and dry uplands.
+The direct far surface remains undecorated until real chunk observations arrive.
+One overhead river capture also showed a transient pale DH polygon that disappeared
+with its renderer disabled; complete DH/background composition is still being
+qualified. These bounded checks do not establish a finished planetary alpha.
 
 ## Distant Horizons cloud ownership
 

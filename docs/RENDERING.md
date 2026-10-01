@@ -395,6 +395,11 @@ Reload/logout/context retirement dispose owned mesh/targets and cancel requests.
 Program disposal remains Minecraft-owned. Allocation failure falls back to host
 terrain until reload. Shader packs keep their existing ownership and suppress this
 native background; this is not a general pack terrain/shadow integration.
-The near coverage mask excludes only procedural surfaces inside the current
-storage band. Looking straight down from an upper band therefore retains the
-geographic ground below it rather than cutting a hole for nonexistent local chunks.
+The near coverage mask excludes land only inside the current storage band and
+native far-plane bound. A bounded 16-to-48-meter neighborhood checks existing
+client chunks, actual top heightmaps and the host renderer's compiled-section
+state before yielding to nearby geometry. Missing/unmeshed terrain retains the
+background; these checks never request chunk generation. DH can extend the host
+projection far plane, so that value is additionally capped by native render distance.
+Background water remains beneath translucent host fluids. Looking down from an
+upper band retains the geographic ground below that band.

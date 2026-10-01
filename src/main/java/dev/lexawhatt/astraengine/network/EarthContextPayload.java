@@ -13,7 +13,7 @@ public record EarthContextPayload(int version) implements CustomPacketPayload {
             (value, buffer) -> buffer.writeVarInt(value.version()), buffer -> new EarthContextPayload(buffer.readVarInt()));
 
     public EarthContextPayload {
-        if (version != 0 && version != ContinentalTerrain.VERSION && version != ContinentalTerrain.CURRENT_VERSION) {
+        if (version < 0 || version > ContinentalTerrain.CURRENT_VERSION) {
             throw new IllegalArgumentException("Unsupported Earth connection geography version: " + version);
         }
     }

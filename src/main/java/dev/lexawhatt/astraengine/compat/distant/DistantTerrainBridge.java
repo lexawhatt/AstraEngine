@@ -1,6 +1,7 @@
 package dev.lexawhatt.astraengine.compat.distant;
 
 import com.seibel.distanthorizons.api.DhApi;
+import com.seibel.distanthorizons.api.interfaces.override.worldGenerator.IDhApiWorldGenerator;
 import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiLevelLoadEvent;
 import com.seibel.distanthorizons.api.methods.events.sharedParameterObjects.DhApiEventParam;
 import dev.lexawhatt.astraengine.AstraEngine;
@@ -24,9 +25,14 @@ public final class DistantTerrainBridge {
         @Override
         public void onLevelLoad(DhApiEventParam<EventParam> event) {
             var wrapper = event.value.levelWrapper;
-            if (!(wrapper.getWrappedMcObject() instanceof ServerLevel level)
-                    || !(level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth)) { return; }
-            var result = DhApi.worldGenOverrides.registerWorldGeneratorOverride(wrapper, new EarthLodGenerator(wrapper, earth));
+            if (!(wrapper.getWrappedMcObject() instanceof ServerLevel level)) { return; }
+            IDhApiWorldGenerator generator;
+            if (level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth) {
+                generator = new EarthLodGenerator(wrapper, earth);
+            } else if (EmptyFlightLodGenerator.supports(level)) {
+                generator = new EmptyFlightLodGenerator(wrapper);
+            } else { return; }
+            var result = DhApi.worldGenOverrides.registerWorldGeneratorOverride(wrapper, generator);
             if (result.success) {
                 AstraEngine.LOGGER.info("Direct geographic DH LOD generator registered for {}", level.dimension().location());
             } else {

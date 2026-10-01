@@ -42,14 +42,14 @@ public final class EarthBiomeSource extends BiomeSource {
     private final ContinentalTerrain terrain;
     private final Map<String, Holder<Biome>> palette;
 
-    /** Copies a complete palette with exactly the lowercase EarthClimate names; nulls and missing keys fail. */
+    /** Copies the legacy palette with exactly the lowercase EarthClimate names; nulls and missing keys fail. */
     public EarthBiomeSource(CubeFace face, Map<String, Holder<Biome>> palette) { this(face, 1, palette); }
 
-    /** Versioned biome sampling; version one is retained when old saved sources omit the version field. */
+    /** Versioned biome sampling; v3 additionally requires a river holder. Missing saved versions retain v1. */
     public EarthBiomeSource(CubeFace face, int terrainVersion, Map<String, Holder<Biome>> palette) {
         this.chart = new EarthChart(face, 0, terrainVersion);
         this.terrain = new ContinentalTerrain(terrainVersion, ContinentalTerrain.SEED);
-        if (palette == null || palette.size() != EarthClimate.values().length) {
+        if (palette == null || palette.size() != EarthClimate.values().length + (terrainVersion >= 3 ? 1 : 0)) {
             throw new IllegalArgumentException("Earth biome palette must contain every named climate class exactly once");
         }
         Map<String, Holder<Biome>> copy = new LinkedHashMap<>();
@@ -58,6 +58,11 @@ public final class EarthBiomeSource extends BiomeSource {
             Holder<Biome> biome = palette.get(key);
             if (biome == null) { throw new IllegalArgumentException("Missing Earth biome palette entry: " + key); }
             copy.put(key, biome);
+        }
+        if (terrainVersion >= 3) {
+            var river = palette.get("river");
+            if (river == null) { throw new IllegalArgumentException("Missing Earth biome palette entry: river"); }
+            copy.put("river", river);
         }
         this.palette = Map.copyOf(copy);
     }
@@ -74,6 +79,15 @@ public final class EarthBiomeSource extends BiomeSource {
         return palette.get(climate.name().toLowerCase(Locale.ROOT));
     }
 
+    /** Registry holder for the exact sampled column; v3 includes a separate river biome with host features. */
+    public Holder<Biome> biome(ContinentalTerrain.Sample sample) {
+        if (sample == null) { throw new IllegalArgumentException("A terrain observation is required"); }
+        return terrain.version() >= 3 && sample.river() ? palette.get("river") : biome(EarthClimate.at(sample));
+    }
+
+    /** River holder for v3, or the legacy ocean holder where no inland water exists. */
+    public Holder<Biome> riverBiome() { return palette.getOrDefault("river", biome(EarthClimate.OCEAN)); }
+
     @Override protected MapCodec<? extends BiomeSource> codec() { return CODEC; }
     @Override protected Stream<Holder<Biome>> collectPossibleBiomes() { return palette.values().stream(); }
 
@@ -81,7 +95,7 @@ public final class EarthBiomeSource extends BiomeSource {
     @Override
     public Holder<Biome> getNoiseBiome(int x, int y, int z, Climate.Sampler sampler) {
         var sample = terrain.sample(chart.normal(x * 4.0 + 2, z * 4.0 + 2));
-        return palette.get(EarthClimate.at(sample).name().toLowerCase(Locale.ROOT));
+        return biome(sample);
     }
 
     private record Definition(String face, int terrainVersion, Map<String, Holder<Biome>> palette) {}

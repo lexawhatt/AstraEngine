@@ -75,8 +75,17 @@ It layers beneath host/DH geometry and yields to active Iris packs. It remains o
 storage-boundary views are integrated;
 existing worlds and the current legacy landing destinations retain their behavior.
 
-New Astra Earth worlds include versioned connected caves and large chambers up to
-2.4 km beneath the local terrain, with protected seabeds and occasional dry entrances.
+New **Astra Earth** worlds use terrain v3: routed rivers join ocean outlets through
+meandering valleys, with dissected mountain ranges, plateaus, old uplands, lowland
+basins and ocean trenches. Regional temperature, moisture and rain shadows separate
+dry interiors, forests and snowy highlands. Bed and water elevations
+are shared by chunks, direct DH data and planetary presentation. Existing v1/v2
+worlds keep their geography; use a new Astra Earth world for the new generation.
+See [river generation and its resolution limits](docs/EARTH_WORLD.md).
+
+New Astra Earth worlds use cave v2: narrower passages follow folded bedding and
+fractures, with occasional junction rooms and shafts, up to 1.2 km beneath the
+local terrain. Seabeds remain protected and dry entrances occur where passages reach the surface.
 Old saved generators keep their underground version. **F8** toggles a rebindable
 64-block inspection flashlight; enclosed unlit views are dark while local lamps
 and night vision remain usable. Active Iris packs retain lighting ownership.

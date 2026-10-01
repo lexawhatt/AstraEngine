@@ -52,7 +52,7 @@ public record EarthLandingTarget(EarthChart chart, SpaceVector localFeet) {
             }
             GeographicPosition address = GeographicPosition.fromBody(origin.add(ray.multiply(distance)), radius);
             // The actual heightmap chooses the standing height later. This point chooses persistent storage only.
-            double surface = Math.max(0, terrain.sample(address.normal()).heightMeters());
+            double surface = terrain.sample(address.normal()).waterMeters();
             address = new GeographicPosition(address.latitudeRadians(), address.longitudeRadians(), Math.floor(surface));
             Optional<EarthChart> owner = EarthChart.owner(address, terrain.version());
             if (owner.isEmpty()) { return Optional.empty(); }
@@ -63,7 +63,7 @@ public record EarthLandingTarget(EarthChart chart, SpaceVector localFeet) {
 
     private static double clearance(ContinentalTerrain terrain, SpaceVector point) {
         if (point.length() < EarthChart.RADIUS_METERS) { return point.length() - EarthChart.RADIUS_METERS; }
-        return point.length() - EarthChart.RADIUS_METERS - Math.max(0, terrain.sample(point).heightMeters());
+        return point.length() - EarthChart.RADIUS_METERS - terrain.sample(point).waterMeters();
     }
 
     /**
@@ -78,7 +78,7 @@ public record EarthLandingTarget(EarthChart chart, SpaceVector localFeet) {
             throw new IllegalArgumentException("Earth landing visibility requires terrain, observer and unit normal");
         }
         SpaceVector unit = normal.normalized();
-        double height = Math.max(0, terrain.sample(unit).heightMeters());
+        double height = terrain.sample(unit).waterMeters();
         SpaceVector point = unit.multiply(EarthChart.RADIUS_METERS + height);
         SpaceVector relative = point.subtract(origin);
         if (relative.length() < 1) { return Optional.empty(); }

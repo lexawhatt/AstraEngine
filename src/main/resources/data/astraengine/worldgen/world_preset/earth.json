@@ -5,11 +5,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "px",
         "band": -2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -24,9 +24,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -35,11 +36,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "px",
         "band": -1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -54,9 +55,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -65,11 +67,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "px",
         "band": 0,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -84,9 +86,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -95,11 +98,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "px",
         "band": 1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -114,9 +117,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -125,11 +129,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "px",
         "band": 2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -144,9 +148,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -155,11 +160,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "px",
         "band": 3,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -174,9 +179,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -185,11 +191,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nx",
         "band": -2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -204,9 +210,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -215,11 +222,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nx",
         "band": -1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -234,9 +241,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -245,11 +253,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nx",
         "band": 0,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -264,9 +272,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -275,11 +284,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nx",
         "band": 1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -294,9 +303,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -305,11 +315,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nx",
         "band": 2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -324,9 +334,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -335,11 +346,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nx",
         "band": 3,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -354,9 +365,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -365,11 +377,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "py",
         "band": -2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -384,9 +396,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -395,11 +408,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "py",
         "band": -1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -414,9 +427,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -425,11 +439,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "py",
         "band": 0,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -444,9 +458,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -455,11 +470,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "py",
         "band": 1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -474,9 +489,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -485,11 +501,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "py",
         "band": 2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -504,9 +520,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -515,11 +532,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "py",
         "band": 3,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -534,9 +551,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -545,11 +563,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "ny",
         "band": -2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -564,9 +582,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -575,11 +594,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "ny",
         "band": -1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -594,9 +613,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -605,11 +625,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "ny",
         "band": 0,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -624,9 +644,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -635,11 +656,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "ny",
         "band": 1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -654,9 +675,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -665,11 +687,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "ny",
         "band": 2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -684,9 +706,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -695,11 +718,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "ny",
         "band": 3,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -714,9 +737,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -725,11 +749,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "pz",
         "band": -2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -744,9 +768,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -755,11 +780,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "pz",
         "band": -1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -774,9 +799,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -785,11 +811,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "pz",
         "band": 0,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -804,9 +830,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -815,11 +842,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "pz",
         "band": 1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -834,9 +861,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -845,11 +873,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "pz",
         "band": 2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -864,9 +892,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -875,11 +904,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "pz",
         "band": 3,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -894,9 +923,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -905,11 +935,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nz",
         "band": -2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -924,9 +954,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -935,11 +966,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nz",
         "band": -1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -954,9 +985,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -965,11 +997,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nz",
         "band": 0,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -984,9 +1016,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -995,11 +1028,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nz",
         "band": 1,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -1014,9 +1047,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -1025,11 +1059,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nz",
         "band": 2,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -1044,9 +1078,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },
@@ -1055,11 +1090,11 @@
       "generator": {
         "type": "astraengine:earth",
         "chart_version": 1,
-        "terrain_version": 2,
+        "terrain_version": 3,
         "seed": 4707198747791281998,
         "face": "nz",
         "band": 3,
-        "cave_version": 1,
+        "cave_version": 2,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -1074,9 +1109,10 @@
             "jungle": "minecraft:jungle",
             "taiga": "minecraft:taiga",
             "forest": "minecraft:forest",
-            "plains": "minecraft:plains"
+            "plains": "minecraft:plains",
+            "river": "minecraft:river"
           },
-          "terrain_version": 2
+          "terrain_version": 3
         }
       }
     },

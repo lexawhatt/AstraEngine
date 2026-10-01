@@ -7,7 +7,9 @@ import java.util.function.BooleanSupplier;
 
 /**
  * Immutable presentation samples of the canonical continental field. RGBA stores height in meters,
- * temperature in Celsius, moisture and mountain mask. Worker-safe, with no world, GPU or clock ownership.
+ * temperature in Celsius, moisture and mountain mask (or -1 for inland water).
+ * Inland water writes its visible water elevation to R; the authoritative sampler retains the submerged bed.
+ * Worker-safe, with no world, GPU or clock ownership.
  * These bounded maps do not generate chunks and are never authoritative collision or landing data.
  */
 public final class ContinentalMap {
@@ -90,10 +92,10 @@ public final class ContinentalMap {
     }
 
     private static void put(float[] values, int offset, ContinentalTerrain.Sample sample) {
-        values[offset] = (float) sample.heightMeters();
+        values[offset] = (float) (sample.river() ? sample.waterMeters() : sample.heightMeters());
         values[offset + 1] = (float) sample.temperature();
         values[offset + 2] = (float) sample.moisture();
-        values[offset + 3] = (float) sample.mountainMask();
+        values[offset + 3] = sample.river() ? -1 : (float) sample.mountainMask();
     }
 
     private static void require(ContinentalTerrain terrain, BooleanSupplier cancelled) {

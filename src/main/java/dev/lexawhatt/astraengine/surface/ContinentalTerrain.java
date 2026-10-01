@@ -1,37 +1,82 @@
 package dev.lexawhatt.astraengine.surface;
 
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
+import java.util.Optional;
 
 /**
  * Versioned Earth-scale spherical continental height and climate field. Immutable and worker-safe; it owns no
  * worlds, chunks, random sequence or simulation clock. Heights are physical meters above the shared sea radius,
  * independent of Minecraft's storage height. This is authored procedural relief, not measured Earth geography
- * or a tectonic, hydrological or erosion simulation. Existing {@link PlanetaryTerrain} definitions are unchanged.
+ * or a tectonic or erosion simulation. Version three includes regional routed drainage.
+ * Existing {@link PlanetaryTerrain} definitions are unchanged.
  */
-public record ContinentalTerrain(int version, long seed) {
+public final class ContinentalTerrain {
     public static final int VERSION = 1;
-    public static final int CURRENT_VERSION = 2;
+    public static final int CURRENT_VERSION = 3;
     public static final long SEED = 0x4153545241434F4EL;
     public static final double RADIUS_METERS = 6_371_000;
     public static final double MIN_ELEVATION = -7000;
     public static final double MAX_ELEVATION = 10000;
 
-    /** Unknown algorithm versions are rejected; every long seed is a valid deterministic geographic field. */
-    public ContinentalTerrain {
-        if (version != VERSION && version != CURRENT_VERSION) {
+    private final int version;
+    private final long seed;
+    private final RiverAtlas rivers;
+
+    /** Unknown versions fail. Version three prepares immutable drainage; construct it on a startup/worker thread. */
+    public ContinentalTerrain(int version, long seed) {
+        requireVersion(version);
+        this.version = version;
+        this.seed = seed;
+        rivers = version < 3 ? null : seed == SEED ? CanonicalDrainage.ATLAS : RiverAtlas.prepare(seed);
+    }
+
+    /** Validate a persisted algorithm without allocating or preparing geography. */
+    public static void requireVersion(int version) {
+        if (version < VERSION || version > CURRENT_VERSION) {
             throw new IllegalArgumentException("Unsupported continental terrain version: " + version);
         }
     }
 
+    /** Called during parallel mod setup, before world loading or client rendering can request this geography. */
+    public static void prepareCanonical() { CanonicalDrainage.ATLAS.cellCount(); }
+
+    private static final class CanonicalDrainage {
+        private static final RiverAtlas ATLAS = RiverAtlas.prepare(SEED);
+    }
+
+    /** Persisted algorithm, never implicitly migrated. */
+    public int version() { return version; }
+    /** Immutable procedural seed. */
+    public long seed() { return seed; }
+    /** Regional drainage for version three; older definitions have no river atlas. */
+    public Optional<RiverAtlas> rivers() { return Optional.ofNullable(rivers); }
+
+    @Override public boolean equals(Object value) {
+        return value instanceof ContinentalTerrain other && version == other.version && seed == other.seed;
+    }
+    @Override public int hashCode() { return 31 * version + Long.hashCode(seed); }
+    @Override public String toString() { return "ContinentalTerrain[version=" + version + ", seed=" + seed + "]"; }
+
     /**
      * Immutable physical surface observation. Height is meters above sea level, temperature is approximate
      * Celsius, moisture and mountainMask are in [0,1]. Continentality is a signed land/ocean field in [-1,1];
-     * its zero contour defines the coastline before small-scale relief. No biome or block palette is implied.
+     * its zero contour defines the coastline before small-scale relief. waterMeters is the greater of the bed
+     * and physical water level; equality means dry land. No biome or block palette is implied.
      */
     public record Sample(double heightMeters, double temperature, double moisture,
-            double continentality, double mountainMask) {
+            double continentality, double mountainMask, double waterMeters) {
+        /** Legacy samples retain the global sea plane with no inland water. */
+        public Sample(double heightMeters, double temperature, double moisture, double continentality, double mountainMask) {
+            this(heightMeters, temperature, moisture, continentality, mountainMask, Math.max(0, heightMeters));
+        }
+
+        /** True when this column contains liquid, including ocean water below the zero sea datum. */
+        public boolean water() { return waterMeters > heightMeters; }
+        /** Above-sea-level channel water; ocean mouths remain ocean. */
+        public boolean river() { return water() && waterMeters > 0; }
         public Sample {
             if (!Double.isFinite(heightMeters) || heightMeters < MIN_ELEVATION || heightMeters > MAX_ELEVATION
+                    || !Double.isFinite(waterMeters) || waterMeters < Math.max(0, heightMeters) || waterMeters > MAX_ELEVATION
                     || !Double.isFinite(temperature) || !unitInterval(moisture) || !unitInterval(mountainMask)
                     || !Double.isFinite(continentality) || Math.abs(continentality) > 1) {
                 throw new IllegalArgumentException("Invalid continental height or climate observation");
@@ -53,6 +98,7 @@ public record ContinentalTerrain(int version, long seed) {
             throw new IllegalArgumentException("Continental terrain direction is required");
         }
         SpaceVector normal = direction.normalized();
+        if (version == 3) { return rivers.shape(normal, ContinentalTerrainV3.base(normal, seed)); }
         if (version == 2) { return ContinentalTerrainV2.sample(normal, seed); }
         double x = normal.x() * RADIUS_METERS;
         double y = normal.y() * RADIUS_METERS;

@@ -155,7 +155,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
             case ALPINE -> { surface = Blocks.STONE.defaultBlockState(); subsurface = surface; }
             default -> { surface = Blocks.GRASS_BLOCK.defaultBlockState(); subsurface = Blocks.DIRT.defaultBlockState(); }
         }
-        return new TerrainColumns.Column(firstAir, Math.max(firstAir, getSeaLevel()), surface, subsurface);
+        return new TerrainColumns.Column(firstAir, (int) Math.floor(sample.waterMeters()) - chart.altitudeOriginMeters(), surface, subsurface);
     }
 
     @Override public int getMinY() { return EarthChart.MIN_Y; }

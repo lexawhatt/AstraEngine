@@ -32,7 +32,7 @@ public record EarthSurfacePalette(List<SpaceVector> colors) {
     /** Water covers shallow negative-height beaches; frozen water never uses liquid ocean reflectance. */
     public static EarthClimate material(ContinentalTerrain.Sample sample) {
         if (sample == null) { throw new IllegalArgumentException("Earth appearance requires a terrain sample"); }
-        if (sample.heightMeters() < 0) {
+        if (sample.water()) {
             return sample.temperature() < 0 ? EarthClimate.FROZEN_OCEAN
                     : sample.heightMeters() < -600 ? EarthClimate.DEEP_OCEAN : EarthClimate.OCEAN;
         }

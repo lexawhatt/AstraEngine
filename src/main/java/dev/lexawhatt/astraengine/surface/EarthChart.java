@@ -25,7 +25,10 @@ public record EarthChart(CubeFace face, int band, int terrainVersion) implements
             IntStream.rangeClosed(MIN_BAND, MAX_BAND).mapToObj(band -> new EarthChart(face, band))).toList();
 
     private static final List<EarthChart> SECOND_GENERATION = ALL.stream()
-            .map(value -> new EarthChart(value.face(), value.band(), ContinentalTerrain.CURRENT_VERSION)).toList();
+            .map(value -> new EarthChart(value.face(), value.band(), 2)).toList();
+
+    private static final List<EarthChart> THIRD_GENERATION = ALL.stream()
+            .map(value -> new EarthChart(value.face(), value.band(), 3)).toList();
 
     /** Retains the original version-one geography for existing callers and saved identities. */
     public EarthChart(CubeFace face, int band) { this(face, band, ContinentalTerrain.VERSION); }
@@ -33,13 +36,13 @@ public record EarthChart(CubeFace face, int band, int terrainVersion) implements
     /** Complete storage coverage for one supported saved terrain version. */
     public static List<EarthChart> all(int terrainVersion) {
         if (terrainVersion == ContinentalTerrain.VERSION) { return ALL; }
-        new ContinentalTerrain(terrainVersion, ContinentalTerrain.SEED);
-        return SECOND_GENERATION;
+        ContinentalTerrain.requireVersion(terrainVersion);
+        return terrainVersion == 2 ? SECOND_GENERATION : THIRD_GENERATION;
     }
 
     public EarthChart {
         if (face == null || band < MIN_BAND || band > MAX_BAND
-                || (terrainVersion != ContinentalTerrain.VERSION && terrainVersion != ContinentalTerrain.CURRENT_VERSION)) {
+                || (terrainVersion < ContinentalTerrain.VERSION || terrainVersion > ContinentalTerrain.CURRENT_VERSION)) {
             throw new IllegalArgumentException("Earth storage requires a cube face and altitude band in [-2,3]");
         }
     }
@@ -135,7 +138,7 @@ public record EarthChart(CubeFace face, int band, int terrainVersion) implements
 
     /** Canonical owner within a specific supported saved terrain version; no implicit migration. */
     public static Optional<EarthChart> owner(GeographicPosition address, int terrainVersion) {
-        new ContinentalTerrain(terrainVersion, ContinentalTerrain.SEED);
+        ContinentalTerrain.requireVersion(terrainVersion);
         if (address == null) { throw new IllegalArgumentException("An Earth geographic address is required"); }
         // Adding half a band before division can round nextDown(boundary) into the following band.
         // Comparing the original altitude to exact integer boundaries preserves half-open ownership.

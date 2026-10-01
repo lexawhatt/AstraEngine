@@ -61,12 +61,17 @@ public final class EarthGenerationGameTests {
                     "Missing Earth chart storage type: " + chart);
             var generator = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, resource.get("generator")).getOrThrow();
             helper.assertTrue(generator.chart().equals(chart), "Preset generator has a different canonical chart");
+            try {
+                ((dev.lexawhatt.astraengine.worldgen.EarthBiomeSource) generator.getBiomeSource())
+                        .biome((ContinentalTerrain.Sample) null);
+                helper.assertTrue(false, "Null terrain observation was accepted");
+            } catch (IllegalArgumentException expected) { }
             var saved = ChunkGenerator.CODEC.encodeStart(ops, generator).getOrThrow();
             var restored = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, saved).getOrThrow();
             helper.assertTrue(restored.chart().equals(chart) && restored.terrain().equals(generator.terrain())
-                            && restored.caves().equals(generator.caves()) && generator.caves().version() == 1,
+                            && restored.caves().equals(generator.caves()) && generator.caves().version() == 2,
                     "Reload changed Earth geography");
-            helper.assertTrue(generator.getBiomeSource().possibleBiomes().size() == 12,
+            helper.assertTrue(generator.getBiomeSource().possibleBiomes().size() == 13,
                     "Earth climate palette lost a biome");
             helper.assertTrue(generator.getBiomeSource().possibleBiomes().stream().anyMatch(biome ->
                     !biome.value().getGenerationSettings().features().isEmpty()), "Earth lost host biome decoration");
@@ -99,12 +104,16 @@ public final class EarthGenerationGameTests {
         JsonObject solid = valid.deepCopy(); solid.remove("cave_version");
         helper.assertTrue(((EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, solid).getOrThrow()).caves().version() == 0,
                 "Missing cave version silently carved a legacy saved world");
-        for (double version : new double[]{-1, .5, 2, 1e20}) {
+        JsonObject broadCaves = valid.deepCopy(); broadCaves.addProperty("cave_version", 1);
+        helper.assertTrue(((EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, broadCaves).getOrThrow()).caves().version() == 1,
+                "Saved broad caves were silently changed to the current density");
+        for (double version : new double[]{-1, .5, 3, 1e20}) {
             JsonObject malformed = valid.deepCopy(); malformed.addProperty("cave_version", version);
             rejected(helper, malformed, "Unsupported cave version");
         }
         JsonObject legacy = valid.deepCopy(); legacy.addProperty("terrain_version", 1);
         legacy.getAsJsonObject("biome_source").remove("terrain_version");
+        legacy.getAsJsonObject("biome_source").getAsJsonObject("palette").remove("river");
         var oldGenerator = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, legacy).getOrThrow();
         helper.assertTrue(oldGenerator.terrain().version() == 1 && oldGenerator.chart().terrainVersion() == 1,
                 "Legacy Earth generator was silently migrated");
@@ -139,7 +148,9 @@ public final class EarthGenerationGameTests {
                 int firstAir = (int) Math.floor(generator.terrain().sample(chart.normal(x + .5, z + .5)).heightMeters())
                         - chart.altitudeOriginMeters();
                 int solid = Math.clamp(firstAir, minY, maxY);
-                int top = Math.clamp(Math.max(firstAir, generator.getSeaLevel()), minY, maxY);
+                int waterTop = (int) Math.floor(generator.terrain().sample(chart.normal(x + .5, z + .5)).waterMeters())
+                        - chart.altitudeOriginMeters();
+                int top = Math.clamp(waterTop, minY, maxY);
                 var column = generator.getBaseColumn(x, z, height, random);
                 var layers = generator.terrainLayers(x, z);
                 int nextY = minY;
@@ -156,7 +167,7 @@ public final class EarthGenerationGameTests {
                     var actual = chunk.getBlockState(new BlockPos(x, y, z));
                     helper.assertTrue(actual.equals(column.getBlock(y)), "Stored Earth column differs from base query");
                     helper.assertTrue(!actual.is(Blocks.BEDROCK), "Altitude band invented a bedrock boundary");
-                    if (y >= Math.max(firstAir, generator.getSeaLevel())) {
+                    if (y >= waterTop) {
                         helper.assertTrue(actual.isAir(), "Filled above the physical surface");
                     } else if (y >= firstAir) {
                         helper.assertTrue(actual.is(Blocks.WATER), "Clipped a physical ocean into local air");
@@ -211,7 +222,7 @@ public final class EarthGenerationGameTests {
                             }
                             if (block.is(Blocks.CAVE_AIR)) {
                                 localVoids++;
-                                helper.assertTrue(physical < ground && physical >= ground - 2400,
+                                helper.assertTrue(physical < ground && physical >= ground - generator.caves().maxDepthMeters(),
                                         "Carving escaped its physical depth envelope");
                             }
                         }
@@ -234,6 +245,52 @@ public final class EarthGenerationGameTests {
         }
         dev.lexawhatt.astraengine.AstraEngine.LOGGER.info("ASTRA_VERIFY_CAVES chunks=4 carved={} elapsedMs={}",
                 carved, (System.nanoTime() - started) / 1_000_000.0);
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty", timeoutTicks = 400)
+    public static void riverBedsWaterBiomesAndCaveRoofsMatchTheSharedGeography(GameTestHelper helper) {
+        var field = new ContinentalTerrain(3, ContinentalTerrain.SEED);
+        var rivers = field.rivers().orElseThrow();
+        var level = helper.getLevel();
+        var ops = RegistryOps.create(JsonOps.INSTANCE, level.registryAccess());
+        var dimensions = preset(helper).getAsJsonObject("dimensions");
+        var height = LevelHeightAccessor.create(EarthChart.MIN_Y, EarthChart.HEIGHT);
+        var random = level.getChunkSource().randomState();
+        int checked = 0;
+        for (int cell = 0; cell < rivers.cellCount() && checked < 6; cell += 17) {
+            if (!rivers.river(cell) || rivers.waterMeters(cell) < 100) { continue; }
+            var normal = rivers.point(cell, .5);
+            var observation = field.sample(normal);
+            var address = dev.lexawhatt.astraengine.surface.GeographicPosition.fromBody(
+                    normal.multiply(EarthChart.RADIUS_METERS + observation.waterMeters()), EarthChart.RADIUS_METERS);
+            var chart = EarthChart.owner(address, 3).orElseThrow();
+            var point = chart.resolve(address).orElseThrow();
+            int x = (int) Math.floor(point.x()), z = (int) Math.floor(point.z());
+            var generator = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops,
+                    dimensions.getAsJsonObject(chart.dimensionId()).get("generator")).getOrThrow();
+            var chunk = new ProtoChunk(new ChunkPos(Math.floorDiv(x, 16), Math.floorDiv(z, 16)), UpgradeData.EMPTY,
+                    height, level.registryAccess().registryOrThrow(Registries.BIOME), null);
+            generator.createBiomes(random, Blender.empty(), level.structureManager(), chunk).join();
+            generator.fillFromNoise(Blender.empty(), random, level.structureManager(), chunk).join();
+            generator.applyCarvers(null, 0, random, level.getBiomeManager(), level.structureManager(), chunk,
+                    net.minecraft.world.level.levelgen.GenerationStep.Carving.AIR);
+            var sample = field.sample(chart.normal(x + .5, z + .5));
+            int bed = (int) Math.floor(sample.heightMeters()) - chart.altitudeOriginMeters();
+            int water = (int) Math.floor(sample.waterMeters()) - chart.altitudeOriginMeters();
+            helper.assertTrue(water > bed && water < chunk.getMaxBuildHeight() && bed - 12 >= chunk.getMinBuildHeight(),
+                    "River test missed a stored wet column");
+            for (int y = bed - 12; y < water; y++) {
+                var state = chunk.getBlockState(new BlockPos(x, y, z));
+                helper.assertTrue(y >= bed ? state.is(Blocks.WATER) : !state.isAir() && state.getFluidState().isEmpty(),
+                        "River bed/water was lost or cave roof was punctured");
+            }
+            helper.assertTrue(chunk.getBlockState(new BlockPos(x, water, z)).isAir(), "Filled above river level");
+            helper.assertTrue(generator.getBiomeSource().getNoiseBiome(Math.floorDiv(x, 4), 0, Math.floorDiv(z, 4), random.sampler())
+                    .is(net.minecraft.world.level.biome.Biomes.RIVER), "Raised channel lost its river biome");
+            checked++;
+        }
+        helper.assertTrue(checked == 6, "Missing regional river test sites");
         helper.succeed();
     }
 

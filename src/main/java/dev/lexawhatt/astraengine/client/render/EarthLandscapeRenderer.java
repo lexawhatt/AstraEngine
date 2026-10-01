@@ -27,10 +27,14 @@ import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.material.FogType;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import net.neoforged.neoforge.client.event.ViewportEvent;
@@ -140,7 +144,10 @@ final class EarthLandscapeRenderer implements AutoCloseable {
             terrain.safeGetUniform("HazeColor").set(fog[0], fog[1], fog[2]);
             terrain.safeGetUniform("EyeAltitude").set((float) altitude);
             terrain.safeGetUniform("Flash").set(visual.flash());
-            terrain.safeGetUniform("NearCoverage").set((float) Math.max(16, (game.options.getEffectiveRenderDistance() - 3) * 16));
+            terrain.safeGetUniform("NearCoverage").set(nearCoverage(game, camera));
+            // DH may extend getDepthFar independently of the host section render distance.
+            terrain.safeGetUniform("HostFarPlane").set(Math.min(game.gameRenderer.getDepthFar(),
+                    game.options.getEffectiveRenderDistance() * 64.0f));
             terrain.safeGetUniform("BandAltitude").set((float) (chart.altitudeOriginMeters() + EarthChart.MIN_Y),
                     (float) (chart.altitudeOriginMeters() + EarthChart.MIN_Y + EarthChart.HEIGHT));
             terrain.safeGetUniform("LocalTransform").set(transform);
@@ -157,6 +164,31 @@ final class EarthLandscapeRenderer implements AutoCloseable {
         }
         frameDepth = new Depth(target.getDepthTextureId(), new Matrix4f(projection).mul(event.getModelViewMatrix()).invert());
         draws++;
+    }
+
+    private static float nearCoverage(Minecraft game, Vec3 camera) {
+        int radius = Math.clamp((game.options.getEffectiveRenderDistance() - 3) * 16, 16, 48);
+        int minX = Math.floorDiv((int) Math.floor(camera.x - radius), 16);
+        int maxX = Math.floorDiv((int) Math.floor(camera.x + radius), 16);
+        int minZ = Math.floorDiv((int) Math.floor(camera.z - radius), 16);
+        int maxZ = Math.floorDiv((int) Math.floor(camera.z + radius), 16);
+        var position = new BlockPos.MutableBlockPos();
+        // Keep the procedural fallback while streaming or compiling nearby terrain. These bounded
+        // read-only queries never request a chunk, and the host method also works with Sodium's renderer.
+        for (int z = minZ; z <= maxZ; z++) {
+            for (int x = minX; x <= maxX; x++) {
+                var chunk = game.level.getChunkSource().getChunk(x, z, ChunkStatus.FULL, false);
+                if (chunk == null) { return 0; }
+                for (int corner = 0; corner < 5; corner++) {
+                    int bx = x * 16 + (corner == 4 ? 8 : (corner & 1) * 15);
+                    int bz = z * 16 + (corner == 4 ? 8 : (corner >> 1) * 15);
+                    int y = chunk.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, bx, bz);
+                    if (y < game.level.getMinBuildHeight()
+                            || !game.levelRenderer.isSectionCompiled(position.set(bx, y, bz))) { return 0; }
+                }
+            }
+        }
+        return radius;
     }
 
     /** Keeps the host terrain's haze consistent with the continuing geographic view; fluid/status fog stays host-owned. */

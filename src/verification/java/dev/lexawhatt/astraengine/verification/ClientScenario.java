@@ -90,6 +90,7 @@ public final class ClientScenario {
     private ContinentalScenario continentalScenario;
     private EarthGenerationScenario earthGenerationScenario;
     private UndergroundScenario undergroundScenario;
+    private RiverScenario riverScenario;
     private EarthTravelScenario earthTravelScenario;
     private EarthAtmosphereScenario earthAtmosphereScenario;
     private EarthLandscapeScenario earthLandscapeScenario;
@@ -212,7 +213,7 @@ public final class ClientScenario {
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
                         || phase.startsWith("earth-boundary-") || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || (phase.equals("earth-landscape") || phase.equals("earth-landscape-pack")) || phase.equals("earth-generation-create") || phase.equals("continental-create")
-                        || phase.startsWith("dh-clouds") || phase.equals("earth-dh") || phase.equals("earth-materials") || phase.equals("earth-underground")
+                        || phase.startsWith("dh-clouds") || phase.equals("earth-dh") || phase.equals("earth-materials") || phase.equals("earth-underground") || phase.startsWith("earth-rivers")
                         || phase.equals("lunar-pulsar") || phase.equals("pulsar-create") || phase.equals("navigation")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
@@ -274,6 +275,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.startsWith("earth-rivers")) {
+                if (riverScenario == null) { riverScenario = new RiverScenario(!phase.endsWith("-visual")); }
+                if (riverScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.equals("earth-underground")) {
                 if (undergroundScenario == null) { undergroundScenario = new UndergroundScenario(); }
                 if (undergroundScenario.tick()) { finish(); }

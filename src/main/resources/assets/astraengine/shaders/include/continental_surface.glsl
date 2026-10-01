@@ -1,4 +1,4 @@
-// Exact CPU ContinentalTerrain samples: height meters, Celsius, moisture, mountain mask.
+// CPU ContinentalTerrain: visible height meters, Celsius, moisture, mountain mask (-1 for inland water).
 uniform int ContinentalEarth;
 uniform int ContinentalReady;
 uniform int ContinentalTilesReady;
@@ -62,7 +62,7 @@ uniform vec4 EarthSurfaceColors[12];
 vec4 continentalClimateMaterial(vec4 climate) {
     float height = climate.x, temperature = climate.y, moisture = climate.z;
     int material;
-    if (height < 0.0) {
+    if (height < 0.0 || climate.w < -0.5) {
         material = temperature < 0.0 ? 2 : height < -600.0 ? 0 : 1;
     } else if (temperature + fract(height) * 0.0065 < 0.0) { material = 4; }
     else if (height < 5.0) { material = 3; }
