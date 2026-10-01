@@ -215,6 +215,21 @@ paths from the highlands experiment.
 Local original artifacts, hashes, source audit and native evidence are under
 `Workflow/verification/planetary-terrain-2026-09-30/`. They are not shipped in the JAR.
 
+## Spherical ocean calibration
+
+The separate [horizon calibration world](PLANETARY_HORIZON.md) draws its analytic
+sea/sky at `AFTER_SKY`, before plain DH terrain. It borrows no DH depth and installs
+no DH program override. Native checks cover the pinned DH 3.3.3 at 32 chunks / 512 m:
+real LOD depth and visible ON/OFF/ON composition with the spherical background.
+Its meshes stay flat. The pale near-water/fog seam is visible; seamless material
+or terrain joins and larger-distance spherical DH rendering are not qualified.
+
+With the stable Iris/Sodium/Chloride stack and active Complementary Reimagined,
+the horizon pass yields completely. Native toggle/reload checks retain the actual
+pack settings and zero Astra horizon draws. This is a host/pack fallback, not
+curved pack geometry or shared shadows/reflections. The older custom celestial
+sky/DH depth limitation above remains open outside this opt-in path.
+
 ## Original artifact references
 
 The links below identify the exact upstream files used for the matrix, rather

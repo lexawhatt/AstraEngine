@@ -49,6 +49,11 @@ their body-fixed values. F3 shows the current tile; Minecraft still owns movemen
 collisions, builds and saved player positions. Cross-world chunk/view stitching is
 the next traversal stage.
 
+An opt-in [horizon calibration world](docs/PLANETARY_HORIZON.md) adds an Earth-radius
+spherical ocean and fixed visual towers. It demonstrates altitude-dependent
+horizons and bottom-first occlusion. Near blocks and DH meshes remain flat; active
+Iris packs retain their own sky. This is a geometry prototype, not globe traversal.
+
 ## Consumer ship rendering
 
 AstraEngine renders consumer-supplied visual assemblies: analytic shapes,

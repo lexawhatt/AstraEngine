@@ -11,12 +11,15 @@ import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarAudioController;
 import dev.lexawhatt.astraengine.client.surface.SurfaceEffects;
 import dev.lexawhatt.astraengine.client.surface.SurfaceDebugOverlay;
+import dev.lexawhatt.astraengine.client.surface.HorizonRenderer;
+import dev.lexawhatt.astraengine.client.surface.HorizonEffects;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
 import dev.lexawhatt.astraengine.client.ship.ShipRenderer;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
 import dev.lexawhatt.astraengine.surface.PlanetaryTerrain;
+import dev.lexawhatt.astraengine.surface.HorizonScene;
 import java.util.Map;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
@@ -35,6 +38,13 @@ import net.neoforged.neoforge.common.NeoForge;
 @Mod(value = AstraEngine.MOD_ID, dist = Dist.CLIENT)
 public final class AstraEngineClient {
     private static final ShipRenderer SHIPS = new ShipRenderer();
+    private static final HorizonRenderer HORIZON = new HorizonRenderer();
+
+    /** Render-thread calibration controls; host-owned instance survives reload while session values reset on logout. */
+    public static HorizonRenderer horizonRenderer() {
+        RenderSystem.assertOnRenderThread();
+        return HORIZON;
+    }
 
     /**
      * Engine-owned visual renderer for client consumers. Call on the render thread;
@@ -50,6 +60,12 @@ public final class AstraEngineClient {
     public AstraEngineClient(IEventBus modEventBus) {
         modEventBus.addListener(this::onClientSetup);
         modEventBus.addListener(this::registerEffects);
+        modEventBus.addListener(HORIZON::registerShaders);
+        NeoForge.EVENT_BUS.addListener(HORIZON::render);
+        NeoForge.EVENT_BUS.addListener(HORIZON::registerCommands);
+        NeoForge.EVENT_BUS.addListener(HORIZON::logout);
+        modEventBus.addListener((RegisterDimensionSpecialEffectsEvent event) -> event.register(
+                ResourceLocation.parse(HorizonScene.DIMENSION_ID), new HorizonEffects(HORIZON)));
         EnvironmentProfiles profiles = new EnvironmentProfiles();
         RenderOptions options = new RenderOptions(profiles);
         SolarStateClient solar = new SolarStateClient();

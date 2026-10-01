@@ -85,6 +85,7 @@ public final class ClientScenario {
     private SurfaceScenario surfaceScenario;
     private TerrainScenario terrainScenario;
     private SurfaceFrameScenario surfaceFrameScenario;
+    private HorizonScenario horizonScenario;
     private LunarPulsarVisualScenario lunarPulsarVisualScenario;
     private PulsarAtlasScenario pulsarAtlasScenario;
     private SurfacePayload latestSurface;
@@ -98,7 +99,8 @@ public final class ClientScenario {
     private void tick(ClientTickEvent.Post event) {
         if (finished) { return; }
         try {
-            require((System.nanoTime() - startedAt) < (phase.startsWith("surface-") || phase.startsWith("terrain-") ? 900_000_000_000L
+            require((System.nanoTime() - startedAt) < (phase.startsWith("surface-") || phase.startsWith("terrain-")
+                    || phase.startsWith("horizon-") ? 900_000_000_000L
                     : phase.startsWith("seasonal") || phase.equals("volumetric")
                     || phase.equals("render-compat") || phase.equals("celestial-polish")
                     || phase.equals("lunar-pulsar") || phase.startsWith("pulsar-")
@@ -122,7 +124,8 @@ public final class ClientScenario {
                     && (phase.equals("cosmos-restart") || phase.equals("solar-restart") || phase.equals("camera-restart")
                             || phase.equals("celestial-api-restart") || phase.equals("galactic-restart") || phase.equals("atlas-restart")
                             || phase.equals("seasonal-restart") || phase.equals("surface-restart") || phase.equals("surface-recover")
-                            || phase.equals("surface-upgrade") || phase.equals("surface-frames-restart") || phase.equals("terrain-restart") || phase.equals("pulsar-restart"))
+                            || phase.equals("surface-upgrade") || phase.equals("surface-frames-restart")
+                            || phase.equals("horizon-restart") || phase.equals("terrain-restart") || phase.equals("pulsar-restart"))
                     && minecraft.player == null && minecraft.getOverlay() == null
                     && minecraft.screen instanceof BackupConfirmScreen screen
                     && screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
@@ -134,6 +137,7 @@ public final class ClientScenario {
                     String scenario = phase.equals("surface-recover") ? "surface-interrupt"
                             : phase.substring(0, phase.length() - "-restart".length());
                     String completedPhase = phase.equals("surface-frames-restart") ? "surface-frames-create"
+                            : phase.equals("horizon-restart") ? "horizon-create"
                             : phase.equals("surface-restart") ? "surface-create"
                             : phase.equals("terrain-restart") ? "terrain-create"
                             : phase.equals("pulsar-restart") ? "pulsar-create" : scenario;
@@ -176,7 +180,7 @@ public final class ClientScenario {
                         || phase.equals("galactic") || phase.equals("galactic-restart")
                         || phase.equals("atlas") || phase.equals("atlas-restart")
                         || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("celestial-polish")
-                        || phase.startsWith("surface-") || phase.startsWith("terrain-")
+                        || phase.startsWith("surface-") || phase.startsWith("terrain-") || phase.startsWith("horizon-")
                         || phase.equals("lunar-pulsar") || phase.startsWith("pulsar-")) {
                     minecraft.options.guiScale().set(2);
                 }
@@ -188,6 +192,7 @@ public final class ClientScenario {
                         || phase.equals("surface-create") || phase.equals("surface-cancel") || phase.equals("surface-interrupt")
                         || phase.equals("surface-failures") || phase.equals("surface-boundaries")
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
+                        || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
                         || phase.equals("lunar-pulsar") || phase.equals("pulsar-create")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
@@ -242,6 +247,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.startsWith("horizon-")) {
+                if (horizonScenario == null) { horizonScenario = new HorizonScenario(phase); }
+                if (horizonScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.equals("lunar-pulsar")) {
                 if (lunarPulsarVisualScenario == null) { lunarPulsarVisualScenario = new LunarPulsarVisualScenario(); }
                 if (lunarPulsarVisualScenario.tick()) { finish(); }

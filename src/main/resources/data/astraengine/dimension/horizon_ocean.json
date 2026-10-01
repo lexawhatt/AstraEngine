@@ -1,0 +1,26 @@
+{
+  "type": "astraengine:horizon_ocean",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "minecraft:ocean",
+      "lakes": false,
+      "features": false,
+      "layers": [
+        {
+          "height": 1,
+          "block": "minecraft:bedrock"
+        },
+        {
+          "height": 55,
+          "block": "minecraft:sand"
+        },
+        {
+          "height": 8,
+          "block": "minecraft:water"
+        }
+      ],
+      "structure_overrides": []
+    }
+  }
+}

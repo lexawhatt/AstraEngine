@@ -29,6 +29,33 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class SurfaceGameTests {
     @GameTest(templateNamespace = "astraengine_verify", template = "empty")
+    public static void horizonOceanUsesPermanentHostFlatResource(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var ops = RegistryOps.create(JsonOps.INSTANCE, level.registryAccess());
+        JsonObject dimension = resourceJson(helper, "dimension/horizon_ocean.json");
+        helper.assertTrue(dimension.get("type").getAsString().equals("astraengine:horizon_ocean"),
+                "Calibration world lost its independent permanent identity");
+        var generator = ChunkGenerator.CODEC.parse(ops, dimension.get("generator")).getOrThrow();
+        helper.assertTrue(generator instanceof net.minecraft.world.level.levelgen.FlatLevelSource,
+                "Calibration world must retain vanilla flat block storage");
+        var height = LevelHeightAccessor.create(0, 256);
+        var column = generator.getBaseColumn(0, 0, height, level.getChunkSource().randomState());
+        helper.assertTrue(column.getBlock(0).is(Blocks.BEDROCK) && column.getBlock(55).is(Blocks.SAND)
+                        && column.getBlock(56).is(Blocks.WATER) && column.getBlock(63).is(Blocks.WATER)
+                        && column.getBlock(64).isAir(),
+                "Host ocean layers no longer meet the calibration sea reference");
+        var encoded = ChunkGenerator.CODEC.encodeStart(ops, generator).getOrThrow();
+        helper.assertTrue(ChunkGenerator.CODEC.parse(ops, encoded).getOrThrow()
+                        instanceof net.minecraft.world.level.levelgen.FlatLevelSource,
+                "Saved calibration generator cannot be restored by the host codec");
+        var type = net.minecraft.world.level.dimension.DimensionType.DIRECT_CODEC.parse(ops,
+                resourceJson(helper, "dimension_type/horizon_ocean.json")).getOrThrow();
+        helper.assertTrue(type.minY() == 0 && type.height() == 256 && type.hasSkyLight(),
+                "Calibration dimension type changed its block frame or sky light");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty")
     public static void surfaceResourcesAndGeneratorCodec(GameTestHelper helper) {
         var server = helper.getLevel().getServer();
         helper.assertTrue(!(server.overworld().getChunkSource().getGenerator() instanceof SurfaceChunkGenerator),
