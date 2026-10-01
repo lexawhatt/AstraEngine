@@ -19,6 +19,7 @@
   "astraengine.stage.black_hole": "BLACK HOLE",
   "astraengine.render.invalid": "Unknown rendering option. Use command suggestions.",
   "astraengine.render.status": "ASTRA render | %s | %s | lighting %s | bloom %s | flashlight %s | lights %s/%s",
+  "key.astraengine.flashlight": "Toggle flashlight",
   "key.astraengine.editor": "Open scene editor",
   "key.categories.astraengine": "AstraEngine",
   "astraengine.editor.title": "ASTRA / SCENE EDITOR",

@@ -9,6 +9,7 @@
         "seed": 4707198747791281998,
         "face": "px",
         "band": -2,
+        "cave_version": 1,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -38,6 +39,7 @@
         "seed": 4707198747791281998,
         "face": "px",
         "band": -1,
+        "cave_version": 1,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -67,6 +69,7 @@
         "seed": 4707198747791281998,
         "face": "px",
         "band": 0,
+        "cave_version": 1,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -96,6 +99,7 @@
         "seed": 4707198747791281998,
         "face": "px",
         "band": 1,
+        "cave_version": 1,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -125,6 +129,7 @@
         "seed": 4707198747791281998,
         "face": "px",
         "band": 2,
+        "cave_version": 1,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -154,6 +159,7 @@
         "seed": 4707198747791281998,
         "face": "px",
         "band": 3,
+        "cave_version": 1,
         "biome_source": {
           "face": "px",
           "palette": {
@@ -183,6 +189,7 @@
         "seed": 4707198747791281998,
         "face": "nx",
         "band": -2,
+        "cave_version": 1,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -212,6 +219,7 @@
         "seed": 4707198747791281998,
         "face": "nx",
         "band": -1,
+        "cave_version": 1,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -241,6 +249,7 @@
         "seed": 4707198747791281998,
         "face": "nx",
         "band": 0,
+        "cave_version": 1,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -270,6 +279,7 @@
         "seed": 4707198747791281998,
         "face": "nx",
         "band": 1,
+        "cave_version": 1,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -299,6 +309,7 @@
         "seed": 4707198747791281998,
         "face": "nx",
         "band": 2,
+        "cave_version": 1,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -328,6 +339,7 @@
         "seed": 4707198747791281998,
         "face": "nx",
         "band": 3,
+        "cave_version": 1,
         "biome_source": {
           "face": "nx",
           "palette": {
@@ -357,6 +369,7 @@
         "seed": 4707198747791281998,
         "face": "py",
         "band": -2,
+        "cave_version": 1,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -386,6 +399,7 @@
         "seed": 4707198747791281998,
         "face": "py",
         "band": -1,
+        "cave_version": 1,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -415,6 +429,7 @@
         "seed": 4707198747791281998,
         "face": "py",
         "band": 0,
+        "cave_version": 1,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -444,6 +459,7 @@
         "seed": 4707198747791281998,
         "face": "py",
         "band": 1,
+        "cave_version": 1,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -473,6 +489,7 @@
         "seed": 4707198747791281998,
         "face": "py",
         "band": 2,
+        "cave_version": 1,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -502,6 +519,7 @@
         "seed": 4707198747791281998,
         "face": "py",
         "band": 3,
+        "cave_version": 1,
         "biome_source": {
           "face": "py",
           "palette": {
@@ -531,6 +549,7 @@
         "seed": 4707198747791281998,
         "face": "ny",
         "band": -2,
+        "cave_version": 1,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -560,6 +579,7 @@
         "seed": 4707198747791281998,
         "face": "ny",
         "band": -1,
+        "cave_version": 1,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -589,6 +609,7 @@
         "seed": 4707198747791281998,
         "face": "ny",
         "band": 0,
+        "cave_version": 1,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -618,6 +639,7 @@
         "seed": 4707198747791281998,
         "face": "ny",
         "band": 1,
+        "cave_version": 1,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -647,6 +669,7 @@
         "seed": 4707198747791281998,
         "face": "ny",
         "band": 2,
+        "cave_version": 1,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -676,6 +699,7 @@
         "seed": 4707198747791281998,
         "face": "ny",
         "band": 3,
+        "cave_version": 1,
         "biome_source": {
           "face": "ny",
           "palette": {
@@ -705,6 +729,7 @@
         "seed": 4707198747791281998,
         "face": "pz",
         "band": -2,
+        "cave_version": 1,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -734,6 +759,7 @@
         "seed": 4707198747791281998,
         "face": "pz",
         "band": -1,
+        "cave_version": 1,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -763,6 +789,7 @@
         "seed": 4707198747791281998,
         "face": "pz",
         "band": 0,
+        "cave_version": 1,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -792,6 +819,7 @@
         "seed": 4707198747791281998,
         "face": "pz",
         "band": 1,
+        "cave_version": 1,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -821,6 +849,7 @@
         "seed": 4707198747791281998,
         "face": "pz",
         "band": 2,
+        "cave_version": 1,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -850,6 +879,7 @@
         "seed": 4707198747791281998,
         "face": "pz",
         "band": 3,
+        "cave_version": 1,
         "biome_source": {
           "face": "pz",
           "palette": {
@@ -879,6 +909,7 @@
         "seed": 4707198747791281998,
         "face": "nz",
         "band": -2,
+        "cave_version": 1,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -908,6 +939,7 @@
         "seed": 4707198747791281998,
         "face": "nz",
         "band": -1,
+        "cave_version": 1,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -937,6 +969,7 @@
         "seed": 4707198747791281998,
         "face": "nz",
         "band": 0,
+        "cave_version": 1,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -966,6 +999,7 @@
         "seed": 4707198747791281998,
         "face": "nz",
         "band": 1,
+        "cave_version": 1,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -995,6 +1029,7 @@
         "seed": 4707198747791281998,
         "face": "nz",
         "band": 2,
+        "cave_version": 1,
         "biome_source": {
           "face": "nz",
           "palette": {
@@ -1024,6 +1059,7 @@
         "seed": 4707198747791281998,
         "face": "nz",
         "band": 3,
+        "cave_version": 1,
         "biome_source": {
           "face": "nz",
           "palette": {

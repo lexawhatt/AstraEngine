@@ -63,7 +63,8 @@ public final class EarthGenerationGameTests {
             helper.assertTrue(generator.chart().equals(chart), "Preset generator has a different canonical chart");
             var saved = ChunkGenerator.CODEC.encodeStart(ops, generator).getOrThrow();
             var restored = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, saved).getOrThrow();
-            helper.assertTrue(restored.chart().equals(chart) && restored.terrain().equals(generator.terrain()),
+            helper.assertTrue(restored.chart().equals(chart) && restored.terrain().equals(generator.terrain())
+                            && restored.caves().equals(generator.caves()) && generator.caves().version() == 1,
                     "Reload changed Earth geography");
             helper.assertTrue(generator.getBiomeSource().possibleBiomes().size() == 12,
                     "Earth climate palette lost a biome");
@@ -95,6 +96,13 @@ public final class EarthGenerationGameTests {
         rejected(helper, invalid, "Incomplete biome palette");
         invalid = valid.deepCopy(); invalid.getAsJsonObject("biome_source").addProperty("terrain_version", 1);
         rejected(helper, invalid, "Biome algorithm differs from stored blocks");
+        JsonObject solid = valid.deepCopy(); solid.remove("cave_version");
+        helper.assertTrue(((EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, solid).getOrThrow()).caves().version() == 0,
+                "Missing cave version silently carved a legacy saved world");
+        for (double version : new double[]{-1, .5, 2, 1e20}) {
+            JsonObject malformed = valid.deepCopy(); malformed.addProperty("cave_version", version);
+            rejected(helper, malformed, "Unsupported cave version");
+        }
         JsonObject legacy = valid.deepCopy(); legacy.addProperty("terrain_version", 1);
         legacy.getAsJsonObject("biome_source").remove("terrain_version");
         var oldGenerator = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, legacy).getOrThrow();
@@ -164,6 +172,68 @@ public final class EarthGenerationGameTests {
                         "Earth fluid heightmap disagrees with physical ocean and storage clipping");
             }
         }
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty", timeoutTicks = 400)
+    public static void cavesCarveActualChunksWithoutChangingLegacyRoofsOrWater(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var ops = RegistryOps.create(JsonOps.INSTANCE, level.registryAccess());
+        var dimensions = preset(helper).getAsJsonObject("dimensions");
+        var random = level.getChunkSource().randomState();
+        var height = LevelHeightAccessor.create(EarthChart.MIN_Y, EarthChart.HEIGHT);
+        long started = System.nanoTime();
+        int carved = 0;
+        for (var chart : new EarthChart[]{new EarthChart(CubeFace.POSITIVE_X, 0, 2),
+                new EarthChart(CubeFace.POSITIVE_Y, -1, 2)}) {
+            JsonObject resource = dimensions.getAsJsonObject(chart.dimensionId()).getAsJsonObject("generator");
+            var generator = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, resource).getOrThrow();
+            for (int chunkX = 0; chunkX < 2; chunkX++) {
+                var position = new ChunkPos(chunkX, 0);
+                var chunk = new ProtoChunk(position, UpgradeData.EMPTY, height,
+                        level.registryAccess().registryOrThrow(Registries.BIOME), null);
+                generator.fillFromNoise(Blender.empty(), random, level.structureManager(), chunk).join();
+                generator.applyCarvers(null, 0, random, level.getBiomeManager(), level.structureManager(), chunk,
+                        net.minecraft.world.level.levelgen.GenerationStep.Carving.AIR);
+                int localVoids = 0;
+                for (int z = 0; z < 16; z++) {
+                    for (int x = 0; x < 16; x++) {
+                        int wx = position.getMinBlockX() + x;
+                        int ground = (int) Math.floor(generator.terrain().sample(chart.normal(wx + .5, z + .5)).heightMeters());
+                        for (int y = chunk.getMinBuildHeight(); y < chunk.getMaxBuildHeight(); y++) {
+                            var block = chunk.getBlockState(new BlockPos(wx, y, z));
+                            int physical = y + chart.altitudeOriginMeters();
+                            if (physical >= ground && physical < 0) {
+                                helper.assertTrue(block.is(Blocks.WATER), "Caves drained the ocean");
+                            }
+                            if (ground < 4 && physical < ground && physical >= ground - 64) {
+                                helper.assertTrue(!block.isAir(), "Caves punctured the seabed roof");
+                            }
+                            if (block.is(Blocks.CAVE_AIR)) {
+                                localVoids++;
+                                helper.assertTrue(physical < ground && physical >= ground - 2400,
+                                        "Carving escaped its physical depth envelope");
+                            }
+                        }
+                    }
+                }
+                helper.assertTrue(localVoids > 1000, "Actual chunk has no useful underground space: " + localVoids);
+                carved += localVoids;
+                JsonObject old = resource.deepCopy(); old.remove("cave_version");
+                var legacy = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, old).getOrThrow();
+                var solid = new ProtoChunk(position, UpgradeData.EMPTY, height,
+                        level.registryAccess().registryOrThrow(Registries.BIOME), null);
+                legacy.fillFromNoise(Blender.empty(), random, level.structureManager(), solid).join();
+                legacy.applyCarvers(null, 0, random, level.getBiomeManager(), level.structureManager(), solid,
+                        net.minecraft.world.level.levelgen.GenerationStep.Carving.AIR);
+                for (int y = solid.getMinBuildHeight(); y < solid.getMaxBuildHeight(); y++) {
+                    helper.assertTrue(!solid.getBlockState(new BlockPos(position.getMinBlockX(), y, 0)).is(Blocks.CAVE_AIR),
+                            "Legacy generator began carving on reload");
+                }
+            }
+        }
+        dev.lexawhatt.astraengine.AstraEngine.LOGGER.info("ASTRA_VERIFY_CAVES chunks=4 carved={} elapsedMs={}",
+                carved, (System.nanoTime() - started) / 1_000_000.0);
         helper.succeed();
     }
 

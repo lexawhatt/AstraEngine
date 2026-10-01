@@ -5,6 +5,7 @@ import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.client.environment.EnvironmentProfiles;
 import dev.lexawhatt.astraengine.client.flight.RocketController;
 import dev.lexawhatt.astraengine.client.render.RenderOptions;
+import dev.lexawhatt.astraengine.client.render.FlashlightController;
 import dev.lexawhatt.astraengine.client.render.OverworldSkyRenderer;
 import dev.lexawhatt.astraengine.client.solar.AstralOverworldEffects;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
@@ -80,6 +81,10 @@ public final class AstraEngineClient {
                 ResourceLocation.parse(HorizonScene.DIMENSION_ID), new HorizonEffects(HORIZON)));
         EnvironmentProfiles profiles = new EnvironmentProfiles();
         RenderOptions options = new RenderOptions(profiles);
+        FlashlightController flashlight = new FlashlightController(options);
+        modEventBus.addListener(flashlight::registerKeys);
+        NeoForge.EVENT_BUS.addListener(flashlight::tick);
+        NeoForge.EVENT_BUS.addListener(flashlight::logout);
         SolarStateClient solar = new SolarStateClient();
         EarthStateClient earth = new EarthStateClient();
         NeoForge.EVENT_BUS.addListener(earth::receive);

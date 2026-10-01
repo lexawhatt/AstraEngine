@@ -109,7 +109,7 @@ public record ContinentalTerrain(int version, long seed) {
         return smooth(Math.clamp((value - lower) / (upper - lower), 0, 1));
     }
 
-    private static double noise(double x, double y, double z, long seed) {
+    static double noise(double x, double y, double z, long seed) {
         int ix = (int) Math.floor(x), iy = (int) Math.floor(y), iz = (int) Math.floor(z);
         double fx = smooth(x - ix), fy = smooth(y - iy), fz = smooth(z - iz);
         double low = mix(mix(hash(ix, iy, iz, seed), hash(ix + 1, iy, iz, seed), fx),

@@ -8,6 +8,7 @@ import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexBuffer;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.lexawhatt.astraengine.AstraEngine;
+import dev.lexawhatt.astraengine.client.sky.SkyVisibility;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.client.sky.SkyIllumination;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
@@ -84,8 +85,10 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     }
 
     private static boolean visible() {
-        var camera = Minecraft.getInstance().gameRenderer.getMainCamera();
-        return camera.getFluidInCamera() == FogType.NONE && !(camera.getEntity() instanceof LivingEntity living
+        var game = Minecraft.getInstance();
+        var camera = game.gameRenderer.getMainCamera();
+        return !SkyVisibility.underground(game.level, camera)
+                && camera.getFluidInCamera() == FogType.NONE && !(camera.getEntity() instanceof LivingEntity living
                 && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS)));
     }
 

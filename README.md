@@ -75,6 +75,12 @@ It layers beneath host/DH geometry and yields to active Iris packs. It remains o
 storage-boundary views are integrated;
 existing worlds and the current legacy landing destinations retain their behavior.
 
+New Astra Earth worlds include versioned connected caves and large chambers up to
+2.4 km beneath the local terrain, with protected seabeds and occasional dry entrances.
+Old saved generators keep their underground version. **F8** toggles a rebindable
+64-block inspection flashlight; enclosed unlit views are dark while local lamps
+and night vision remain usable. Active Iris packs retain lighting ownership.
+
 With optional Distant Horizons 3.3.3, Astra Earth supplies
 [geographic LOD columns directly](docs/COMPATIBILITY.md#direct-earth-lod-generation)
 from that same terrain source. Distant generation does not create full Minecraft

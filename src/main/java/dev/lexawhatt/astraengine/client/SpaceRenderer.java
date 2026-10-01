@@ -186,6 +186,10 @@ public final class SpaceRenderer {
         if (profile == null && !options.environment().equals("off") && !editor.visibleObjects().isEmpty()) {
             profile = EnvironmentProfile.SPACE;
         }
+        if (profile == null && !options.environment().equals("off") && options.flashlight()) {
+            // Preserve the host sky and base lighting while enabling the camera light in ordinary worlds.
+            profile = EnvironmentProfile.NEUTRAL;
+        }
         if (profile == null) {
             if (frame != null) { try (var state = new FullscreenPass()) { pipeline.close(); } }
             shapes.close();
@@ -217,7 +221,7 @@ public final class SpaceRenderer {
             var direction = event.getCamera().getLookVector();
             collector.add(new SceneLight("astraengine:flashlight", SceneLight.Kind.SPOT, camera,
                     new LightVector(direction.x(), direction.y(), direction.z()), new LightVector(1, 0.91, 0.75),
-                    3.5f, 28, 12, 23, false));
+                    7, 64, 12, 25, false));
         }
         NeoForge.EVENT_BUS.post(new CollectSceneLightsEvent(minecraft.level, camera, collector, partial));
         List<SceneLight> lights = collector.seal();

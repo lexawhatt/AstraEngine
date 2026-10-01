@@ -8,6 +8,7 @@ import dev.lexawhatt.astraengine.surface.ContinentalTerrain;
 import dev.lexawhatt.astraengine.surface.CubeFace;
 import dev.lexawhatt.astraengine.surface.EarthChart;
 import dev.lexawhatt.astraengine.surface.EarthClimate;
+import dev.lexawhatt.astraengine.surface.SubterraneanField;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +48,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
             TerrainCodecs.EXACT_LONG.fieldOf("seed").forGetter(Definition::seed),
             Codec.STRING.fieldOf("face").forGetter(Definition::face),
             TerrainCodecs.EXACT_INT.fieldOf("band").forGetter(Definition::band),
+            TerrainCodecs.EXACT_INT.optionalFieldOf("cave_version", 0).forGetter(Definition::caveVersion),
             EarthBiomeSource.CODEC.fieldOf("biome_source").forGetter(Definition::biomes)
     ).apply(instance, Definition::new));
 
@@ -63,10 +65,16 @@ public final class EarthChunkGenerator extends ChunkGenerator {
     private final EarthChart chart;
     private final ContinentalTerrain terrain;
     private final TerrainColumns columns;
+    private final SubterraneanField caves;
 
     /** Requires a chart and biome source for the same face; neither retains a level or mutable worker cache. */
     public EarthChunkGenerator(EarthChart chart, EarthBiomeSource biomes) {
-        this(definition(chart, biomes));
+        this(chart, biomes, 0);
+    }
+
+    /** Explicit underground version; zero retains the historical solid generator. Existing chunks are never rewritten. */
+    public EarthChunkGenerator(EarthChart chart, EarthBiomeSource biomes, int caveVersion) {
+        this(definition(chart, biomes, caveVersion));
     }
 
     private EarthChunkGenerator(Definition definition) {
@@ -78,6 +86,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
         }
         this.definition = definition;
         terrain = new ContinentalTerrain(definition.terrainVersion(), definition.seed());
+        caves = new SubterraneanField(definition.caveVersion(), definition.seed());
         columns = new TerrainColumns(EarthChart.MIN_Y, EarthChart.HEIGHT, this::column);
     }
 
@@ -85,6 +94,8 @@ public final class EarthChunkGenerator extends ChunkGenerator {
     public EarthChart chart() { return chart; }
     /** Immutable spherical field shared by every storage chart and presentation sampler. */
     public ContinentalTerrain terrain() { return terrain; }
+    /** Immutable independently versioned underground field; no worker or level state. */
+    public SubterraneanField caves() { return caves; }
     /**
      * Worker-safe unmodified base column, including lit-air space but no decoration or player edits.
      * Uses the exact generation sampler and band clipping, without loading chunks or allocating a voxel array.
@@ -155,7 +166,9 @@ public final class EarthChunkGenerator extends ChunkGenerator {
     }
     @Override public void buildSurface(WorldGenRegion level, StructureManager structures, RandomState random, ChunkAccess chunk) {}
     @Override public void applyCarvers(WorldGenRegion level, long seed, RandomState random, BiomeManager biomes,
-            StructureManager structures, ChunkAccess chunk, GenerationStep.Carving step) {}
+            StructureManager structures, ChunkAccess chunk, GenerationStep.Carving step) {
+        if (step == GenerationStep.Carving.AIR) { EarthCaveCarver.carve(chunk, chart, terrain, caves); }
+    }
     @Override public void spawnOriginalMobs(WorldGenRegion level) {}
 
     @Override
@@ -164,11 +177,12 @@ public final class EarthChunkGenerator extends ChunkGenerator {
                 EarthChart.VERSION, chart.face().id(), chart.band(), position.getY() + (double) chart.altitudeOriginMeters()));
     }
 
-    private static Definition definition(EarthChart chart, EarthBiomeSource biomes) {
+    private static Definition definition(EarthChart chart, EarthBiomeSource biomes, int caveVersion) {
         if (chart == null || biomes == null) { throw new IllegalArgumentException("Earth generation requires a chart and biomes"); }
         return new Definition(EarthChart.VERSION, chart.terrainVersion(), ContinentalTerrain.SEED,
-                chart.face().id(), chart.band(), biomes);
+                chart.face().id(), chart.band(), caveVersion, biomes);
     }
 
-    private record Definition(int chartVersion, int terrainVersion, long seed, String face, int band, EarthBiomeSource biomes) {}
+    private record Definition(int chartVersion, int terrainVersion, long seed, String face, int band,
+                              int caveVersion, EarthBiomeSource biomes) {}
 }

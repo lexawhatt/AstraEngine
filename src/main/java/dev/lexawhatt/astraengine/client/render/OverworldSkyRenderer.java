@@ -3,6 +3,7 @@ package dev.lexawhatt.astraengine.client.render;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.lexawhatt.astraengine.AstraEngine;
+import dev.lexawhatt.astraengine.client.sky.SkyVisibility;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarVisual;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
@@ -122,6 +123,7 @@ public final class OverworldSkyRenderer implements AutoCloseable {
         setupFog.run();
         FogType fluid = camera.getFluidInCamera();
         if (foggy || fluid == FogType.LAVA || fluid == FogType.POWDER_SNOW
+                || SkyVisibility.underground(level, camera)
                 || camera.getEntity() instanceof LivingEntity living
                 && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS))) {
             return true;

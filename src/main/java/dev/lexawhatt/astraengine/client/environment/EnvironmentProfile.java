@@ -6,6 +6,7 @@ import dev.lexawhatt.astraengine.client.lighting.LightVector;
 /** Resource-defined presentation, independent of server system state and biome/gameplay light. */
 public record EnvironmentProfile(boolean planetary, float ambient, float sunStrength, float exposure,
                                  float bloom, float caveFloor, boolean rings, float ringTilt) {
+    public static final EnvironmentProfile NEUTRAL = new EnvironmentProfile(false, 1, 0, 1, 0, 1, false, 0.5f);
     public static final EnvironmentProfile SPACE = new EnvironmentProfile(false, 1, 1.4f, 1, 0.3f, 1, false, 0.5f);
     public static final EnvironmentProfile PLANET = new EnvironmentProfile(true, 0.72f, 1.8f, 1, 0.28f, 0.015f, true, 0.5f);
 

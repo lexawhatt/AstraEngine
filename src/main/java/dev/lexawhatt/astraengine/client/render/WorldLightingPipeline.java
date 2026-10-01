@@ -87,7 +87,8 @@ public final class WorldLightingPipeline implements AutoCloseable {
 
     /** Half-resolution separable bloom and bounded exposure; first-person hand and HUD render afterward. */
     public void compose(EnvironmentProfile profile, RenderOptions options) {
-        if (blur == null || composite == null || (!options.bloom() && profile.exposure() == 1)) { return; }
+        if (blur == null || composite == null
+                || ((!options.bloom() || profile.bloom() == 0) && profile.exposure() == 1)) { return; }
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         try (var state = new FullscreenPass()) {
             ensureTargets(main);

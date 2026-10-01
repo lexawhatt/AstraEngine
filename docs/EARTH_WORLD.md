@@ -35,6 +35,28 @@ cancels guidance and preserves a nearby free observer's relative position.
 Changing time during an ascent restores its real surface source. Shader animation
 and stellar evolution keep their existing independent ownership and rates.
 
+New **Astra Earth** worlds also save `cave_version: 1` independently of the surface
+terrain version. The host carving stage opens connected tunnels and large irregular
+chambers from a deterministic body-fixed density field, down to 2,400 meters below
+the local terrain. Rock roofs protect shallow soil and ocean floors; broad cavities
+can break through dry land as sinkholes. This is procedural cave geometry, not an
+erosion or groundwater simulation. It does not add abandoned mineshafts or mining
+machines. Ordinary biome decoration and consumer ore features still run afterward.
+
+Missing `cave_version` decodes as zero, preserving old solid underground generators.
+Already saved chunks are never recarved. Changing a saved generator by hand is not
+a migration and can introduce chunk borders. The cave field uses physical altitude
+across face/band representations, but automatic traversal of those storage seams
+still has the limits described below. Direct DH background data uses the cheap
+uncarved exterior column; actual lit chunks replace it with observed geometry.
+
+With Astra's automatic sky/lighting active, enclosed unlit cells lose the host's
+pre-gamma ambient boost. Block-source light and night vision retain their behavior.
+**F8** toggles the client flashlight; rebind it in Controls. The light reaches up to
+64 blocks with a soft cone and works in automatic Overworld rendering. It is an
+inspection light with no item or energy economy. Active Iris shader packs retain
+opaque-lighting ownership and do not receive this engine light automatically.
+
 The geographic surface also continues beyond loaded chunks as a bounded distant
 mesh from the same saved height/climate field. Oceans and mountain silhouettes
 use the physical Earth radius. Near the player, the mesh preserves the host's flat
@@ -200,3 +222,8 @@ worlds and never modifies a user's existing save.
 
 Use a fresh disposable directory for creation. Restart accepts only that completed
 fixture; verification code and worlds are not included in the distributed JAR.
+
+The `earth-underground` native phase creates real cave chunks, compares dark,
+flashlight, local block emission and night-vision images, and exercises rebinding,
+menu suppression, resource reload and disconnect. Pure connected-component checks
+and dedicated carver/legacy-codec/ocean-roof tests complement this visible scenario.

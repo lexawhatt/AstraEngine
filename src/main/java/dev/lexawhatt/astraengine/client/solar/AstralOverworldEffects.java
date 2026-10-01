@@ -6,15 +6,18 @@ import dev.lexawhatt.astraengine.client.render.RenderOptions;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
 import dev.lexawhatt.astraengine.client.sky.SkyIllumination;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
+import dev.lexawhatt.astraengine.client.sky.SkyVisibility;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.renderer.DimensionSpecialEffects;
 import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.core.BlockPos;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.level.material.FogType;
+import net.minecraft.world.level.LightLayer;
 import net.neoforged.neoforge.client.event.ViewportEvent;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -69,8 +72,12 @@ public final class AstralOverworldEffects extends DimensionSpecialEffects.Overwo
         Camera camera = event.getCamera();
         if (!active(level) || camera.getFluidInCamera() != FogType.NONE
                 || camera.getEntity() instanceof LivingEntity living
-                && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS)
-                    || living.hasEffect(MobEffects.NIGHT_VISION))) { return; }
+                && (living.hasEffect(MobEffects.BLINDNESS) || living.hasEffect(MobEffects.DARKNESS))) { return; }
+        if (SkyVisibility.underground(level, camera)) {
+            event.setRed(0); event.setGreen(0); event.setBlue(0);
+            return;
+        }
+        if (camera.getEntity() instanceof LivingEntity living && living.hasEffect(MobEffects.NIGHT_VISION)) { return; }
         float partial = (float) event.getPartialTick();
         var sun = seasons.toHostDirection(level, seasons.sample(level, partial).sunDirection());
         var look = camera.getLookVector();
@@ -81,7 +88,8 @@ public final class AstralOverworldEffects extends DimensionSpecialEffects.Overwo
         double voidLight = Math.clamp((camera.getPosition().y - level.getMinBuildHeight())
                 * level.getLevelData().getClearColorScale(), 0, 1);
         double boss = game.gameRenderer.getDarkenWorldAmount(partial);
-        double dim = voidLight * voidLight;
+        double skyAccess = level.getBrightness(LightLayer.SKY, BlockPos.containing(camera.getPosition())) / 15.0;
+        double dim = voidLight * voidLight * skyAccess;
         event.setRed((float) (haze.x() * dim * (1 - boss * 0.3)));
         event.setGreen((float) (haze.y() * dim * (1 - boss * 0.4)));
         event.setBlue((float) (haze.z() * dim * (1 - boss * 0.4)));
@@ -109,6 +117,13 @@ public final class AstralOverworldEffects extends DimensionSpecialEffects.Overwo
         float aboveHorizon = (float) Math.clamp((sunHeight + 0.06) / 0.2, 0, 1);
         float flash = lightFrame.flash() * skyAccess * aboveHorizon;
         colors.add(flash * 0.6f, flash * 0.7f, flash * 0.9f);
+        var player = Minecraft.getInstance().player;
+        // Remove the host pre-gamma ambient only from fully unlit cells. Lit texels and vision effects
+        // retain their host values; in particular never pass a zero color into night vision normalization.
+        if (pixelX == 0 && pixelY == 0 && player != null && !player.hasEffect(MobEffects.NIGHT_VISION)
+                && player.getWaterVision() == 0) {
+            colors.sub(.03f * (1 - darken * .3f), .03f * (1 - darken * .4f), .03f * (1 - darken * .4f));
+        }
         colors.set(Math.max(0, colors.x), Math.max(0, colors.y), Math.max(0, colors.z));
     }
 

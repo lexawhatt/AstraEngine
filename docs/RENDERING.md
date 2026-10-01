@@ -29,6 +29,11 @@ In a creative test world, use the client commands:
 /astra-render status
 ```
 
+**F8** toggles the flashlight (rebindable in Controls), including in the automatic
+Overworld without selecting a preview profile. It has a 64-block soft cone, ignores
+menu key presses and resets on disconnect. Active Iris packs own opaque lighting,
+so the engine flashlight is unavailable with a pack active.
+
 Walk into an enclosed, unlit space: the planetary profile darkens the view;
 the flashlight follows the camera and illuminates the visible wall/floor with a
 soft cone. `environment auto` restores automatic environment selection;
@@ -281,6 +286,8 @@ the block-cloud draw while automatic sky is active. The registered Overworld eff
 also adjusts visual fog and, when lighting is enabled, subtracts the diminished
 sky contribution from the client lightmap while preserving the block-source
 contribution. A bounded solar flash follows sky visibility and the Sun's height.
+Fully unlit enclosed lightmap cells also lose the pre-gamma ambient boost; block-lit
+texels and night vision are preserved. Atmospheric fog follows local sky access.
 These changes do not alter server sky/block light, mob spawning or world time.
 With an unavailable sky shader, the sky/fog/lightmap follow their vanilla paths.
 With an active Iris pack, Astra yields Overworld sky, clouds, fog, lightmap and

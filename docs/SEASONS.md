@@ -126,7 +126,8 @@ settings synchronize on login and changes, survive client resource reload and
 clear on disconnect. Clients use the existing vanilla time synchronization.
 
 Seasonal visual skylight replaces only the sky contribution to Minecraft's
-lightmap; enclosed block emission is preserved. This does not change server
+lightmap; enclosed block emission is preserved. Fully unlit enclosed cells lose
+the pre-gamma ambient boost, while night vision retains host normalization. This does not change server
 light levels, mob spawning, daylight sensors, sleep eligibility or Minecraft's
 internal day/night predicates. Those gameplay rules can therefore differ from
 seasonal sunrise/sunset. Weather, water/lava fog, blindness and darkness retain

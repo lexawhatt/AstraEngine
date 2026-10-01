@@ -70,6 +70,8 @@ public final class RenderOptions {
 
     /** Client editor controls share the same session-local options as commands. */
     public void toggleFlashlight() { flashlight = !flashlight; }
+    /** Disconnect resets the client inspection light. */
+    public void clearFlashlight() { flashlight = false; }
     public void cycleQuality() { quality = Quality.values()[(quality.ordinal() + 1) % Quality.values().length]; }
     public void cycleEnvironment() {
         environment = switch (environment) {

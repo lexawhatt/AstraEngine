@@ -89,6 +89,7 @@ public final class ClientScenario {
     private DhCloudScenario dhCloudScenario;
     private ContinentalScenario continentalScenario;
     private EarthGenerationScenario earthGenerationScenario;
+    private UndergroundScenario undergroundScenario;
     private EarthTravelScenario earthTravelScenario;
     private EarthAtmosphereScenario earthAtmosphereScenario;
     private EarthLandscapeScenario earthLandscapeScenario;
@@ -211,7 +212,7 @@ public final class ClientScenario {
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
                         || phase.startsWith("earth-boundary-") || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || (phase.equals("earth-landscape") || phase.equals("earth-landscape-pack")) || phase.equals("earth-generation-create") || phase.equals("continental-create")
-                        || phase.startsWith("dh-clouds") || phase.equals("earth-dh") || phase.equals("earth-materials")
+                        || phase.startsWith("dh-clouds") || phase.equals("earth-dh") || phase.equals("earth-materials") || phase.equals("earth-underground")
                         || phase.equals("lunar-pulsar") || phase.equals("pulsar-create") || phase.equals("navigation")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
@@ -260,7 +261,7 @@ public final class ClientScenario {
             boolean galacticPhase = phase.equals("galactic") || phase.equals("galactic-restart");
             boolean celestialApiPhase = phase.equals("celestial-api") || phase.equals("celestial-api-restart");
             if (minecraft.player == null || minecraft.level == null || minecraft.getOverlay() != null
-                    || (minecraft.screen != null && !phase.equals("navigation") && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
+                    || (minecraft.screen != null && !phase.equals("navigation") && !phase.equals("earth-underground") && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
                             || minecraft.screen instanceof ShaderEditorScreen))
                             && !(phase.equals("surface-failures") && minecraft.screen instanceof DeathScreen)
                             && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || celestialPolishPhase || surfacePhase
@@ -273,6 +274,11 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.equals("earth-underground")) {
+                if (undergroundScenario == null) { undergroundScenario = new UndergroundScenario(); }
+                if (undergroundScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.equals("navigation")) {
                 if (navigationScenario == null) { navigationScenario = new NavigationScenario(); }
                 if (navigationScenario.tick()) { finish(); }
