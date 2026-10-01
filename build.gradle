@@ -268,8 +268,17 @@ tasks.named('runVerifyClient') {
 // Some Minecraft startup failures exit with code zero; require a completed, nonempty test report.
 def serverVerificationReport = file(providers.gradleProperty('verifyServerDirectory')
         .getOrElse('Workflow/verification/first-slice-server') + '/gametest-results.xml')
+def serverVerificationWorld = new File(serverVerificationReport.parentFile, 'world/level.dat')
+def wrongServerDirectoryOption = providers.gradleProperty('verifyDirectory').isPresent()
+        && !providers.gradleProperty('verifyServerDirectory').isPresent()
 tasks.named('runVerifyServer') {
     doFirst {
+        if (wrongServerDirectoryOption) {
+            throw new GradleException('Server verification uses -PverifyServerDirectory, not -PverifyDirectory. No world was opened.')
+        }
+        if (serverVerificationWorld.exists()) {
+            throw new GradleException('Server creation tests require a fresh -PverifyServerDirectory; existing evidence is preserved.')
+        }
         if (serverVerificationReport.exists()) { serverVerificationReport.delete() }
     }
     doLast {

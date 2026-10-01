@@ -42,6 +42,7 @@ public final class EngineRuntime {
     private RocketService rocket;
     private SolarEvolutionService solar;
     private SurfaceFrameTracker surfaceFrames;
+    private EarthBoundaryService boundaries;
 
     /** Registers common/server listeners once. */
     public EngineRuntime() {
@@ -78,19 +79,21 @@ public final class EngineRuntime {
         SurfaceWorlds.maintainBorders(server);
         travel = new TravelService(server);
         rocket = new RocketService(server);
+        boundaries = new EarthBoundaryService(server);
         solar = new SolarEvolutionService(server, rocket);
         SkyState.get(server);
         AstraEngine.LOGGER.info("AstraEngine systems ready: alpha and beta; empty systems pause");
     }
 
     private void onStopping(ServerStoppingEvent event) {
+        if (boundaries != null) { boundaries.close(); boundaries = null; }
         if (surfaceFrames != null) { surfaceFrames.close(); surfaceFrames = null; }
         if (rocket != null) { rocket.close(); }
         if (travel != null) { travel.close(); }
     }
 
     private void onStopped(ServerStoppedEvent event) {
-        surfaceFrames = null; solar = null; rocket = null; travel = null; server = null;
+        boundaries = null; surfaceFrames = null; solar = null; rocket = null; travel = null; server = null;
     }
 
     private void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
@@ -106,6 +109,7 @@ public final class EngineRuntime {
 
     private void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            if (boundaries != null) { boundaries.forget(player); }
             if (surfaceFrames != null) { surfaceFrames.forget(player); }
             if (travel != null) { travel.disconnect(player); }
             if (rocket != null) { rocket.disconnect(player); }
@@ -113,6 +117,7 @@ public final class EngineRuntime {
     }
 
     private void resetSurfaceFrame(PlayerEvent event) {
+        if (boundaries != null && event.getEntity() instanceof ServerPlayer player) { boundaries.forget(player); }
         if (surfaceFrames != null && event.getEntity() instanceof ServerPlayer player) {
             surfaceFrames.forget(player);
         }
@@ -128,6 +133,7 @@ public final class EngineRuntime {
         if (travel == null) { return; }
         travel.tick();
         if (rocket != null) { rocket.tick(); }
+        if (boundaries != null) { boundaries.tick(); }
         if (solar != null) { solar.tick(); }
         if (surfaceFrames != null) { surfaceFrames.tick(); }
         SystemCatalog catalog = SystemCatalog.get(event.getServer());

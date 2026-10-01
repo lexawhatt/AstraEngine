@@ -92,6 +92,7 @@ public final class ClientScenario {
     private EarthTravelScenario earthTravelScenario;
     private EarthAtmosphereScenario earthAtmosphereScenario;
     private EarthLandscapeScenario earthLandscapeScenario;
+    private EarthBoundaryScenario earthBoundaryScenario;
     private ContinentalOrbitScenario continentalOrbitScenario;
     private LunarPulsarVisualScenario lunarPulsarVisualScenario;
     private PulsarAtlasScenario pulsarAtlasScenario;
@@ -207,7 +208,7 @@ public final class ClientScenario {
                         || phase.equals("surface-failures") || phase.equals("surface-boundaries")
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
-                        || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || (phase.equals("earth-landscape") || phase.equals("earth-landscape-pack")) || phase.equals("earth-generation-create") || phase.equals("continental-create")
+                        || phase.startsWith("earth-boundary-") || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || (phase.equals("earth-landscape") || phase.equals("earth-landscape-pack")) || phase.equals("earth-generation-create") || phase.equals("continental-create")
                         || phase.startsWith("dh-clouds")
                         || phase.equals("lunar-pulsar") || phase.equals("pulsar-create")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
@@ -274,6 +275,11 @@ public final class ClientScenario {
             if ((phase.equals("earth-landscape") || phase.equals("earth-landscape-pack"))) {
                 if (earthLandscapeScenario == null) { earthLandscapeScenario = new EarthLandscapeScenario(); }
                 if (earthLandscapeScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("earth-boundary-")) {
+                if (earthBoundaryScenario == null) { earthBoundaryScenario = new EarthBoundaryScenario(); }
+                if (earthBoundaryScenario.tick()) { finish(); }
                 return;
             }
             if (phase.equals("earth-atmosphere")) {

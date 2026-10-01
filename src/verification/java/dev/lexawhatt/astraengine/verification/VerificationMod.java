@@ -23,6 +23,7 @@ public final class VerificationMod {
             event.register(PlanetaryTerrainGameTests.class);
             event.register(ContinentalTerrainGameTests.class);
             event.register(EarthGenerationGameTests.class);
+            event.register(EarthBoundaryGameTests.class);
             event.register(TerrainStorageGameTests.class);
             event.register(TerrainHeightmapGameTests.class);
             event.register(PulsarGameTests.class);

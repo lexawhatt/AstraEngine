@@ -74,9 +74,23 @@ Host Y ranges from -2032 through 2031. Physical altitude is
 `hostY + band * 4064`, covering [-10160, 14224) meters. The generator does not
 compress mountains or insert bedrock, new sea surfaces or summit caps at band
 boundaries. Horizontal storage uses a gnomonic projection, so chart block distances
-are not a globally uniform metric on the sphere. Automatic walking across chart
-or band boundaries and their connected views are still under integration; these
-are separate from the already implemented address and storage mappings.
+are not a globally uniform metric on the sphere.
+
+Within48 chart meters of a storage edge, the server prepares a bounded neighborhood
+using expiring FULL-status chunk tickets. It sends at most32 real sections, including
+saved block states, light and biomes, under a540-KiB packet budget. Capture never
+requests synchronous generation. The immutable observations cannot edit blocks or
+authorize travel. They expire on departure, player replacement or disconnect;
+canonical chunks remain in their original permanent worlds.
+
+Neighboring baked block models and fluids use a cancellable CPU mesh request and
+owned GPU buffers. Geometry retains section-local floats; double-derived projective
+coefficients map adjacent charts relative to the camera. Native views share terrain
+depth; with an Iris pack these neutral observations compose after finalization and
+are not pack shadow/reflection inputs. Resource reload rebuilds GPU data while
+retaining the connection's numeric observation. Block-entity renderers and automatic
+walking/collision handoff are still being integrated. Observed neighboring blocks
+are not yet interaction targets in the current chart.
 
 Terrain version, exact 64-bit seed, chart version, face and band are saved in the
 generator codec. Unknown versions, mismatched biome faces, incomplete palettes and
@@ -145,6 +159,11 @@ Fabulous. Native scenarios:
 ./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-earth -PverifyPhase=earth-generation-create
 ./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-earth -PverifyPhase=earth-generation-restart
 ```
+
+The `earth-boundary-observations` phase checks real band/face/corner preparation,
+canonical edits delivered over the actual wire, immutable prior observations,
+visible gold-to-emerald replacement and owned ticket retirement. It uses a fresh
+Earth preset and preserves its evidence separately from player saves.
 
 The separate `earth-orbit` phase verifies the orbital presentation path. The
 `earth-landscape` phase covers lowland, summit, high-altitude, coast, pole, face-edge
