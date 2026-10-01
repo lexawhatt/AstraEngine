@@ -4,7 +4,17 @@
   "attributes": [
     "Position"
   ],
-  "samplers": [],
+  "samplers": [
+    {
+      "name": "EarthHeightTile0"
+    },
+    {
+      "name": "EarthHeightTile1"
+    },
+    {
+      "name": "EarthHeightTile2"
+    }
+  ],
   "uniforms": [
     {
       "name": "InverseViewProjection",
@@ -3031,6 +3041,73 @@
         0,
         0,
         0
+      ]
+    },
+    {
+      "name": "EarthHeightCacheEnabled",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "EarthHeightUp",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthHeightEast",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "name": "EarthHeightSouth",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        -1,
+        0
+      ]
+    },
+    {
+      "name": "EarthHeightGrid",
+      "type": "float",
+      "count": 4,
+      "values": [
+        6371000,
+        513,
+        4,
+        32
+      ]
+    },
+    {
+      "name": "EarthHeightOuterSpacing",
+      "type": "float",
+      "count": 1,
+      "values": [
+        256
+      ]
+    },
+    {
+      "name": "ReliefBudget",
+      "type": "float",
+      "count": 3,
+      "values": [
+        24,
+        10,
+        7
       ]
     }
   ]

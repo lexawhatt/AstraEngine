@@ -34,6 +34,29 @@ public record SurfaceGeography(int version, long seed, Kind kind) {
     /** Exact 32-bit seed for the GLSL uint hash; upload as an integer, never a rounded large float. */
     public int shaderSeed() { return (int) (seed ^ seed >>> 32); }
 
+    /**
+     * Version-one Earth height bands in meters, before the final [-48,112] clamp. Keeping the three
+     * scales separate lets a presentation cache apply the same footprint filtering as the analytic shader.
+     * These values are immutable and do not own or replace saved terrain.
+     */
+    public record EarthBands(float coast, float hills, float fine) {}
+
+    /** Samples the canonical Earth bands. Rejects null, zero directions and lunar geography. Worker-safe. */
+    public EarthBands earthBands(SpaceVector direction) {
+        if (kind != Kind.EARTH || direction == null) {
+            throw new IllegalArgumentException("Earth bands require an Earth geography and direction");
+        }
+        SpaceVector unit = direction.normalized();
+        return earthBands((float) unit.x(), (float) unit.y(), (float) unit.z(), shaderSeed());
+    }
+
+    private static EarthBands earthBands(float x, float y, float z, int key) {
+        float coast = (noise(x * 3.1f, y * 3.1f, z * 3.1f, key) - noise(3.1f, 0, 0, key)) * 320;
+        float hills = (noise(x * 8192, y * 8192, z * 8192, key ^ 0x71E1) - 0.5f) * 24;
+        float fine = (noise(x * 32768, y * 32768, z * 32768, key ^ 0xB135) - 0.5f) * 6;
+        return new EarthBands(coast, hills, fine);
+    }
+
     /** Samples a finite nonzero body-fixed direction. No longitude seam, mutable random sequence or world access. */
     public Sample sample(SpaceVector direction) {
         if (direction == null) { throw new IllegalArgumentException("Surface direction must not be null"); }
@@ -49,10 +72,8 @@ public record SurfaceGeography(int version, long seed, Kind kind) {
             material = height > 32 ? Material.ROCK : Material.REGOLITH;
         } else {
             // Pin this fixed anchor to a broad coast; local meter-scale hills still follow the same spherical field.
-            float seaThreshold = noise(3.1f, 0, 0, key);
-            height = (noise(x * 3.1f, y * 3.1f, z * 3.1f, key) - seaThreshold) * 320
-                    + (noise(x * 8192, y * 8192, z * 8192, key ^ 0x71E1) - 0.5f) * 24
-                    + (noise(x * 32768, y * 32768, z * 32768, key ^ 0xB135) - 0.5f) * 6;
+            EarthBands bands = earthBands(x, y, z, key);
+            height = bands.coast() + bands.hills() + bands.fine();
             material = height < 0 ? Material.OCEAN_FLOOR : Math.abs(y) > 0.82f ? Material.ICE
                     : height < 3 ? Material.SAND : height > 68 ? Material.ROCK : Material.GRASS;
         }

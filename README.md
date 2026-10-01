@@ -54,7 +54,8 @@ the next traversal stage.
 
 Earth's close orbital view now uses its existing procedural height field for
 spherical parallax occlusion, slope lighting and progressively resolved surface
-materials. Map approach frames ordinary planets/moons more closely while preserving
+materials. A bounded asynchronous height cache avoids resampling the full height
+function at every nearby ray step. Map approach frames ordinary planets/moons more closely while preserving
 their real radii. [Rendering and limits](docs/SURFACE_TRAVEL.md): arbitrary geographic
 landing, a unified Earth/Overworld and orbital player-build summaries remain unfinished.
 

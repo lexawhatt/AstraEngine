@@ -97,9 +97,18 @@ does not display saved excavations/buildings or replace Earth with the independe
 kilometer-scale continental generator. Geographic landing still targets the bounded
 prepared arrival patch, not an arbitrary selected point on the entire globe.
 
-Close procedural relief costs more GPU time than the previous spherical material.
-It currently samples the height function directly; a bounded height cache and
-sustained close-flight performance qualification remain outstanding.
+Nearby Earth relief uses three local height textures generated from that same
+immutable field on Minecraft's worker pool. The 4 m, 32 m and 256 m sample grids
+retain separate coast/hill/fine bands so distance filtering matches the analytic
+material. Their edges blend into the next grid and ultimately the analytic field;
+they do not change saved terrain. The render thread never waits for unfinished
+sampling. Resource reload, departure and disconnect retire the owned textures
+and reject late worker results. GPU storage is about 12.1 MiB; replacement may
+temporarily retain both generations. A missing cache uses the analytic material.
+
+The cache reduces repeated height calculations in close views. Isolated GPU
+measurements are not an in-world frame-rate guarantee: host chunks, atmosphere,
+resolution, hardware and other mods still affect the complete frame.
 
 ## Rendering and compatibility
 

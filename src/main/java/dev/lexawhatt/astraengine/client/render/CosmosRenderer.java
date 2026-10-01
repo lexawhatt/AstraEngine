@@ -36,6 +36,7 @@ public final class CosmosRenderer implements AutoCloseable {
     private final CatalogStarField catalogStars = new CatalogStarField();
     private final CelestialBloomPipeline bloom = new CelestialBloomPipeline("cosmos");
     private final LateSkyRenderer lateSky = new LateSkyRenderer("cosmos");
+    private final SurfaceHeightCache earthHeights = new SurfaceHeightCache();
     private RenderOptions options;
     private ShaderInstance shader;
     private int quality = 1;
@@ -49,6 +50,7 @@ public final class CosmosRenderer implements AutoCloseable {
 
     /** Registers the reload-owned shader; an unavailable program leaves the host's black sky. */
     public void registerShaders(RegisterShadersEvent event) {
+        earthHeights.close();
         bloom.registerShaders(event);
         lateSky.registerShaders(event);
         try {
@@ -70,6 +72,7 @@ public final class CosmosRenderer implements AutoCloseable {
     /** Releases owned HDR/bloom buffers, leaving registered shader disposal to Minecraft. */
     @Override
     public void close() {
+        earthHeights.close();
         bloom.close();
         lateSky.close();
         galaxySeed = 0;
@@ -162,6 +165,7 @@ public final class CosmosRenderer implements AutoCloseable {
         uploadUniverse(system, cameraMeters);
         shader.safeGetUniform("Exposure").set(Math.clamp(exposure, 0.1f, 4));
         shader.safeGetUniform("Detail").set(quality + 3);
+        shader.safeGetUniform("ReliefBudget").set(quality == 0 ? 16.0f : quality == 1 ? 24.0f : 32.0f, 10.0f, 7.0f);
         shader.safeGetUniform("Supernova").set(system.kind() == CosmosSystem.Kind.SUPERNOVA ? 1 : 0);
         var window = Minecraft.getInstance().getWindow();
         shader.safeGetUniform("ScreenSize").set((float) window.getWidth(), (float) window.getHeight());
@@ -174,6 +178,7 @@ public final class CosmosRenderer implements AutoCloseable {
         int evolutionIndex = -1;
         int atmosphereIndex = -1;
         int nucleusIndex = -1;
+        boolean nearbyEarth = false;
         boolean atlasNucleus = system.id().startsWith("u_")
                 && UniverseGenerator.isAtlasSystemId(system.id()) && system.id().endsWith("_0");
         if (atlasNucleus) {
@@ -185,6 +190,12 @@ public final class CosmosRenderer implements AutoCloseable {
             CelestialFrame.Body frame = frames.get(i);
             CelestialBody body = frame.descriptor();
             SurfaceDefinition definition = SurfaceDefinition.find(system.id(), body.id()).orElse(null);
+            if (definition != null && definition.geography().kind() == SurfaceGeography.Kind.EARTH
+                    && frame.distance() > body.radiusMeters() - 1000 && frame.distance() < body.radiusMeters() + 120_000) {
+                nearbyEarth = true;
+                earthHeights.update(definition.frame(system, timeSeconds, timeSeconds * 20).toBodyPoint(cameraMeters),
+                        body.radiusMeters(), definition.geography());
+            }
             if (system.id().equals("sol") && body.id().equals("sun")) { evolutionIndex = i; }
             if (atlasNucleus && body.id().equals("primary") && body.kind() == CelestialBody.Kind.BLACK_HOLE) {
                 nucleusIndex = i;
@@ -233,6 +244,8 @@ public final class CosmosRenderer implements AutoCloseable {
                     ? (float) ((timeSeconds % rotationSeconds) / rotationSeconds * Math.PI * 2)
                     : (float) definition.spinRadians(timeSeconds, timeSeconds * 20));
         }
+        if (!nearbyEarth) { earthHeights.close(); }
+        earthHeights.bind(shader);
         shader.safeGetUniform("EvolutionIndex").set(evolutionIndex);
         shader.safeGetUniform("AtmosphereBodyIndex").set(atmosphereIndex);
         shader.safeGetUniform("SurfaceHorizon").set((float) up.x(), (float) up.y(), (float) up.z(),

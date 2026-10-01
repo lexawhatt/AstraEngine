@@ -22,6 +22,7 @@ uniform vec4 RegionStructure[24];
 uniform float GalaxySeed;
 uniform float Exposure;
 uniform int Detail;
+uniform vec3 ReliefBudget;
 uniform int Supernova;
 uniform int BodyCount;
 uniform int EvolutionIndex;
@@ -87,6 +88,7 @@ float fbm(vec3 p) {
 #moj_import <astraengine:black_hole.glsl>
 #moj_import <astraengine:planet_atmosphere.glsl>
 #moj_import <astraengine:surface_geography.glsl>
+#moj_import <astraengine:surface_height_cache.glsl>
 #moj_import <astraengine:lunar.glsl>
 #moj_import <astraengine:pulsar.glsl>
 
@@ -189,10 +191,10 @@ vec3 mappedEarthNormal(vec3 p, uint seed, float footprint, float radiusMeters) {
     vec3 tangent = normalize(cross(p, abs(p.y) < 0.9 ? vec3(0, 1, 0) : vec3(1, 0, 0)));
     vec3 bitangent = cross(p, tangent);
     float stepAngle = max(2.0 / radiusMeters, footprint * 1.25);
-    float x0 = max(0.0, geographyHeight(normalize(p - tangent * stepAngle), 2, seed, footprint));
-    float x1 = max(0.0, geographyHeight(normalize(p + tangent * stepAngle), 2, seed, footprint));
-    float y0 = max(0.0, geographyHeight(normalize(p - bitangent * stepAngle), 2, seed, footprint));
-    float y1 = max(0.0, geographyHeight(normalize(p + bitangent * stepAngle), 2, seed, footprint));
+    float x0 = max(0.0, earthHeight(normalize(p - tangent * stepAngle), seed, footprint));
+    float x1 = max(0.0, earthHeight(normalize(p + tangent * stepAngle), seed, footprint));
+    float y0 = max(0.0, earthHeight(normalize(p - bitangent * stepAngle), seed, footprint));
+    float y1 = max(0.0, earthHeight(normalize(p + bitangent * stepAngle), seed, footprint));
     vec2 slope = vec2(x1 - x0, y1 - y0) / (2.0 * stepAngle * radiusMeters);
     return normalize(p - tangent * slope.x - bitangent * slope.y);
 }
@@ -210,7 +212,8 @@ vec3 planetSurface(vec3 n, vec3 viewRay, vec3 light, vec4 material, vec4 paramet
     float clouds = 0.0;
     if (geography.x > 0.5) {
         int surfaceKind = int(geography.x + 0.5);
-        float height = geographyHeight(p, surfaceKind, geographySeed, normalFootprint);
+        float height = surfaceKind == 2 ? earthHeight(p, geographySeed, normalFootprint)
+                : geographyHeight(p, surfaceKind, geographySeed, normalFootprint);
         float fineWeight = 1.0 - smoothstep(0.15, 0.8, normalFootprint * geography.z / 16.0);
         float grain = fineWeight > 0.001 ? noise(p * (geography.z / 16.0)) : 0.5;
         if (surfaceKind == 1) {
@@ -317,7 +320,7 @@ float reliefResidual(vec3 up, vec3 ray, float distanceMeters, float altitude, fl
             / (radiusMeters * max(0.025, abs(dot(p, ray))));
     // Sea occludes the negative seabed; this does not fill excavated host blocks.
     float displacement = 1.0 - smoothstep(80000.0, 100000.0, altitude);
-    return height - max(0.0, geographyHeight(p, 2, seed, footprint)) * displacement;
+    return height - max(0.0, earthHeight(p, seed, footprint)) * displacement;
 }
 
 // Bounded spherical parallax-occlusion march through the canonical Earth height
@@ -347,7 +350,7 @@ float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, ui
     // The displacement is subpixel in broad orbital views. Smooth material
     // filtering still runs; skip the costly march where it cannot be resolved.
     if (pixelAngle * max(start, 1.0) > 300.0) { return nominalHit; }
-    int steps = Detail >= 5 ? 32 : Detail >= 4 ? 24 : 16;
+    int steps = int(ReliefBudget.x);
     vec3 p;
     float previous = start;
     float startResidual = reliefResidual(up, fixedRay, distanceMeters, altitude, radiusMeters,
@@ -362,7 +365,7 @@ float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, ui
     if (dot(up, fixedRay) < -0.3 && inner.x > start && inner.y >= inner.x) {
         float low = start;
         float high = finish;
-        for (int refine = 0; refine < 10; refine++) {
+        for (int refine = 0; refine < int(ReliefBudget.y); refine++) {
             float mid = (low + high) * 0.5;
             float error = reliefResidual(up, fixedRay, distanceMeters, altitude, radiusMeters,
                     along, mid, seed, pixelAngle, p);
@@ -372,8 +375,7 @@ float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, ui
         normal = normalize(-center + ray * (travel / distanceMeters));
         return travel / distanceMeters;
     }
-    for (int stepIndex = 1; stepIndex <= 32; stepIndex++) {
-        if (stepIndex > steps) { break; }
+    for (int stepIndex = 1; stepIndex <= steps; stepIndex++) {
         // Concentrate samples near the observer inside the shell. Uniform steps
         // can otherwise skip all nearby hills along a long grazing interval.
         float fraction = float(stepIndex) / float(steps);
@@ -383,7 +385,7 @@ float mappedEarthHit(vec3 ray, vec3 center, float nominalHit, vec4 geography, ui
         if (residual <= 0.0) {
             float low = previous;
             float high = travel;
-            for (int refine = 0; refine < 7; refine++) {
+            for (int refine = 0; refine < int(ReliefBudget.z); refine++) {
                 float mid = (low + high) * 0.5;
                 float error = reliefResidual(up, fixedRay, distanceMeters, altitude, radiusMeters,
                         along, mid, seed, pixelAngle, p);
@@ -570,24 +572,15 @@ void main() {
     }
     // Compute background derivatives before divergent body paths.
     vec3 color = universe(sourceRay, pixelAngle);
-    if (!lens) {
-        for (int i = 0; i < 12; i++) {
-            if (i >= BodyCount) { break; }
-            color = body(color, ray, i, pixelAngle);
-        }
-    } else {
-        for (int i = 0; i < 12; i++) {
-            if (i >= BodyCount) { break; }
-            if (i != LensIndex && !foregroundOfLens(ray, i, lensPlane)) {
-                color = body(color, sourceRay, i, pixelAngle);
-            }
-        }
-        color = blackHoleRadiance(color, ray, LensIndex, pixelAngle);
-        for (int i = 0; i < 12; i++) {
-            if (i >= BodyCount) { break; }
-            if (i != LensIndex && foregroundOfLens(ray, i, lensPlane)) {
-                color = body(color, ray, i, pixelAngle);
-            }
+    // One body-material call site prevents drivers from triplicating the full
+    // relief program. The host bounds BodyCount to 12 and all relief loop budgets.
+    int passes = lens ? 2 : 1;
+    for (int pass = 0; pass < passes; pass++) {
+        if (pass == 1) { color = blackHoleRadiance(color, ray, LensIndex, pixelAngle); }
+        vec3 materialRay = lens && pass == 0 ? sourceRay : ray;
+        for (int i = 0; i < BodyCount; i++) {
+            if (lens && (i == LensIndex || foregroundOfLens(ray, i, lensPlane) != (pass == 1))) { continue; }
+            color = body(color, materialRay, i, pixelAngle);
         }
     }
     if (SurfaceHorizon.w > 0.5) {

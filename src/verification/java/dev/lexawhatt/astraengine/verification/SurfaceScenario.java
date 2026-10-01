@@ -137,6 +137,7 @@ final class SurfaceScenario {
     private int operation;
     private boolean observedDescent;
     private boolean observedAscent;
+    private Object heightGridBeforeReload;
 
     SurfaceScenario(String phase, SurfacePayload initialSurface) {
         this.phase = phase;
@@ -281,11 +282,16 @@ final class SurfaceScenario {
             case 14 -> {
                 if (!ready(25)) { return false; }
                 groundLook(55, -8);
+                heightGridBeforeReload = new CelestialRendererProbe(controller).requireHeightCache(true);
+                append("height-cache-live-before-reload");
                 shot("06-earth-real-terrain-marker");
                 pending = minecraft.reloadResourcePacks(); next();
             }
             case 15 -> {
                 if (!onSurface("earth") || !ready(25)) { return false; }
+                require(new CelestialRendererProbe(controller).requireHeightCache(true) != heightGridBeforeReload,
+                        "Resource reload retained the old Earth height cache");
+                append("height-cache-rebuilt-after-reload");
                 shot("07-earth-resource-reload");
                 server(server -> verifyMarker(server, "earth", earthMarker, Blocks.EMERALD_BLOCK.defaultBlockState()));
                 GLFW.glfwSetWindowSize(minecraft.getWindow().getWindow(), 960, 540);
@@ -293,6 +299,7 @@ final class SurfaceScenario {
             }
             case 16 -> {
                 if (!ready(25) || minecraft.getWindow().getWidth() != 960) { return false; }
+                new CelestialRendererProbe(controller).requireHeightCache(true);
                 shot("08-earth-resized");
                 GLFW.glfwSetWindowSize(minecraft.getWindow().getWindow(), 1280, 720);
                 next();
@@ -303,6 +310,8 @@ final class SurfaceScenario {
             }
             case 18 -> {
                 if (!manualFlight() || !ready(20)) { return false; }
+                new CelestialRendererProbe(controller).requireHeightCache(false);
+                append("height-cache-released-after-departure");
                 shot("09-earth-orbit-after-departure");
                 land("earth"); next();
             }
@@ -802,12 +811,15 @@ final class SurfaceScenario {
                 if (!(minecraft.screen instanceof CosmosMapScreen map) || !ready(10)) { return false; }
                 controller = map.controller(); map.onClose();
                 server(server -> server.tickRateManager().setFrozen(false));
+                new CelestialRendererProbe(controller).requireHeightCache(true);
+                append("height-cache-rebuilt-on-restart");
                 next();
             }
             case 3 -> { takeOff(); next(); }
             case 4 -> {
                 if (!manualFlight() || !ready(25)) { return false; }
                 shot("restart-02-departed-persisted-earth");
+                new CelestialRendererProbe(controller).requireHeightCache(false);
                 land("earth"); next();
             }
             case 5 -> {
@@ -817,6 +829,7 @@ final class SurfaceScenario {
             }
             case 6 -> {
                 shot("restart-03-reentered-retained-earth");
+                new CelestialRendererProbe(controller).requireHeightCache(true);
                 return true;
             }
             default -> throw new IllegalStateException("Unknown surface restart step " + step);
