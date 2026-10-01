@@ -135,6 +135,7 @@ final class VolumetricScenario {
     private void configure() throws Exception {
         switch (stage) {
             case 0 -> {
+                CloudNoiseOwnership.verify();
                 command("environment auto");
                 command("exposure 1");
                 command("bloom true");

@@ -10,6 +10,9 @@
     },
     {
       "name": "DistantDepth"
+    },
+    {
+      "name": "CloudNoise"
     }
   ],
   "uniforms": [
@@ -181,6 +184,17 @@
         0,
         0,
         1
+      ]
+    },
+    {
+      "name": "CloudNoiseLayout",
+      "type": "float",
+      "count": 4,
+      "values": [
+        64,
+        66,
+        528,
+        8
       ]
     }
   ]

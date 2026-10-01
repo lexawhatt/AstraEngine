@@ -4,6 +4,7 @@ import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.lexawhatt.astraengine.AstraEngine;
+import dev.lexawhatt.astraengine.client.sky.CloudNoiseField;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import java.io.IOException;
 import net.minecraft.client.Minecraft;
@@ -17,6 +18,7 @@ import org.lwjgl.opengl.GL30;
 
 /** Render-thread cloud/air transport. Owns attachments; registered programs remain Minecraft-owned. */
 final class AtmosphereVolumeRenderer implements AutoCloseable {
+    private final CloudNoiseAtlas noise = new CloudNoiseAtlas();
     private ShaderInstance transport;
     private ShaderInstance compose;
     private HdrColorTarget sky;
@@ -76,6 +78,7 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         try (var saved = new FullscreenPass(4); var masks = new CelestialBloomPipeline.ColorState()) {
             try {
+                noise.ensureUploaded();
                 ensureTargets(main, extracted.quality);
             } catch (RuntimeException failure) {
                 close();
@@ -134,6 +137,9 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
     }
 
     private void uniforms(Frame value, RenderTarget main) {
+        transport.setSampler("CloudNoise", noise.texture());
+        transport.safeGetUniform("CloudNoiseLayout").set((float) CloudNoiseField.PERIOD, (float) CloudNoiseField.TILE_SIZE,
+                (float) CloudNoiseField.ATLAS_SIZE, (float) CloudNoiseField.TILES_PER_ROW);
         transport.safeGetUniform("InverseViewProjection").set(value.inverseViewProjection);
         transport.safeGetUniform("ObserverKm").set((float) value.originKm.x(), (float) value.originKm.y(),
                 (float) value.originKm.z());
@@ -156,7 +162,7 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
         int height = Math.max(1, main.height / divisor);
         if (scene != null && scene.width == main.width && scene.height == main.height
                 && scene.isStencilEnabled() == main.isStencilEnabled() && sky.width == width && sky.height == height) { return; }
-        close();
+        closeTargets();
         scene = new TextureTarget(main.width, main.height, true, Minecraft.ON_OSX);
         if (main.isStencilEnabled()) { scene.enableStencil(); }
         sky = new HdrColorTarget(width, height);
@@ -165,6 +171,11 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
 
     @Override
     public void close() {
+        closeTargets();
+        noise.close();
+    }
+
+    private void closeTargets() {
         frame = null; terrainDepthCaptured = false;
         if (sky != null) { sky.close(); sky = null; }
         if (geometry != null) { geometry.close(); geometry = null; }

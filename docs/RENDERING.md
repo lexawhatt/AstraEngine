@@ -284,6 +284,12 @@ replacing the same Overworld effects need separate compatibility work.
 
 The automatic Overworld first computes reduced-resolution cloud/air transport in
 an owned RGBA16F target and composites it into the celestial HDR sky before bloom.
+Cloud density uses one immutable CPU noise field and an owned RG8 texture shared
+by body, sunlight and shaft rays. Padded tiles contain adjacent Z slices; hardware
+XY filtering and explicit Z interpolation preserve periodic borders. The texture
+survives attachment resizing, while reload/logout releases it. Allocation retains
+pixel-unpack state and uses the existing layered fallback on failure. It is not a
+Minecraft-owned registered texture or a source of simulation state.
 At `AFTER_WEATHER`, the renderer preserves opaque world depth before Minecraft's
 Fabulous transparency resolve can replace it with fullscreen-quad depth.
 At `AFTER_LEVEL`, a second RGBA16F transport target integrates only up to that preserved

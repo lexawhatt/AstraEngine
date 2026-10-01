@@ -16,22 +16,7 @@ float cloudVolumeHash(vec3 cell) {
     return fract((p.x + p.y) * p.z);
 }
 
-float cloudVolumeNoise(vec3 p, float period) {
-    vec3 cell = floor(p);
-    vec3 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    // Wrap each corner, including the last/first lattice interpolation interval.
-    // Wrapping only the observer or the base corner produces a visible seam.
-    vec3 a = vec3(mod(cell.x, period), cell.y, mod(cell.z, period));
-    vec3 b = vec3(mod(cell.x + 1.0, period), cell.y + 1.0, mod(cell.z + 1.0, period));
-    float x00 = mix(cloudVolumeHash(a), cloudVolumeHash(vec3(b.x, a.y, a.z)), f.x);
-    float x10 = mix(cloudVolumeHash(vec3(a.x, b.y, a.z)),
-                   cloudVolumeHash(vec3(b.x, b.y, a.z)), f.x);
-    float x01 = mix(cloudVolumeHash(vec3(a.x, a.y, b.z)),
-                   cloudVolumeHash(vec3(b.x, a.y, b.z)), f.x);
-    float x11 = mix(cloudVolumeHash(vec3(a.x, b.y, b.z)), cloudVolumeHash(b), f.x);
-    return mix(mix(x00, x10, f.y), mix(x01, x11, f.y), f.z);
-}
+#moj_import <astraengine:cloud_noise.glsl>
 
 float cloudVolumeDensity(vec3 worldKm, float coverage, bool fineDetail) {
     float height = (worldKm.y - CLOUD_VOLUME_BASE_KM) / (CLOUD_VOLUME_TOP_KM - CLOUD_VOLUME_BASE_KM);
@@ -39,8 +24,8 @@ float cloudVolumeDensity(vec3 worldKm, float coverage, bool fineDetail) {
     vec3 p = worldKm;
     p.xz = mod(p.xz + CloudWind * 0.10, CLOUD_VOLUME_PERIOD_KM);
     // Integral frequency ratios keep every octave exactly periodic over 64 km.
-    float broad = cloudVolumeNoise(p * vec3(2.0, 2.4, 2.0) + vec3(0.0, 11.7, 0.0), 128.0);
-    float billows = cloudVolumeNoise(p * 6.0 + vec3(0.0, 31.1, 0.0), 384.0);
+    float broad = cloudVolumeNoise(p * vec3(2.0, 2.4, 2.0) + vec3(0.0, 11.7, 0.0));
+    float billows = cloudVolumeNoise(p * 6.0 + vec3(0.0, 31.1, 0.0));
     billows = 1.0 - abs(billows * 2.0 - 1.0);
     float field = broad * 0.70 + billows * 0.30 - 0.055;
     float lowerEnvelope = smoothstep(0.0, 0.13, height);
@@ -51,7 +36,7 @@ float cloudVolumeDensity(vec3 worldKm, float coverage, bool fineDetail) {
     float body = max(0.0, field - threshold);
     if (body <= 0.0) { return 0.0; }
     if (fineDetail) {
-        float erosion = cloudVolumeNoise(p * 24.0 + vec3(0.0, 71.3, 0.0), 1536.0);
+        float erosion = cloudVolumeNoise(p * 24.0 + vec3(0.0, 71.3, 0.0));
         body = max(0.0, body - (1.0 - erosion) * 0.13);
     }
     float density = 1.0 - exp(-body * 6.0);

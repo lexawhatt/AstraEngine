@@ -169,6 +169,12 @@ of occupied sky. Controls do not change server weather or celestial state.
 | Balanced | Quarter width/height | Up to 48 | Up to 5 |
 | High | Half width/height | Up to 64 | Up to 6 |
 
+Cloud body, self-shadowing and shafts share a padded 64-cubed scalar-noise field.
+A 528-by-528 RG8 atlas stores adjacent depth slices, requiring 544.5 KiB of texture
+storage. Smooth interpolation replaces repeated corner hashes inside the ray loops.
+The field is presentation data; it changes neither saved weather nor geography.
+Its periodic billow pattern is shared by all three transport calculations.
+
 Cloud and air segments share the view budget. Empty segments and opaque rays
 terminate early. Spatial reconstruction filters sampling noise; there is no
 history buffer or temporal reprojection. Fine edges can still shimmer, especially
