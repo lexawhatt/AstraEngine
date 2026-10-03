@@ -4,6 +4,8 @@ import com.mojang.blaze3d.platform.TextureUtil;
 import com.mojang.blaze3d.systems.RenderSystem;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL12;
+import org.lwjgl.opengl.GL15;
+import org.lwjgl.opengl.GL21;
 import org.lwjgl.opengl.GL30;
 
 /** Owned linear RGBA16F color attachment, without depth; used only on the render thread. */
@@ -18,7 +20,10 @@ final class HdrColorTarget implements AutoCloseable {
         RenderSystem.assertOnRenderThread();
         this.width = width;
         this.height = height;
+        int unpackBuffer = GL11.glGetInteger(GL21.GL_PIXEL_UNPACK_BUFFER_BINDING);
         try {
+            // Null data must allocate undefined storage, not read offset zero from another pass's PBO.
+            GL15.glBindBuffer(GL21.GL_PIXEL_UNPACK_BUFFER, 0);
             texture = TextureUtil.generateTextureId();
             RenderSystem.bindTexture(texture);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
@@ -38,6 +43,8 @@ final class HdrColorTarget implements AutoCloseable {
         } catch (RuntimeException failure) {
             close();
             throw failure;
+        } finally {
+            GL15.glBindBuffer(GL21.GL_PIXEL_UNPACK_BUFFER, unpackBuffer);
         }
     }
 

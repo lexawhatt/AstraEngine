@@ -1,5 +1,7 @@
 package dev.lexawhatt.astraengine.client.render;
 
+import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
+import dev.lexawhatt.astraengine.client.sky.EarthCloudState;
 import com.mojang.blaze3d.pipeline.RenderTarget;
 import com.mojang.blaze3d.pipeline.TextureTarget;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
@@ -19,6 +21,7 @@ import org.lwjgl.opengl.GL30;
 /** Render-thread cloud/air transport. Owns attachments; registered programs remain Minecraft-owned. */
 final class AtmosphereVolumeRenderer implements AutoCloseable {
     private final CloudNoiseAtlas noise = new CloudNoiseAtlas();
+    private final EarthAtmosphereCache earthOptics = new EarthAtmosphereCache();
     private ShaderInstance transport;
     private ShaderInstance compose;
     private HdrColorTarget sky;
@@ -32,7 +35,9 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
     record Frame(ClientLevel level, Matrix4f inverseViewProjection, SpaceVector originKm, SpaceVector sun,
                  float windX, float windZ, float coverage, float aerosol, float incident, float moonlight,
                  float rain, float thunder, float skyAccess, float exposure, boolean shafts,
-                 RenderOptions.Quality quality, float cloudBaseKm, float cloudTopKm) {
+                 RenderOptions.Quality quality, float cloudBaseKm, float cloudTopKm,
+                 EarthCloudState earthClouds, SpaceVector bodyKm,
+                 FlightOrientation localToBody, SpaceVector bodySun) {
         Frame { inverseViewProjection = new Matrix4f(inverseViewProjection); }
     }
 
@@ -154,6 +159,13 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
         transport.safeGetUniform("SkyAccess").set(value.skyAccess);
         transport.safeGetUniform("SceneTexel").set(1.0f / main.width, 1.0f / main.height);
         transport.safeGetUniform("VolumeTexel").set(1.0f / sky.width, 1.0f / sky.height);
+        if (value.earthClouds != null) {
+            earthOptics.update(6371.0); earthOptics.bind(transport);
+            EarthCloudUniforms.bind(transport, value.earthClouds, value.bodyKm, 6371.0, value.localToBody, value.bodySun);
+        } else {
+            transport.safeGetUniform("CloudPlanet").set(0.0f, 0.0f, 0.0f, 0.0f);
+            transport.safeGetUniform("EarthOpticsReady").set(0);
+        }
     }
 
     private void ensureTargets(RenderTarget main, RenderOptions.Quality quality) {
@@ -173,6 +185,7 @@ final class AtmosphereVolumeRenderer implements AutoCloseable {
     public void close() {
         closeTargets();
         noise.close();
+        earthOptics.close();
     }
 
     private void closeTargets() {

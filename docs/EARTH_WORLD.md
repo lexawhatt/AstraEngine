@@ -146,16 +146,16 @@ fractional/overflowing identities fail validation. Startup rejects a partial or
 changed active Earth preset instead of allocating replacement worlds. Ordinary
 host chunk storage retains builds and block entities through shutdown and restart.
 
-New Earth worlds select terrain version 3. It retains the broad continental structure
+New Earth worlds select terrain version 4. It retains the broad continental structure
 of version 2, adds plateau provinces, eroded uplands, foothills, rolling lowlands,
 basins, finer ridged mountain spurs and connected regional river valleys. Offshore
 relief includes ridges, trenches and abyssal variation. Annual-mean zonal climate
 uses latitude, altitude, coastal moderation and regional moisture variation; an
 upwind plateau sample supplies a bounded rain-shadow approximation. It does not
-simulate tectonics or atmospheric circulation. Versions 1 and 2 remain readable with their exact original relief and
+simulate tectonics or atmospheric circulation. Versions 1, 2 and 3 remain readable with their exact original relief and
 biomes. Terrain and biome source versions must agree; the server sends the saved
 terrain version to clients (Earth context protocol 3). Updating the mod does not
-upgrade a saved world's generator. Create a new **Astra Earth** world to use v3;
+upgrade a saved world's generator. Create a new **Astra Earth** world to use v4;
 editing saved version fields is not a migration.
 
 Regional drainage uses an original Java implementation of
@@ -168,6 +168,14 @@ cross-sections. The graph is derived once during parallel mod setup and contains
 no chunks, world references or simulation clock. There is no whole-planet voxel
 pregeneration. Noncanonical pure-model seeds prepare their own immutable atlas
 at construction and must be constructed on a startup/worker thread.
+
+Version 4 replaces the coarse straight connections with bounded spherical cubic
+curves. Joined channels share endpoint positions and tangent directions; their
+valley walls rise from the channel instead of forming broad flat shelves. Wet
+channel water survives overlapping dry banks, and local riparian moisture keeps
+an incised temperate valley from becoming an artificial desert strip. This is a
+regional drainage approximation, not a fluid or sediment simulation. Small streams
+below the graph resolution are still outside its scope.
 
 The same sampler returns bed elevation, water elevation, temperature and moisture.
 Chunk columns, landing queries and distant/orbital presentation

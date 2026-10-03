@@ -174,6 +174,41 @@ This HDR path is specific to celestial rendering. The separate profile-based
 opaque-world lighting/editor pipeline below still consumes Minecraft's LDR color;
 it does not gain deferred materials, transparent relighting or GI from this change.
 
+## Planetary atmosphere and camera exposure
+
+The [Earth optical model](EARTH_ATMOSPHERE.md) integrates the spherical air column
+and solar transmission before display composition. Canonical Earth clouds share
+a body-fixed density field between the surface sky, distant terrain and orbit.
+Their shadows affect the analytic and distant planetary surface, while their
+volume obscures the host scene using its copied depth. Individual Minecraft
+blocks do not yet receive spatial cloud shadows. Local block emission remains
+owned by the host and is not darkened as a substitute for those shadows.
+
+Orbital views also provide an optional camera meter:
+
+```text
+/astra-render auto-exposure true
+/astra-render exposure 1.0
+```
+
+Fixed exposure remains the default. When enabled, the meter measures the complete
+celestial HDR image before bloom and applies one exposure to the image and its bloom
+at final composition. The manual exposure value becomes compensation; it is never
+applied separately to the stars, atmosphere, clouds or terrain. The hand, HUD,
+Minecraft block rendering and shader-pack materials retain their own rendering.
+`auto-exposure false` restores fixed exposure and retires the adaptation history.
+
+The GPU uses a bounded 256-by-256 stratified sample grid and reduces luminance to
+one pixel. A geometric mean with a capped arithmetic floor keeps a bright crescent
+from being ignored against black space. Meter gain is limited to 1/64..4 and adapts
+in logarithmic stops, with faster darkening than brightening. Resource reload,
+resize and disconnect release its private targets; no production GPU readback is
+needed. If allocation fails, the renderer retains fixed exposure until reload.
+This follows the [luminance metering approach described by Filament](https://google.github.io/filament/main/filament.html#imagingpipeline/physicallybasedcamera/automaticexposure),
+using renderer-relative radiance. It does not claim calibrated ISO, shutter speed,
+sensor noise, motion blur or a complete photographic camera model. The existing
+stellar background has not become a measured photometric catalog.
+
 ## Celestial lens and disk
 
 CosmosRenderer extracts immutable camera-relative frames on the render thread.

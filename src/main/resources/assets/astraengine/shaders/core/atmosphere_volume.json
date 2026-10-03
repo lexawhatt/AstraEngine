@@ -13,6 +13,9 @@
     },
     {
       "name": "CloudNoise"
+    },
+    {
+      "name": "EarthOpticalColumns"
     }
   ],
   "uniforms": [
@@ -195,6 +198,70 @@
         66,
         528,
         8
+      ]
+    },
+    {
+      "name": "EarthCloudParams",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -1,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "CloudPlanet",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "CloudLocalToBody",
+      "type": "matrix3x3",
+      "count": 9,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "EarthCloudSun",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "EarthOpticsReady",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "EarthOpticsRadius",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
       ]
     }
   ]

@@ -9,9 +9,9 @@ vec2 planetAtmosphereInterval(vec3 origin, vec3 ray, float radius) {
     return vec2(-along - root, -along + root);
 }
 
-vec3 planetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight,
+vec3 marsPlanetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight,
                         float irradiance, float skyCoverage, float sunRadius, float surfaceDistanceKm, float atmosphereModel) {
-    bool mars = atmosphereModel > 0.5;
+    bool mars = true;
     float shellHeight = mars ? 60.0 : 80.0;
     float radius = observer.w;
     vec3 origin = observer.xyz;
@@ -84,4 +84,22 @@ vec3 planetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight
     float solarDisc = mu > 0.0 ? 1.0 - smoothstep(sunRadius * 1.1, sunRadius * 1.8,
             length(ray - sunlight * mu)) : 0.0;
     return background * transmission * mix(1.0, visibility, skyCoverage * (1.0 - solarDisc)) + scattering;
+}
+
+#moj_import <astraengine:earth_optics.glsl>
+
+vec3 planetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight,
+                        float irradiance, float skyCoverage, float sunRadius, float surfaceDistanceKm, float atmosphereModel) {
+    if (atmosphereModel > 0.5) {
+        return marsPlanetaryAtmosphere(background, ray, observer, sunlight, irradiance,
+                skyCoverage, sunRadius, surfaceDistanceKm, atmosphereModel);
+    }
+    vec3 transmission;
+    int steps = Detail >= 5 ? 16 : Detail >= 4 ? 12 : 8;
+    float limitKm = surfaceDistanceKm > 0.0 ? surfaceDistanceKm : 1e20;
+    vec3 scattering = earthAirScattering(observer.xyz, ray, observer.w, sunlight,
+            irradiance, sunRadius, limitKm, steps, transmission);
+    // Stellar background is attenuated by the actual air column. Camera exposure,
+    // rather than a second per-object visibility curve, determines visible stars.
+    return background * transmission + scattering;
 }

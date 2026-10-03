@@ -21,20 +21,29 @@ void main() {
     vec2 blend = fract(grid);
     vec4 integrated = vec4(0.0);
     float weight = 0.0;
+    vec4 closestTransport = vec4(0, 0, 0, 1);
+    float closestDifference = 1e30;
     for (int y = 0; y < 2; y++) {
         for (int x = 0; x < 2; x++) {
             vec2 sampleUV = (base + vec2(x, y) + 0.5) / TransportSize;
             float sampleDistance = atmosphereSceneDistance(sampleUV);
             if (sampleDistance < 0.0) { continue; }
             float difference = abs(sampleDistance - distance);
+            vec4 transport = texture(Transport, sampleUV);
+            if (distance > 16000.0 && sampleDistance > 16000.0 && difference < closestDifference) {
+                closestDifference = difference;
+                closestTransport = transport;
+            }
             float w = (x == 0 ? 1.0 - blend.x : blend.x) * (y == 0 ? 1.0 - blend.y : blend.y);
             w *= 1.0 - smoothstep(max(0.15, distance * 0.015), max(0.5, distance * 0.04), difference);
-            integrated += texture(Transport, sampleUV) * w;
+            integrated += transport * w;
             weight += w;
         }
     }
-    if (weight < 0.001) { fragColor = scene; return; }
-    integrated /= weight;
+    // A steep distant depth gradient can reject every bilinear neighbor. Keep the nearest distant
+    // sample's clipped transport. Nearby geometry keeps identity on rejection: a thin foreground
+    // occluder must not receive a distant neighbor's cloud when it falls between reduced pixels.
+    integrated = weight < 0.001 ? closestTransport : integrated / weight;
     if (integrated.a > 0.99999 && dot(integrated.rgb, vec3(1.0)) < 0.00001) { fragColor = scene; return; }
     // Invert only the display shoulder for composition; do not expose/tonemap the
     // host scene again. This preserves an exact identity when transport is absent.

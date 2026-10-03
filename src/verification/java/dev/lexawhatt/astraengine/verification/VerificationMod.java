@@ -19,11 +19,13 @@ public final class VerificationMod {
             event.register(GalacticGameTests.class);
             event.register(AtlasGameTests.class);
             event.register(SeasonalSkyGameTests.class);
+            event.register(EarthWeatherGameTests.class);
             event.register(ArchivedConstructionGameTests.class);
             event.register(SurfaceGameTests.class);
             event.register(PlanetaryTerrainGameTests.class);
             event.register(ContinentalTerrainGameTests.class);
             event.register(EarthGenerationGameTests.class);
+            event.register(RiparianClimateGameTests.class);
             event.register(UniformPaletteReadGameTests.class);
             event.register(MarsSurfaceGameTests.class);
             event.register(SolidPlanetGameTests.class);

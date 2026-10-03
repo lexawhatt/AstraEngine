@@ -28,6 +28,7 @@ public final class RenderOptions {
     private float bloomThreshold = 1.0f;
     private float bloomRadius = 0.65f;
     private float exposure = 1.0f;
+    private boolean autoExposure;
     private boolean shafts = true;
     private float cloudCover = -1;
     private boolean flashlight;
@@ -54,10 +55,16 @@ public final class RenderOptions {
     public float bloomThreshold() { return bloomThreshold; }
     public float bloomRadius() { return bloomRadius; }
     public float exposure() { return exposure; }
+    /** Optional scene-metered orbital exposure; the scalar remains a manual compensation. */
+    public boolean autoExposure() { return autoExposure; }
+    /** Client-thread presentation setting, independent of celestial simulation and shader packs. */
+    public void setAutoExposure(boolean enabled) { autoExposure = enabled; }
     /** Whether cloud-shadowed aerial scattering is enabled; independent of optical bloom. */
     public boolean shafts() { return shafts; }
     /** Resolves the session override, or the weather/season coverage when set to auto. */
     public float cloudCover(float automatic) { return cloudCover < 0 ? automatic : cloudCover; }
+    /** -1 requests the shared weather/season field; otherwise this is a connection-local density override. */
+    public float cloudCoverSetting() { return cloudCover; }
     /** Final celestial display exposure shared by the flight and renderer controls; client thread only. */
     public void setExposure(float value) {
         if (!Float.isFinite(value) || value < 0.1f || value > 4.0f) {
@@ -149,6 +156,11 @@ public final class RenderOptions {
                     setExposure(FloatArgumentType.getFloat(context, "value"));
                     return status(context.getSource());
                 })));
+        root.then(Commands.literal("auto-exposure").then(Commands.argument("enabled", BoolArgumentType.bool())
+                .executes(context -> {
+                    autoExposure = BoolArgumentType.getBool(context, "enabled");
+                    return status(context.getSource());
+                })));
         root.then(Commands.literal("status").executes(context -> status(context.getSource())));
         root.then(Commands.literal("shafts").then(Commands.argument("enabled", BoolArgumentType.bool()).executes(context -> {
             shafts = BoolArgumentType.getBool(context, "enabled"); return status(context.getSource());
@@ -166,6 +178,7 @@ public final class RenderOptions {
                 lighting, bloom, flashlight, selectedLights, quality.lights), false);
         source.sendSuccess(() -> Component.translatable("astraengine.render.hdr", bloomStrength,
                 bloomThreshold, bloomRadius, exposure), false);
+        source.sendSuccess(() -> Component.translatable("astraengine.render.auto_exposure", autoExposure), false);
         source.sendSuccess(() -> Component.translatable("astraengine.render.clouds", shafts,
                 cloudCover < 0 ? "auto" : Float.toString(cloudCover)), false);
         return 1;

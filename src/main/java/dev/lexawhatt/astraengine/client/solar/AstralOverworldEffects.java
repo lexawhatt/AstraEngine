@@ -83,7 +83,7 @@ public final class AstralOverworldEffects extends DimensionSpecialEffects.Overwo
         var look = camera.getLookVector();
         SolarVisual visual = solar.visual();
         SpaceVector haze = SkyIllumination.fog(sun.y(), sun.x() * look.x + sun.y() * look.y + sun.z() * look.z,
-                level.getRainLevel(partial), level.getThunderLevel(partial), visual.luminosity(), visual.flash(),
+                seasons.rain(level, partial), seasons.thunder(level, partial), visual.luminosity(), visual.flash(),
                 seasons.pollution());
         double voidLight = Math.clamp((camera.getPosition().y - level.getMinBuildHeight())
                 * level.getLevelData().getClearColorScale(), 0, 1);
@@ -102,8 +102,8 @@ public final class AstralOverworldEffects extends DimensionSpecialEffects.Overwo
         if (pixelX == 0 && pixelY == 0) {
             lightFrame = solar.visual();
             sunHeight = seasons.sample(level, partialTicks).sunDirection().y();
-            skylightFrame = SkyIllumination.skyLight(sunHeight, level.getRainLevel(partialTicks),
-                    level.getThunderLevel(partialTicks), lightFrame.luminosity());
+            skylightFrame = SkyIllumination.skyLight(sunHeight, seasons.rain(level, partialTicks),
+                    seasons.thunder(level, partialTicks), lightFrame.luminosity());
             if (level.getSkyFlashTime() > 0) { skylightFrame = new SpaceVector(1, 1, 1); }
         }
         // Replace only the pre-gamma sky summand, including the host's ambient and boss transforms.

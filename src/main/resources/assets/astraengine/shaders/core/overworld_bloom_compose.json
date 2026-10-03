@@ -10,6 +10,9 @@
     },
     {
       "name": "BloomColor"
+    },
+    {
+      "name": "ExposureState"
     }
   ],
   "uniforms": [
@@ -27,6 +30,14 @@
       "count": 1,
       "values": [
         1
+      ]
+    },
+    {
+      "name": "AutoExposure",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
       ]
     }
   ]

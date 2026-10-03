@@ -46,6 +46,7 @@ uniform float BodyAtmosphereModel[12];
 uniform vec4 AtmosphereObserver;
 uniform vec4 SurfaceHorizon;
 uniform vec3 SurfaceFog;
+uniform vec2 CloudWind;
 
 in vec2 clipPosition;
 out vec4 fragColor;
@@ -97,6 +98,12 @@ float fbm(vec3 p) {
 #moj_import <astraengine:surface_height_cache.glsl>
 #moj_import <astraengine:lunar.glsl>
 #moj_import <astraengine:pulsar.glsl>
+#define CLOUD_NOISE_EXTERNAL_SAMPLER
+#define CloudNoise EarthHeightTile0
+#moj_import <astraengine:cloud_density.glsl>
+#moj_import <astraengine:earth_clouds.glsl>
+#undef CloudNoise
+#undef CLOUD_NOISE_EXTERNAL_SAMPLER
 
 // Face projection avoids the pole stretching of latitude/longitude star textures.
 vec3 starCoordinates(vec3 ray) {
@@ -236,6 +243,7 @@ vec3 planetSurface(int bodyIndex, vec3 n, vec3 viewRay, vec3 light, vec4 materia
         int surfaceKind = int(geography.x + 0.5);
         float height = surfaceKind == 2 ? earthHeight(p, geographySeed, normalFootprint)
                 : geographyHeight(p, surfaceKind, geographySeed, normalFootprint);
+        terrainAltitude = height;
         float fineWeight = 1.0 - smoothstep(0.15, 0.8, normalFootprint * geography.z / 16.0);
         float grain = fineWeight > 0.001 ? noise(p * (geography.z / 16.0)) : 0.5;
         if (surfaceKind == 1) {
@@ -254,7 +262,8 @@ vec3 planetSurface(int bodyIndex, vec3 n, vec3 viewRay, vec3 light, vec4 materia
             vec3 reliefNormal = mappedEarthNormal(p, geographySeed, normalFootprint, geography.z);
             vec3 fixedLight = mappedSurfaceCoordinates(light, tilt, spin, geography);
             diffuse = max(dot(reliefNormal, fixedLight), 0.0)
-                    * smoothstep(-0.006, 0.025, dot(p, fixedLight));
+                    * (bodyIndex == AtmosphereBodyIndex && BodyAtmosphereModel[bodyIndex] < 0.5
+                    ? 1.0 : smoothstep(-0.006, 0.025, dot(p, fixedLight)));
             // Local terrain/cloud ownership changes at handoff; the geographic map itself never scrolls.
             clouds = 0.0;
         }
@@ -307,17 +316,29 @@ vec3 planetSurface(int bodyIndex, vec3 n, vec3 viewRay, vec3 light, vec4 materia
         albedo *= mix(vec3(1.0), vec3(1.0, 0.825, 0.665), exp(-max(0.0, terrainAltitude) / 10800.0));
     }
     vec3 color = albedo * (0.004 + diffuse * 1.35);
-    if (hostSurface) {
+    vec3 directTransmission = vec3(1.0);
+    bool canonicalClouds = ContinentalEarth != 0 && geography.x > 1.5 && geography.x < 2.5 && CloudPlanet.w > 0.0;
+    float cloudShadow = canonicalClouds ? earthCloudShadowFiltered(p * ((geography.z + max(0.0, terrainAltitude)) * 0.001),
+            mappedSurfaceCoordinates(light, tilt, spin, geography), 6, normalFootprint * geography.z * 0.001) : 1.0;
+    if (hostSurface && bodyIndex == AtmosphereBodyIndex && BodyAtmosphereModel[bodyIndex] < 0.5) {
+        // Decode the canonical host palette once, before linear lighting/transport.
+        // This bounded display calibration preserves the host's daylight material scale;
+        // it is renderer-relative radiance, not an SI reflectance measurement.
+        vec3 hostResponse = earthMaterialResponse(albedo);
+        float sunRadius = EvolutionIndex >= 0 ? BodyDirectionRadius[EvolutionIndex].w : 0.00465;
+        directTransmission = earthSunTransmission(n * ((geography.z + max(0.0, terrainAltitude)) * 0.001),
+                geography.z * 0.001, light, sunRadius);
+        color = hostResponse * diffuse * (earthIncidentIrradiance(1.0) / EARTH_PI) * directTransmission * cloudShadow;
+    } else if (hostSurface) {
         // Shade the host display albedo before undoing the display shoulder. Decoding bright snow
         // first would amplify the night ambient term and make ice appear self-luminous.
-        color = celestialRadiance(albedo * pow((0.004 + diffuse * 1.35) / 1.354, 1.0 / 2.2));
+        color = celestialRadiance(albedo * pow((0.004 + diffuse * cloudShadow * 1.35) / 1.354, 1.0 / 2.2));
     }
     if (kind == 3) {
         float specular = pow(max(0.0, dot(reflect(-light, n), -viewRay)), 90.0);
-        color += vec3(1.0, 0.82, 0.59) * specular * water * (1.0 - clouds) * day;
-        float city = geography.x > 0.5 ? 0.0 : pow(noise(p * 230.0 + seed), 22.0)
-                   * smoothstep(0.515, 0.55, fbm(p * 2.7 + seed)) * (1.0 - day) * (1.0 - clouds);
-        color += vec3(1.0, 0.57, 0.18) * city * 0.7;
+        vec3 glintLight = bodyIndex == AtmosphereBodyIndex && BodyAtmosphereModel[bodyIndex] < 0.5
+                ? directTransmission : vec3(1.0, 0.82, 0.59);
+        color += glintLight * specular * water * (1.0 - clouds) * day * cloudShadow;
     }
     float rim = pow(1.0 - max(dot(n, -viewRay), 0.0), 3.0);
     vec3 atmosphere = mix(vec3(1.0, 0.20, 0.025), vec3(0.12, 0.42, 1.0), day);
@@ -582,7 +603,8 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle, inout float bloomWe
     vec3 ringNormal = normalize(vec3(0.0, cos(tilt), sin(tilt)));
     vec4 ring = ringSurface(ray, center, radius, ringNormal, parameters.z, parameters.w,
                            light, mix(material.rgb, vec3(0.76, 0.66, 0.48), 0.7), parameters.x, pixelAngle, ringHit);
-    float solarGain = EvolutionIndex >= 0 ? max(0.018, SolarLight.x + SolarLight.y * 0.6) : 1.0;
+    bool canonicalEarth = ContinentalEarth != 0 && BodyGeography[index].x > 1.5 && BodyGeography[index].x < 2.5;
+    float solarGain = EvolutionIndex >= 0 ? max(canonicalEarth ? 0.0 : 0.018, SolarLight.x + SolarLight.y * 0.6) : 1.0;
     ring.rgb *= solarGain;
     if (ring.a > 0.0 && (hit < 0.0 || ringHit > hit)) { color = mix(color, ring.rgb, ring.a); }
     if (hit > 0.0) {
@@ -609,6 +631,15 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle, inout float bloomWe
         bloomWeight = mix(bloomWeight, surfaceBloom, discCoverage);
     }
     if (ring.a > 0.0 && hit > 0.0 && ringHit < hit) { color = mix(color, ring.rgb, ring.a); }
+    float cloudDistance = 0.0;
+    vec4 cloudTransportValue = vec4(0, 0, 0, 1);
+    if (canonicalEarth && CloudPlanet.w > 0.0) {
+        float limitKm = hit > 0.0 ? hit * (BodyGeography[index].z + BodyGeography[index].y) * 0.001
+                : length(CloudPlanet.xyz) + CloudPlanet.w + CloudLayer.y;
+        vec3 cloudRay = mappedSurfaceCoordinates(ray, tilt, BodySpin[index], BodyGeography[index]);
+        cloudTransportValue = earthCloudTransport(CloudPlanet.xyz, cloudRay, limitKm, pixelAngle,
+                Detail >= 5 ? 32 : Detail >= 4 ? 24 : 16, cloudDistance);
+    }
     if (index == AtmosphereBodyIndex) {
         color = planetaryAtmosphere(color, ray, AtmosphereObserver, light,
                 EvolutionIndex >= 0 ? SolarLight.x + SolarLight.y * 0.6 : 1.0,
@@ -616,6 +647,16 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle, inout float bloomWe
                 EvolutionIndex >= 0 ? BodyDirectionRadius[EvolutionIndex].w : 0.00465,
                 hit > 0.0 ? hit * (BodyGeography[index].z + BodyGeography[index].y) * 0.001 : -1.0,
                 BodyAtmosphereModel[index]);
+        if (cloudTransportValue.a < 0.99999 && cloudDistance > 0.0) {
+            vec3 cloudRadiance = cloudTransportValue.rgb / max(0.00001, 1.0 - cloudTransportValue.a);
+            vec3 foregroundCloud = planetaryAtmosphere(cloudRadiance, ray, AtmosphereObserver, light,
+                    max(0.0, solarGain), 0.0,
+                    EvolutionIndex >= 0 ? BodyDirectionRadius[EvolutionIndex].w : 0.00465,
+                    cloudDistance, BodyAtmosphereModel[index]);
+            color = color * cloudTransportValue.a + foregroundCloud * (1.0 - cloudTransportValue.a);
+        }
+    } else if (cloudTransportValue.a < 0.99999) {
+        color = color * cloudTransportValue.a + cloudTransportValue.rgb;
     }
     return color;
 }

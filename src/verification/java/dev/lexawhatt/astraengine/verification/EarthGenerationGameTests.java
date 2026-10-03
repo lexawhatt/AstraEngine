@@ -501,8 +501,10 @@ public final class EarthGenerationGameTests {
             var chart = EarthChart.owner(address, 3).orElseThrow();
             var point = chart.resolve(address).orElseThrow();
             int x = (int) Math.floor(point.x()), z = (int) Math.floor(point.z());
-            var generator = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops,
-                    dimensions.getAsJsonObject(chart.dimensionId()).get("generator")).getOrThrow();
+            var definition = dimensions.getAsJsonObject(chart.dimensionId()).getAsJsonObject("generator").deepCopy();
+            definition.addProperty("terrain_version", 3);
+            definition.getAsJsonObject("biome_source").addProperty("terrain_version", 3);
+            var generator = (EarthChunkGenerator) ChunkGenerator.CODEC.parse(ops, definition).getOrThrow();
             var chunk = new ProtoChunk(new ChunkPos(Math.floorDiv(x, 16), Math.floorDiv(z, 16)), UpgradeData.EMPTY,
                     height, level.registryAccess().registryOrThrow(Registries.BIOME), null);
             generator.createBiomes(random, Blender.empty(), level.structureManager(), chunk).join();

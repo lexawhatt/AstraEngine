@@ -7,12 +7,13 @@ import java.util.Optional;
  * Versioned Earth-scale spherical continental height and climate field. Immutable and worker-safe; it owns no
  * worlds, chunks, random sequence or simulation clock. Heights are physical meters above the shared sea radius,
  * independent of Minecraft's storage height. This is authored procedural relief, not measured Earth geography
- * or a tectonic or erosion simulation. Version three includes regional routed drainage.
+ * or a tectonic or erosion simulation. Version three includes regional routed drainage; version four uses
+ * confluence-continuous curves with narrower valley walls and riparian moisture.
  * Existing {@link PlanetaryTerrain} definitions are unchanged.
  */
 public final class ContinentalTerrain {
     public static final int VERSION = 1;
-    public static final int CURRENT_VERSION = 3;
+    public static final int CURRENT_VERSION = 4;
     public static final long SEED = 0x4153545241434F4EL;
     public static final double RADIUS_METERS = 6_371_000;
     public static final double MIN_ELEVATION = -7000;
@@ -22,12 +23,14 @@ public final class ContinentalTerrain {
     private final long seed;
     private final RiverAtlas rivers;
 
-    /** Unknown versions fail. Version three prepares immutable drainage; construct it on a startup/worker thread. */
+    /** Unknown versions fail. Versions three and later prepare drainage; construct on a startup/worker thread. */
     public ContinentalTerrain(int version, long seed) {
         requireVersion(version);
         this.version = version;
         this.seed = seed;
-        rivers = version < 3 ? null : seed == SEED ? CanonicalDrainage.ATLAS : RiverAtlas.prepare(seed);
+        rivers = version < 3 ? null : version == 3
+                ? seed == SEED ? CanonicalDrainage.ATLAS : RiverAtlas.prepare(seed)
+                : seed == SEED ? CanonicalCurvedDrainage.ATLAS : RiverAtlas.prepareCurved(seed);
     }
 
     /** Validate a persisted algorithm without allocating or preparing geography. */
@@ -38,17 +41,21 @@ public final class ContinentalTerrain {
     }
 
     /** Called during parallel mod setup, before world loading or client rendering can request this geography. */
-    public static void prepareCanonical() { CanonicalDrainage.ATLAS.cellCount(); }
+    public static void prepareCanonical() { CanonicalDrainage.ATLAS.cellCount(); CanonicalCurvedDrainage.ATLAS.cellCount(); }
 
     private static final class CanonicalDrainage {
         private static final RiverAtlas ATLAS = RiverAtlas.prepare(SEED);
+    }
+
+    private static final class CanonicalCurvedDrainage {
+        private static final RiverAtlas ATLAS = RiverAtlas.prepareCurved(SEED);
     }
 
     /** Persisted algorithm, never implicitly migrated. */
     public int version() { return version; }
     /** Immutable procedural seed. */
     public long seed() { return seed; }
-    /** Regional drainage for version three; older definitions have no river atlas. */
+    /** Regional drainage for versions three and later; older definitions have no river atlas. */
     public Optional<RiverAtlas> rivers() { return Optional.ofNullable(rivers); }
 
     @Override public boolean equals(Object value) {
@@ -98,7 +105,7 @@ public final class ContinentalTerrain {
             throw new IllegalArgumentException("Continental terrain direction is required");
         }
         SpaceVector normal = direction.normalized();
-        if (version == 3) { return rivers.shape(normal, ContinentalTerrainV3.base(normal, seed)); }
+        if (version >= 3) { return rivers.shape(normal, ContinentalTerrainV3.base(normal, seed)); }
         if (version == 2) { return ContinentalTerrainV2.sample(normal, seed); }
         double x = normal.x() * RADIUS_METERS;
         double y = normal.y() * RADIUS_METERS;

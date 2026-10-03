@@ -5,6 +5,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import dev.lexawhatt.astraengine.api.AstraSky;
 import dev.lexawhatt.astraengine.network.SkyProfilePayload;
+import dev.lexawhatt.astraengine.network.EarthWeatherPayload;
 import dev.lexawhatt.astraengine.sky.PlanetarySkyProfile;
 import dev.lexawhatt.astraengine.sky.SkyEphemeris;
 import dev.lexawhatt.astraengine.sky.SkySample;
@@ -28,13 +29,36 @@ public final class SkyService {
         if (player == null) { throw new IllegalArgumentException("A server player is required for sky settings"); }
         SkyState state = SkyState.get(player.server);
         PacketDistributor.sendToPlayer(player, new SkyProfilePayload(state.revision(), state.profile()));
+        sendWeather(player);
+    }
+
+    /** Source weather is always the real Overworld, including while the recipient occupies a dry flight level. */
+    public static EarthWeatherPayload weather(MinecraftServer server) {
+        if (server == null || !server.isSameThread()) { throw new IllegalArgumentException("Server-thread weather required"); }
+        var earth = server.overworld();
+        return new EarthWeatherPayload(earth.getGameTime(), earth.getDayTime(), AstraSky.snapshot(server).seasonPhase(),
+                earth.getRainLevel(1), earth.getThunderLevel(1));
+    }
+
+    /** Sends current source weather on login and dimension changes, without allocating a world or changing its clock. */
+    public static void sendWeather(ServerPlayer player) {
+        PacketDistributor.sendToPlayer(player, weather(player.server));
+    }
+
+    /** Bounded periodic snapshot; uses the existing server tick counter even while the host world is frozen. */
+    public static void tickWeather(MinecraftServer server) {
+        if (server.getTickCount() % 20 != 0 || server.getPlayerList().getPlayers().isEmpty()) { return; }
+        var payload = weather(server);
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) { PacketDistributor.sendToPlayer(player, payload); }
     }
 
     /** Publishes a new complete settings revision; requires the owning server thread. */
     public static void broadcast(MinecraftServer server) {
         SkyState state = SkyState.get(server);
         SkyProfilePayload payload = new SkyProfilePayload(state.revision(), state.profile());
-        for (ServerPlayer player : server.getPlayerList().getPlayers()) { PacketDistributor.sendToPlayer(player, payload); }
+        for (ServerPlayer player : server.getPlayerList().getPlayers()) {
+            PacketDistributor.sendToPlayer(player, payload); sendWeather(player);
+        }
     }
 
     /** Operator-only subtree under /astra. Settings persist; season selection changes offset rather than host time. */

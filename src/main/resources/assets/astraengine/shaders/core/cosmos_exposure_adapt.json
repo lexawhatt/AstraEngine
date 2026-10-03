@@ -1,0 +1,33 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:cosmos_exposure_adapt",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "Meter"
+    },
+    {
+      "name": "Previous"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "Initialized",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "FrameSeconds",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    }
+  ]
+}

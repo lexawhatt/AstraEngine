@@ -15,6 +15,7 @@ import net.minecraft.nbt.FloatTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.nbt.TagParser;
+import net.minecraft.server.level.TicketType;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.block.Blocks;
@@ -26,6 +27,7 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 @PrefixGameTestTemplate(false)
 public final class ArchivedConstructionGameTests {
     private static final UUID OLD_ASSEMBLY = UUID.fromString("a989e88b-3602-4b27-bba3-15d510a75dc6");
+    private static final TicketType<UUID> TICKING_TICKET = TicketType.create("astra_verify_archive", UUID::compareTo);
     private static final List<String> BLOCK_FIELDS =
             List.of("rocket_editor_version", "revision", "blueprint", "assembly");
     private static final List<String> ENTITY_FIELDS =
@@ -107,6 +109,10 @@ public final class ArchivedConstructionGameTests {
                 "Native historical entity ID failed compatibility loading");
         original.getCompound("blueprint").remove("parts");
         helper.assertTrue(level.addFreshEntity(loaded), "Cannot insert compatibility fixture in its native level");
+        // A full test-structure chunk is not necessarily entity-ticking without a nearby player.
+        // Own the required radius explicitly instead of depending on another fixture's residency.
+        var chunk = loaded.chunkPosition();
+        level.getChunkSource().addRegionTicket(TICKING_TICKET, chunk, 2, OLD_ASSEMBLY);
         helper.runAfterDelay(40, () -> {
             try {
                 helper.assertTrue(!loaded.isRemoved() && level.getEntity(OLD_ASSEMBLY) == loaded,
@@ -135,6 +141,7 @@ public final class ArchivedConstructionGameTests {
                 helper.succeed();
             } finally {
                 loaded.discard();
+                level.getChunkSource().removeRegionTicket(TICKING_TICKET, chunk, 2, OLD_ASSEMBLY);
             }
         });
     }

@@ -112,6 +112,8 @@ filaments. Warm ejecta cools toward restrained red/blue emission and a dim matur
 remnant. A bounded 6/8/10-sample volume integral at low/balanced/high quality
 replaces the old flat ring-like shell. This is an artistic emission model, without
 hydrodynamic simulation or spectrally resolved radiative transfer.
+The flash has a bright core and weaker angular wings that fade away from the
+source. It does not add a uniform luminous overlay to the entire visible sky.
 The flash age comes from the server phase: ordinary shader animation does not
 repeat the explosion in a loop. Pausing the cycle freezes the ejecta structure;
 seeded remnant systems use its mature material without a periodic expansion. In Rocket Mode, apparent size follows the

@@ -83,13 +83,18 @@ overlay those regional materials. The background layers beneath host geometry
 and yields to active Iris packs. Existing worlds and legacy patches retain their
 saved generation versions.
 
-New **Astra Earth** worlds use terrain v3: routed rivers join ocean outlets through
-meandering valleys, with dissected mountain ranges, plateaus, old uplands, lowland
+New **Astra Earth** worlds use terrain v4: curved rivers join ocean outlets through
+continuous confluences and narrower valleys, with dissected mountain ranges, plateaus, old uplands, lowland
 basins and ocean trenches. Regional temperature, moisture and rain shadows separate
-dry interiors, forests and snowy highlands. Bed and water elevations
-are shared by chunks and planetary presentation. Existing v1/v2
+dry interiors, forests and snowy highlands; river banks receive local moisture.
+Bed and water elevations are shared by chunks and planetary presentation. Existing v1-v3
 worlds keep their geography; use a new Astra Earth world for the new generation.
 See [river generation and its resolution limits](docs/EARTH_WORLD.md).
+
+[Orbital Earth lighting](docs/EARTH_ATMOSPHERE.md) uses spherical atmospheric
+transport and a shared geographic cloud field. Ground and orbital clouds follow
+the same Earth weather. Optional `/astra-render auto-exposure true` meters the
+complete celestial scene; fixed exposure remains the default.
 
 New Astra Earth worlds use cave v2: narrower passages follow folded bedding and
 fractures, with occasional junction rooms and shafts, up to 1.2 km beneath the

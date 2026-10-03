@@ -1,5 +1,6 @@
 package dev.lexawhatt.astraengine.client.render;
 
+import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import dev.lexawhatt.astraengine.AstraEngine;
@@ -51,7 +52,7 @@ public final class OverworldSkyRenderer implements AutoCloseable {
         this.options = options;
         this.seasons = seasons;
         this.earth = earth;
-        this.landscape = new EarthLandscapeRenderer(earth, seasons, state);
+        this.landscape = new EarthLandscapeRenderer(earth, seasons, state, options);
     }
 
     /** Shares connection-owned generic planetary light with the existing distant geometry owner. */
@@ -162,9 +163,9 @@ public final class OverworldSkyRenderer implements AutoCloseable {
         vector("SkyPole", seasons.toHostDirection(level, new SpaceVector(0, sinLatitude, -cosLatitude)));
         float warmth = (float) (0.5 + 0.5 * Math.sin(sample.seasonPhase() * Math.PI * 2)
                 * Math.clamp(localProfile.latitudeDegrees() / 30, -1, 1));
-        float aerosol = 0.65f + warmth * 0.65f + level.getRainLevel(partialTick) * 0.7f;
+        float aerosol = 0.65f + warmth * 0.65f + seasons.rain(level, partialTick) * 0.7f;
         float cloudCover = Minecraft.getInstance().options.getCloudsType() == CloudStatus.OFF ? 0
-                : options.cloudCover(0.38f + (1 - warmth) * 0.09f + level.getRainLevel(partialTick) * 0.48f);
+                : options.cloudCover(0.38f + (1 - warmth) * 0.09f + seasons.rain(level, partialTick) * 0.48f);
         shader.safeGetUniform("AtmosphereParams").set(aerosol, cloudCover,
                 seasons.pollution(), (float) sample.seasonPhase());
         shader.safeGetUniform("ObserverAltitudeKm").set((float) Math.max(0,
@@ -177,7 +178,7 @@ public final class OverworldSkyRenderer implements AutoCloseable {
                 (float) (12 * (Math.cos(windAngle) - 1)));
         shader.safeGetUniform("Time").set((level.getGameTime() % 1_310_720 + partialTick) / 20.0f);
         shader.safeGetUniform("MoonPhase").set(level.getMoonPhase());
-        shader.safeGetUniform("Weather").set(level.getRainLevel(partialTick), level.getThunderLevel(partialTick));
+        shader.safeGetUniform("Weather").set(seasons.rain(level, partialTick), seasons.thunder(level, partialTick));
         shader.safeGetUniform("Detail").set(options.quality().ordinal() + 3);
         var sky = level.getSkyColor(camera.getPosition(), partialTick);
         shader.safeGetUniform("SkyColor").set((float) sky.x, (float) sky.y, (float) sky.z);
@@ -191,6 +192,11 @@ public final class OverworldSkyRenderer implements AutoCloseable {
         shader.safeGetUniform("SolarLight").set(visual.luminosity(), visual.flash(), visual.radiusScale(), 0.0f);
         shader.safeGetUniform("Exposure").set(options.exposure());
         var position = camera.getPosition();
+        var earthChart = earth.chart(level.dimension().location().toString()).orElse(null);
+        var cloudFrame = earthChart == null ? null : earthChart.tangentFrame(position.x, position.z,
+                seasons.altitudeMeters(level, position.y));
+        var earthClouds = earthChart == null ? null : EarthCloudUniforms.sample(level, partialTick, options, seasons,
+                visual.luminosity() + visual.flash() * .6f);
         float night = 1 - (float) Math.clamp((sun.y() + 0.19) / 0.135, 0, 1);
         float moonlight = (float) Math.max(0, Math.cos(level.getMoonPhase() * Math.PI / 4))
                 * night * visual.luminosity();
@@ -198,9 +204,12 @@ public final class OverworldSkyRenderer implements AutoCloseable {
         var volumeFrame = new AtmosphereVolumeRenderer.Frame(level, inverseViewProjection,
                 new SpaceVector(wrappedKm(position.x), seasons.altitudeMeters(level, position.y) / 1000, wrappedKm(position.z)), sun,
                 (float) (12 * Math.sin(windAngle)), (float) (12 * (Math.cos(windAngle) - 1)),
-                cloudCover, aerosol, visual.luminosity(), moonlight, level.getRainLevel(partialTick),
-                level.getThunderLevel(partialTick), skyAccess, options.exposure(), options.shafts(), options.quality(),
-                (float) seasons.cloudBaseKm(level), (float) seasons.cloudTopKm(level));
+                cloudCover, aerosol, visual.luminosity(), moonlight, seasons.rain(level, partialTick),
+                seasons.thunder(level, partialTick), skyAccess, options.exposure(), options.shafts(), options.quality(),
+                (float) seasons.cloudBaseKm(level), (float) seasons.cloudTopKm(level), earthClouds,
+                cloudFrame == null ? SpaceVector.ZERO : cloudFrame.originMeters().multiply(.001),
+                cloudFrame == null ? FlightOrientation.IDENTITY : cloudFrame.orientation(),
+                cloudFrame == null ? sun : cloudFrame.toBodyDirection(sun));
         boolean volume = fluid == FogType.NONE && volumes.sky(volumeFrame, shader);
         shader.safeGetUniform("VolumeEnabled").set(volume ? 1 : 0);
         if (!bloom.render(shader, options, options.exposure())) {

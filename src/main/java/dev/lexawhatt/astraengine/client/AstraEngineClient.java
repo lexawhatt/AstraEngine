@@ -92,6 +92,7 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(boundaryRenderer::logout);
         SkyStateClient seasons = new SkyStateClient(earth);
         NeoForge.EVENT_BUS.addListener(seasons::receive);
+        NeoForge.EVENT_BUS.addListener(seasons::receiveWeather);
         NeoForge.EVENT_BUS.addListener(seasons::tick);
         NeoForge.EVENT_BUS.addListener(seasons::logout);
         OverworldSkyRenderer sky = new OverworldSkyRenderer(solar, options, seasons, earth);
@@ -115,6 +116,7 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(options::registerCommands);
         NeoForge.EVENT_BUS.addListener(RenderCompatibility::registerCommands);
         RocketController rocket = new RocketController(options, solar, earth);
+        rocket.setSkyState(seasons);
         var boundaryInteraction = new dev.lexawhatt.astraengine.client.surface.BoundaryInteractionClient(earth, boundaries, rocket::active);
         NeoForge.EVENT_BUS.addListener(boundaryInteraction::interaction);
         NeoForge.EVENT_BUS.addListener(boundaryInteraction::tick);

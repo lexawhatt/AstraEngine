@@ -32,6 +32,50 @@ Cloud illumination and reflected moonlight follow the diagnostic star's linear
 luminosity: depletion and remnants dim them, while the actual supernova flash
 briefly brightens them. Local block emission remains independent of the star.
 
+Canonical Earth uses one spherical, body-fixed field from 0.85 to 8.5 km above
+the reference surface. Low stratus sheets, frontal cumulus and deeper convection
+have distinct vertical profiles and taper their tops at cloud-bank edges. Bounded regional weather combines asymmetric
+extratropical heads/fronts, a sparse tropical system, a broken convergence belt
+and clear regions. Frontal arms and texture use the same regularized logarithmic twist with bounded shear;
+unwarped body-space structure breaks its longer filaments into cloud banks.
+These are authored climatic approximations, not a forecast.
+Ground views, orbital views, cloud self-shadowing and shadows on Astra's
+distant/analytic terrain sample this same density and wind. The ordinary legacy Overworld retains its original
+flat cloud layer. The host block renderer does not yet receive spatial cloud
+shadows; its block emission is not darkened to imitate them.
+
+Earth weather and seasonal coverage come from an authoritative 32-byte snapshot
+of the actual Overworld: game time, day time, seasonal phase, rain and thunder.
+It is sent on login/dimension changes and every 20 server ticks, including while
+the observer occupies the flight level. The client retains it through resource
+reload and clears it on disconnect. Wind interpolation is anchored to the exact
+client level that accepted the snapshot; a replacement level holds the last source
+time until the next snapshot, rather than applying the old level's clock offset.
+There is no separate weather scheduler or simulated cloud clock.
+
+Orbital clouds use deterministic, footprint-filtered shell integration without
+screen-space random noise. The fixed 12-cell orbital budget is distributed across
+three radial height ranges (0.85-1.85, 1.85-4.2 and 4.2-8.5 km), with more cells
+assigned to the thin low deck. Only intersected ranges consume cells; both sides
+of a shell remain ordered and the solid planet clips the ray. Finite-step radial bounds and integrated vertical
+profiles preserve thin decks; unresolved billows fade to their optical mass.
+Each active cloud type intersects the finite ray cell with its actual local
+base/top shell. Local detail uses the occupied interval's footprint, and the
+lighting sample remains inside occupied support even when most of the cell is clear.
+Lighting samples move toward the visible side of optically thick steps, using
+the absorption-weighted scattering depth without changing integrated opacity.
+The vertical lighting factor uses that visible point and the already evaluated
+local cloud-type masses and tops, rather than the full shell's midpoint.
+Nearby ground clouds retain volumetric detail and
+real scene-depth clipping. Direct sunlight and foreground extinction use the
+shared Earth optical columns. Diffuse sky irradiance comes from an owned table
+of upper-hemisphere single scattering; the separate bounded higher-order cloud
+bounce remains an approximation. Both scale linearly with the same stellar source.
+Cloud water/ice shares the terrain's renderer-relative material conversion,
+using a neutral 0.90 display-white reference before lighting. This is host-palette
+calibration, not physical albedo or a separate cloud exposure; see
+[Earth atmosphere](EARTH_ATMOSPHERE.md).
+
 ## Try it
 
 Use an Overworld with operator permission level 2. Set the time first, then select

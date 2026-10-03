@@ -1,5 +1,6 @@
 package dev.lexawhatt.astraengine.client.render;
 
+import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.surface.BodyFixedFrame;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -45,6 +46,9 @@ public final class CosmosRenderer implements AutoCloseable {
     private final ContinentalSurfaceCache continental = new ContinentalSurfaceCache();
     private final PlanetSurfaceCache planets = new PlanetSurfaceCache();
     private final OrbitalEditAtlas orbitalEdits = new OrbitalEditAtlas();
+    private final CloudNoiseAtlas cloudNoise = new CloudNoiseAtlas();
+    private SkyStateClient skyState;
+    private final EarthAtmosphereCache atmosphereOptics = new EarthAtmosphereCache();
     private EarthSurfacePalette earthPalette;
     private dev.lexawhatt.astraengine.client.surface.PlanetStateClient planetContexts;
     private int continentalVersion;
@@ -61,10 +65,12 @@ public final class CosmosRenderer implements AutoCloseable {
 
     /** Registers the reload-owned shader; an unavailable program leaves the host's black sky. */
     public void registerShaders(RegisterShadersEvent event) {
+        cloudNoise.close();
         earthHeights.close();
         continental.close();
         planets.close();
         orbitalEdits.close();
+        atmosphereOptics.close();
         earthPalette = null;
         bloom.registerShaders(event);
         lateSky.registerShaders(event);
@@ -84,13 +90,21 @@ public final class CosmosRenderer implements AutoCloseable {
         this.options = options;
     }
 
+    /** Borrows connection-owned source-Earth weather/profile snapshots; this renderer advances no weather state. */
+    public void setSkyState(SkyStateClient sky) {
+        if (sky == null) { throw new IllegalArgumentException("Sky state required"); }
+        skyState = sky;
+    }
+
     /** Releases owned HDR/bloom buffers, leaving registered shader disposal to Minecraft. */
     @Override
     public void close() {
+        cloudNoise.close();
         earthHeights.close();
         continental.close();
         planets.close();
         orbitalEdits.close();
+        atmosphereOptics.close();
         earthPalette = null;
         bloom.close();
         lateSky.close();
@@ -255,9 +269,12 @@ public final class CosmosRenderer implements AutoCloseable {
         shader.safeGetUniform("LensIndex").set(celestialFrame.lensIndex());
         int evolutionIndex = -1;
         int atmosphereIndex = -1;
+        double opticsRadiusKm = 0;
         int nucleusIndex = -1;
         boolean nearbyEarth = false;
         SpaceVector continentalObserver = null;
+        BodyFixedFrame cloudFrame = null;
+        SpaceVector cloudSun = null;
         boolean mappedContinent = continentalVersion != 0 && system.id().equals("sol");
         shader.safeGetUniform("ContinentalEarth").set(mappedContinent ? 1 : 0);
         if (mappedContinent) {
@@ -305,6 +322,11 @@ public final class CosmosRenderer implements AutoCloseable {
             }
             SpaceVector color = body.color();
             SpaceVector light = lightDirection(system, frame.position(), body.id(), orbitalSeconds);
+            if (mappedContinent && body.id().equals("earth") && definition != null
+                    && frame.distance() < body.radiusMeters() + 500_000_000) {
+                cloudFrame = fixedFrame(definition, system, timeSeconds, orbitalSeconds, earthOrientation);
+                cloudSun = cloudFrame.toBodyDirection(light);
+            }
             float seed = Math.floorMod(body.id().hashCode() ^ (int) system.seed(), 1024);
             float renderRadius = frame.radiusRatio();
             // The legacy lunar material retains its local reference shell until its own relief intersection is added.
@@ -336,6 +358,8 @@ public final class CosmosRenderer implements AutoCloseable {
                 SpaceVector relativeKm = cameraMeters.subtract(frame.position()).multiply(0.001);
                 if (relativeKm.length() < body.radiusMeters() * 0.03) {
                     atmosphereIndex = i;
+                    opticsRadiusKm = system.id().equals("sol") && body.id().equals("mars")
+                            ? 0 : body.radiusMeters() * 0.001;
                     shader.safeGetUniform("AtmosphereObserver").set((float) relativeKm.x(), (float) relativeKm.y(),
                             (float) relativeKm.z(), (float) (body.radiusMeters() * 0.001));
                 }
@@ -362,6 +386,20 @@ public final class CosmosRenderer implements AutoCloseable {
         orbitalEdits.bind(shader, system.id(), frames.stream().map(frame -> frame.descriptor().id()).toList());
         shader.safeGetUniform("EvolutionIndex").set(evolutionIndex);
         shader.safeGetUniform("AtmosphereBodyIndex").set(atmosphereIndex);
+        atmosphereOptics.update(opticsRadiusKm == 0 && cloudFrame != null ? cloudFrame.radiusMeters() * .001 : opticsRadiusKm);
+        atmosphereOptics.bind(shader);
+        shader.safeGetUniform("CloudPlanet").set(0.0f, 0.0f, 0.0f, 0.0f);
+        if (cloudFrame != null && skyState != null && options != null && Minecraft.getInstance().level != null) {
+            var game = Minecraft.getInstance();
+            float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
+            try (var saved = new FullscreenPass(12)) { cloudNoise.ensureUploaded(); }
+            // Canonical continental Earth never samples the legacy height tiles. Reuse that sampler slot:
+            // Minecraft tracks twelve units even on devices exposing a larger fragment-texture limit.
+            shader.setSampler("EarthHeightTile0", cloudNoise.texture());
+            EarthCloudUniforms.bind(shader, EarthCloudUniforms.sample(game.level, partial, options, skyState,
+                    Math.max(0, solar.luminosity() + solar.flash() * .6f)), cloudFrame.toBodyPoint(cameraMeters).multiply(.001),
+                    cloudFrame.radiusMeters() * .001, FlightOrientation.IDENTITY, cloudSun);
+        }
         shader.safeGetUniform("SurfaceHorizon").set((float) up.x(), (float) up.y(), (float) up.z(),
                 surfaceView && atmosphereIndex >= 0 && !late ? 1.0f : 0.0f);
         float[] fog = RenderSystem.getShaderFogColor();
@@ -376,9 +414,9 @@ public final class CosmosRenderer implements AutoCloseable {
     }
 
     private void drawSky(float exposure, float opacity) {
-        if (!bloom.render(shader, options, exposure, 11, opacity)) {
+        if (!bloom.render(shader, options, exposure, 12, opacity)) {
             shader.safeGetUniform("HdrOutput").set(0);
-            try (var state = new FullscreenPass(11)) { FullscreenPass.drawOpacity(shader, opacity); }
+            try (var state = new FullscreenPass(12)) { FullscreenPass.drawOpacity(shader, opacity); }
         }
     }
 

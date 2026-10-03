@@ -177,6 +177,7 @@
   "key.astraengine.flight.roll_right": "Roll camera right",
   "key.astraengine.flight.faster": "Increase free-camera speed",
   "key.astraengine.flight.slower": "Decrease free-camera speed",
+  "astraengine.render.auto_exposure": "Orbital auto exposure: %s",
   "astraengine.render.hdr": "Celestial HDR: bloom strength %s, threshold %s, radius %s, exposure %s",
   "astraengine.audio.status": "Solar audio: enabled %s, volume %s",
   "subtitles.astraengine.solar_tension": "Star rumbles",

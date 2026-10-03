@@ -152,6 +152,9 @@ public final class RocketController {
         renderer.setOrbitalSummaries(summaries);
     }
 
+    /** Shares source-Earth weather and calendar with ground rendering, retaining no separate atmospheric clock. */
+    public void setSkyState(dev.lexawhatt.astraengine.client.sky.SkyStateClient sky) { renderer.setSkyState(sky); }
+
     public void registerKeys(RegisterKeyMappingsEvent event) {
         event.register(toggle); event.register(map); event.register(scan); event.register(brake);
         event.register(rollLeft); event.register(rollRight); event.register(faster); event.register(slower);

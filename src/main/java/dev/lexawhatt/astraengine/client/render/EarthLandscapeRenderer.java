@@ -50,6 +50,8 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     private final EarthStateClient earth;
     private final SkyStateClient seasons;
     private final SolarStateClient solar;
+    private final RenderOptions options;
+    private final CloudNoiseAtlas cloudNoise = new CloudNoiseAtlas();
     private ShaderInstance terrain;
     private ShaderInstance compose;
     private ContinentalLandscape mesh;
@@ -65,8 +67,8 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     private boolean targetFailed;
     private long draws;
 
-    EarthLandscapeRenderer(EarthStateClient earth, SkyStateClient seasons, SolarStateClient solar) {
-        this.earth = earth; this.seasons = seasons; this.solar = solar;
+    EarthLandscapeRenderer(EarthStateClient earth, SkyStateClient seasons, SolarStateClient solar, RenderOptions options) {
+        this.earth = earth; this.seasons = seasons; this.solar = solar; this.options = options;
     }
 
     void setPlanetSky(PlanetSkyState state) { planetSky = state; }
@@ -136,8 +138,8 @@ final class EarthLandscapeRenderer implements AutoCloseable {
             flash = planet.chart().profile().systemId().equals("sol") ? visual.flash() : 0;
         } else {
             SpaceVector sun = seasons.toHostDirection(game.level, seasons.sample(game.level, partial).sunDirection());
-            light = SkyIllumination.skyLight(sun.y(), game.level.getRainLevel(partial),
-                    game.level.getThunderLevel(partial), visual.luminosity());
+            light = SkyIllumination.skyLight(sun.y(), seasons.rain(game.level, partial),
+                    seasons.thunder(game.level, partial), visual.luminosity());
             atmosphereDensity = Math.exp(-Math.max(0, altitude) / 8000); flash = visual.flash();
         }
         var observer = chart.tangentFrame(camera.x, camera.z, altitude);
@@ -167,6 +169,14 @@ final class EarthLandscapeRenderer implements AutoCloseable {
             RenderSystem.enableDepthTest(); RenderSystem.depthFunc(GL11.GL_LEQUAL); RenderSystem.depthMask(true);
             RenderSystem.disableCull(); RenderSystem.disableBlend();
             vector(terrain, "LightColor", light);
+            if (chart instanceof EarthChart) {
+                cloudNoise.ensureUploaded();
+                terrain.setSampler("CloudNoise", cloudNoise.texture());
+                var sun = seasons.toHostDirection(game.level, seasons.sample(game.level, partial).sunDirection());
+                EarthCloudUniforms.bind(terrain, EarthCloudUniforms.sample(game.level, partial, options, seasons,
+                        visual.luminosity() + visual.flash() * .6f), observer.originMeters().multiply(.001), chart.radiusMeters() * .001,
+                        observer.orientation(), observer.toBodyDirection(sun));
+            } else { terrain.safeGetUniform("CloudPlanet").set(0.0f, 0.0f, 0.0f, 0.0f); }
             float[] fog = RenderSystem.getShaderFogColor();
             terrain.safeGetUniform("HazeColor").set(fog[0], fog[1], fog[2]);
             terrain.safeGetUniform("EyeAltitude").set((float) altitude);
@@ -292,6 +302,7 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     @Override public void close() {
         palette = null; planetPalette = null;
         RenderSystem.assertOnRenderThread();
+        cloudNoise.close();
         if (pending != null) { pending.cancelled().set(true); pending = null; }
         if (vertices != null) { vertices.close(); vertices = null; }
         if (target != null) { target.destroyBuffers(); target = null; }

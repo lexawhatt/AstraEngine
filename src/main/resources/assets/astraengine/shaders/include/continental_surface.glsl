@@ -19,21 +19,41 @@ vec2 continentalUv(vec2 meters, float spacing) {
 // Hardware linear weights can have only eight fractional bits. Kilometer relief
 // then acquires meter-high terraces and a discontinuous ray residual. Interpolate
 // in shader float precision; these four taps read the same bounded mip-zero data.
-vec4 continentalBilinear(sampler2D data, vec2 uv) {
+vec4 continentalClimateMaterial(vec4 climate);
+
+vec4 continentalBilinear(sampler2D data, vec2 uv, bool material) {
     ivec2 size = textureSize(data, 0);
     vec2 position = clamp(uv * vec2(size) - 0.5, vec2(0.0), vec2(size - 1));
     ivec2 low = ivec2(floor(position));
     ivec2 high = min(low + 1, size - 1);
     vec2 weight = fract(position);
-    return mix(mix(texelFetch(data, low, 0), texelFetch(data, ivec2(high.x, low.y), 0), weight.x),
-               mix(texelFetch(data, ivec2(low.x, high.y), 0), texelFetch(data, high, 0), weight.x), weight.y);
+    vec4 lowLow = texelFetch(data, low, 0);
+    vec4 highLow = texelFetch(data, ivec2(high.x, low.y), 0);
+    vec4 lowHigh = texelFetch(data, ivec2(low.x, high.y), 0);
+    vec4 highHigh = texelFetch(data, high, 0);
+    // A resolved texel has the same material as its canonical block column. Average
+    // those materials over this unresolved cell; classifying averaged climate can
+    // invent a third biome and draws hard contour bands inside the filter footprint.
+    if (material) {
+        lowLow = continentalClimateMaterial(lowLow);
+        highLow = continentalClimateMaterial(highLow);
+        lowHigh = continentalClimateMaterial(lowHigh);
+        highHigh = continentalClimateMaterial(highHigh);
+    }
+    return mix(mix(lowLow, highLow, weight.x), mix(lowHigh, highHigh, weight.x), weight.y);
 }
 
-vec4 continentalClimateMaterial(vec4 climate);
+vec4 continentalBilinear(sampler2D data, vec2 uv) { return continentalBilinear(data, uv, false); }
 
 vec4 continentalField(sampler2D data, vec2 uv, bool material) {
-    vec4 value = continentalBilinear(data, uv);
-    return material ? continentalClimateMaterial(value) : value;
+    return continentalBilinear(data, uv, material);
+}
+
+vec4 continentalGlobeSample(vec3 p, bool material) {
+    vec2 globeSize = vec2(textureSize(ContinentalGlobe, 0));
+    vec2 angular = vec2(atan(-p.z, p.x) / (2.0 * PI) + 0.5,
+                        asin(clamp(p.y, -1.0, 1.0)) / PI + 0.5);
+    return continentalField(ContinentalGlobe, (angular * (globeSize - 1.0) + 0.5) / globeSize, material);
 }
 
 vec4 continentalSample(vec3 p, bool material) {
@@ -41,29 +61,41 @@ vec4 continentalSample(vec3 p, bool material) {
         vec4 fallback = vec4(0.0, 12.0, 0.5, 0.0);
         return material ? continentalClimateMaterial(fallback) : fallback;
     }
-    vec2 globeSize = vec2(textureSize(ContinentalGlobe, 0));
-    vec2 angular = vec2(atan(-p.z, p.x) / (2.0 * PI) + 0.5,
-                        asin(clamp(p.y, -1.0, 1.0)) / PI + 0.5);
-    // Explicit LOD keeps derivatives out of divergent relief-march loops.
-    vec4 coarse = continentalField(ContinentalGlobe, (angular * (globeSize - 1.0) + 0.5) / globeSize, material);
     float forward = dot(p, ContinentalUp);
-    if (ContinentalTilesReady == 0 || forward <= 0.0) { return coarse; }
+    if (ContinentalTilesReady == 0 || forward <= 0.0) { return continentalGlobeSample(p, material); }
     vec2 meters = vec2(dot(p, ContinentalEast), dot(p, ContinentalSouth)) * 6371000.0 / forward;
     float distance = max(abs(meters.x), abs(meters.y));
     vec4 extent = ContinentalSpacing * 256.0;
     vec4 weight = vec4(1.0) - smoothstep(extent * 0.8, extent, vec4(distance));
-    if (weight.w <= 0.0) { return coarse; }
-    vec4 result = continentalField(ContinentalTile3, continentalUv(meters, ContinentalSpacing.w), material);
-    if (weight.z > 0.0) {
-        result = mix(result, continentalField(ContinentalTile2, continentalUv(meters, ContinentalSpacing.z), material), weight.z);
+    if (weight.w <= 0.0) { return continentalGlobeSample(p, material); }
+    // A weight of exactly one overwrites every coarser contribution. Retain the original
+    // mix order for fractional weights, including unusual/non-nested spacing configurations.
+    // Each surviving level still uses the same four mip-zero taps and float interpolation.
+    vec4 result;
+    if (weight.x == 1.0) {
+        result = continentalField(ContinentalTile0, continentalUv(meters, ContinentalSpacing.x), material);
+    } else {
+        if (weight.y == 1.0) {
+            result = continentalField(ContinentalTile1, continentalUv(meters, ContinentalSpacing.y), material);
+        } else {
+            if (weight.z == 1.0) {
+                result = continentalField(ContinentalTile2, continentalUv(meters, ContinentalSpacing.z), material);
+            } else {
+                result = continentalField(ContinentalTile3, continentalUv(meters, ContinentalSpacing.w), material);
+                if (weight.z > 0.0) {
+                    result = mix(result, continentalField(ContinentalTile2, continentalUv(meters, ContinentalSpacing.z), material), weight.z);
+                }
+            }
+            if (weight.y > 0.0) {
+                result = mix(result, continentalField(ContinentalTile1, continentalUv(meters, ContinentalSpacing.y), material), weight.y);
+            }
+        }
+        if (weight.x > 0.0) {
+            result = mix(result, continentalField(ContinentalTile0, continentalUv(meters, ContinentalSpacing.x), material), weight.x);
+        }
     }
-    if (weight.y > 0.0) {
-        result = mix(result, continentalField(ContinentalTile1, continentalUv(meters, ContinentalSpacing.y), material), weight.y);
-    }
-    if (weight.x > 0.0) {
-        result = mix(result, continentalField(ContinentalTile0, continentalUv(meters, ContinentalSpacing.x), material), weight.x);
-    }
-    return mix(coarse, result, weight.w);
+    if (weight.w == 1.0) { return result; }
+    return mix(continentalGlobeSample(p, material), result, weight.w);
 }
 
 vec4 continentalSample(vec3 p) { return continentalSample(p, false); }

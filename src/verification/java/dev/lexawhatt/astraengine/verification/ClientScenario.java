@@ -95,8 +95,11 @@ public final class ClientScenario {
     private OrbitalEditsScenario orbitalEditsScenario;
     private SolidPlanetsScenario solidPlanetsScenario;
     private MarsVisualScenario marsVisualScenario;
+    private EarthAtmosphereVisualScenario earthAtmosphereVisualScenario;
+    private OrbitalSupernovaScenario orbitalSupernovaScenario;
     private EarthTravelScenario earthTravelScenario;
     private EarthAtmosphereScenario earthAtmosphereScenario;
+    private EarthCloudGroundScenario earthCloudGroundScenario;
     private EarthLandscapeScenario earthLandscapeScenario;
     private EarthBoundaryScenario earthBoundaryScenario;
     private EarthCrossingScenario earthCrossingScenario;
@@ -233,7 +236,7 @@ public final class ClientScenario {
                         || phase.equals("celestial") || phase.equals("approach") || phase.equals("celestial-api") || phase.equals("galactic") || phase.equals("atlas")
                         || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("seasonal")
                         || phase.equals("solar-clouds") || phase.equals("volumetric") || phase.equals("celestial-polish")
-                        || phase.equals("mars-visual") || phase.equals("earth-layer-diagnosis") || phase.equals("earth-platform-collision") || phase.equals("earth-inspection-ascent") || phase.equals("earth-journey-create") || phase.equals("earth-two-player-host") || phase.equals("earth-two-space-host") || phase.equals("surface-create") || phase.equals("surface-cancel") || phase.equals("surface-interrupt")
+                        || phase.equals("earth-orbital-supernova") || phase.equals("earth-cloud-ground") || (phase.equals("earth-atmosphere-transport") || phase.equals("earth-cloud-morphology")) || phase.equals("mars-visual") || phase.equals("earth-layer-diagnosis") || phase.equals("earth-platform-collision") || phase.equals("earth-inspection-ascent") || phase.equals("earth-journey-create") || phase.equals("earth-two-player-host") || phase.equals("earth-two-space-host") || phase.equals("surface-create") || phase.equals("surface-cancel") || phase.equals("surface-interrupt")
                         || phase.equals("surface-failures") || phase.equals("surface-boundaries")
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
@@ -287,7 +290,7 @@ public final class ClientScenario {
             boolean galacticPhase = phase.equals("galactic") || phase.equals("galactic-restart");
             boolean celestialApiPhase = phase.equals("celestial-api") || phase.equals("celestial-api-restart");
             if (minecraft.player == null || minecraft.level == null || minecraft.getOverlay() != null
-                    || (minecraft.screen != null && !phase.equals("mars-visual") && !phase.equals("earth-layer-diagnosis") && !phase.equals("earth-platform-collision") && !phase.equals("earth-inspection-ascent") && !phase.startsWith("earth-journey-") && !phase.equals("earth-two-space-host") && !phase.startsWith("earth-two-player-host") && !phase.equals("navigation") && !phase.startsWith("earth-space-") && !phase.equals("earth-crossings") && !phase.equals("earth-underground") && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
+                    || (minecraft.screen != null && !phase.equals("earth-orbital-supernova") && !phase.equals("earth-cloud-ground") && !(phase.equals("earth-atmosphere-transport") || phase.equals("earth-cloud-morphology")) && !phase.equals("mars-visual") && !phase.equals("earth-layer-diagnosis") && !phase.equals("earth-platform-collision") && !phase.equals("earth-inspection-ascent") && !phase.startsWith("earth-journey-") && !phase.equals("earth-two-space-host") && !phase.startsWith("earth-two-player-host") && !phase.equals("navigation") && !phase.startsWith("earth-space-") && !phase.equals("earth-crossings") && !phase.equals("earth-underground") && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
                             || minecraft.screen instanceof ShaderEditorScreen))
                             && !(phase.equals("surface-failures") && minecraft.screen instanceof DeathScreen)
                             && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || celestialPolishPhase || surfacePhase
@@ -323,6 +326,21 @@ public final class ClientScenario {
             if (phase.startsWith("earth-two-player-host")) {
                 if (twoPlayerBoundaryScenario == null) { twoPlayerBoundaryScenario = new TwoPlayerBoundaryScenario(phase); }
                 if (twoPlayerBoundaryScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.equals("earth-orbital-supernova")) {
+                if (orbitalSupernovaScenario == null) { orbitalSupernovaScenario = new OrbitalSupernovaScenario(); }
+                if (orbitalSupernovaScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.equals("earth-cloud-ground")) {
+                if (earthCloudGroundScenario == null) { earthCloudGroundScenario = new EarthCloudGroundScenario(); }
+                if (earthCloudGroundScenario.tick()) { finish(); }
+                return;
+            }
+            if ((phase.equals("earth-atmosphere-transport") || phase.equals("earth-cloud-morphology"))) {
+                if (earthAtmosphereVisualScenario == null) { earthAtmosphereVisualScenario = new EarthAtmosphereVisualScenario(phase.equals("earth-cloud-morphology")); }
+                if (earthAtmosphereVisualScenario.tick()) { finish(); }
                 return;
             }
             if (phase.equals("mars-visual")) {

@@ -1,5 +1,7 @@
 package dev.lexawhatt.astraengine;
 
+import dev.lexawhatt.astraengine.network.EarthWeatherReceivedEvent;
+import dev.lexawhatt.astraengine.network.EarthWeatherPayload;
 import com.mojang.logging.LogUtils;
 import dev.lexawhatt.astraengine.network.CustomSystemsPayload;
 import dev.lexawhatt.astraengine.network.CustomSystemsReceivedEvent;
@@ -95,6 +97,9 @@ public final class AstraEngine {
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SolarReceivedEvent(payload)));
         event.registrar("1").playToClient(SkyProfilePayload.TYPE, SkyProfilePayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SkyProfileReceivedEvent(payload)));
+        event.registrar("1").playToClient(EarthWeatherPayload.TYPE,
+                EarthWeatherPayload.CODEC,
+                (payload, context) -> NeoForge.EVENT_BUS.post(new EarthWeatherReceivedEvent(payload)));
         // PayloadRegistrar defaults to MAIN: both request handlers run on the owning logical-server thread.
         event.registrar("2").playToClient(SurfacePayload.TYPE, SurfacePayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SurfaceReceivedEvent(payload)));

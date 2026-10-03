@@ -1,0 +1,184 @@
+{
+  "vertex": "astraengine_verify:earth_cloud_field",
+  "fragment": "astraengine_verify:earth_cloud_ray_probe",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "CloudNoise"
+    },
+    {
+      "name": "EarthOpticalColumns"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "CloudWind",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "CloudNoiseLayout",
+      "type": "float",
+      "count": 4,
+      "values": [
+        64,
+        66,
+        528,
+        8
+      ]
+    },
+    {
+      "name": "EarthCloudParams",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0.55,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "CloudPlanet",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        6371
+      ]
+    },
+    {
+      "name": "ProbeMode",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "EarthOpticsReady",
+      "type": "int",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "EarthOpticsRadius",
+      "type": "float",
+      "count": 1,
+      "values": [
+        6371
+      ]
+    },
+    {
+      "name": "ProbeInverseView",
+      "type": "matrix4x4",
+      "count": 16,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ProbeBodyRotation",
+      "type": "matrix3x3",
+      "count": 9,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ProbeScreenSize",
+      "type": "float",
+      "count": 2,
+      "values": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "name": "ProbeSteps",
+      "type": "int",
+      "count": 1,
+      "values": [
+        24
+      ]
+    },
+    {
+      "name": "EarthCloudSun",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "CloudLayer",
+      "type": "float",
+      "count": 2,
+      "values": [
+        1.8,
+        3.2
+      ]
+    },
+    {
+      "name": "ProbeCalendar",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "ProbeAngles",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ProbeClip",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    }
+  ]
+}

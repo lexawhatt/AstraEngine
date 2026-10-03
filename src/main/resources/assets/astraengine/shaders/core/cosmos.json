@@ -37,6 +37,9 @@
     },
     {
       "name": "OrbitalEdits"
+    },
+    {
+      "name": "EarthOpticalColumns"
     }
   ],
   "uniforms": [
@@ -3515,17 +3518,194 @@
         1024
       ]
     },
-    {"name": "BodyAtmosphereModel[0]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[1]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[2]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[3]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[4]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[5]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[6]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[7]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[8]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[9]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[10]", "type": "float", "count": 1, "values": [0]},
-    {"name": "BodyAtmosphereModel[11]", "type": "float", "count": 1, "values": [0]}
+    {
+      "name": "BodyAtmosphereModel[0]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[1]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[2]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[3]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[4]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[5]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[6]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[7]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[8]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[9]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[10]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "BodyAtmosphereModel[11]",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "EarthOpticsReady",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "EarthCloudParams",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -1,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "CloudPlanet",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "CloudLocalToBody",
+      "type": "matrix3x3",
+      "count": 9,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "EarthCloudSun",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CloudWind",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "CloudLayer",
+      "type": "float",
+      "count": 2,
+      "values": [
+        1.8,
+        3.2
+      ]
+    },
+    {
+      "name": "CloudNoiseLayout",
+      "type": "float",
+      "count": 4,
+      "values": [
+        64,
+        66,
+        528,
+        8
+      ]
+    },
+    {
+      "name": "EarthOpticsRadius",
+      "type": "float",
+      "count": 1,
+      "values": [
+        0
+      ]
+    }
   ]
 }

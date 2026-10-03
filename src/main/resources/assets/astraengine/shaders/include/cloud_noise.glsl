@@ -1,5 +1,7 @@
 // One shared padded RG8 lookup supplies cloud body, shadow and shaft density.
+#ifndef CLOUD_NOISE_EXTERNAL_SAMPLER
 uniform sampler2D CloudNoise;
+#endif
 uniform vec4 CloudNoiseLayout; // period, padded tile edge, atlas edge, tiles per row
 float cloudVolumeNoise(vec3 p) {
     vec3 cell = mod(floor(p), CloudNoiseLayout.x);

@@ -42,12 +42,13 @@ import org.lwjgl.opengl.GL11;
 /** Native landscape/host coverage and corner-join regression, plus repeated bounded streaming measurements. */
 final class HorizonJoinScenario {
     private record View(String name, GeographicPosition position, float yaw, float pitch) { }
+    private static final int TERRAIN_VERSION = ContinentalTerrain.CURRENT_VERSION;
     private final Minecraft game = Minecraft.getInstance();
     private final boolean usual = System.getProperty("astraengine.verify.phase", "").endsWith("-usual");
     private final boolean residentQualification = System.getProperty("astraengine.verify.phase", "").contains("-resident-");
     private final boolean targetQualification = System.getProperty("astraengine.verify.phase", "").contains("-target-");
     private final boolean profileRoutes = !System.getProperty("astraengine.verify.phase", "").contains("-unprofiled-");
-    private final ContinentalTerrain terrain = new ContinentalTerrain(3, ContinentalTerrain.SEED);
+    private final ContinentalTerrain terrain = new ContinentalTerrain(TERRAIN_VERSION, ContinentalTerrain.SEED);
     private final List<View> views = new ArrayList<>();
     private final List<Double> frames = new ArrayList<>();
     private final List<Double> serverTicks = Collections.synchronizedList(new ArrayList<>());
@@ -113,14 +114,14 @@ final class HorizonJoinScenario {
         var river = atlas.point(channel, .45);
         var downstream = atlas.point(channel, .48);
         var address = address(river, terrain.sample(river).waterMeters() + 800);
-        var chart = EarthChart.owner(address, 3).orElseThrow();
+        var chart = EarthChart.owner(address, TERRAIN_VERSION).orElseThrow();
         var point = chart.resolve(address).orElseThrow();
         double scale = EarthChart.RADIUS_METERS / downstream.dot(chart.face().outward());
         float yaw = (float) Math.toDegrees(Math.atan2(-(downstream.dot(chart.face().u()) * scale - point.x()),
                 downstream.dot(chart.face().v()) * scale - point.z()));
         views.add(new View("river-valley", address(river, terrain.sample(river).waterMeters() + 28), yaw, 6));
         views.add(new View("river-overhead", address, yaw, 55));
-        var cornerChart = new EarthChart(CubeFace.POSITIVE_X, 2, 3);
+        var cornerChart = new EarthChart(CubeFace.POSITIVE_X, 2, TERRAIN_VERSION);
         views.add(new View("cube-corner", address(cornerChart.normal(EarthChart.RADIUS_METERS - 4,
                 EarthChart.RADIUS_METERS - 4), 10156), 45, 8));
         views.add(new View("polar-ice", new GeographicPosition(Math.PI / 2, 0, 11000), 36, 15));
@@ -138,7 +139,7 @@ final class HorizonJoinScenario {
         views.add(new View("forest", address(forest, terrain.sample(forest).heightMeters() + 50), 30, 15));
         views.add(new View("summit", address(mountain, height + 180), 30, 15));
         views.add(views.get(1));
-        evidence.append("Java=").append(System.getProperty("java.version"))
+        evidence.append("terrainVersion=").append(TERRAIN_VERSION).append(" Java=").append(System.getProperty("java.version"))
                 .append(" heapMax=").append(Runtime.getRuntime().maxMemory())
                 .append(" GPU=").append(GL11.glGetString(GL11.GL_RENDERER))
                 .append(" driver=").append(GL11.glGetString(GL11.GL_VERSION))
@@ -175,7 +176,7 @@ final class HorizonJoinScenario {
         }
         if (step == 0) {
             var view = views.get(viewIndex);
-            var chart = EarthChart.owner(view.position(), 3).orElseThrow();
+            var chart = EarthChart.owner(view.position(), TERRAIN_VERSION).orElseThrow();
             var point = chart.resolve(view.position()).orElseThrow();
             pending = game.getSingleplayerServer().submit(() -> {
                 var server = game.getSingleplayerServer();
@@ -215,7 +216,7 @@ final class HorizonJoinScenario {
                 step = 0; return false;
             }
             GLFW.glfwSetWindowSize(game.getWindow().getWindow(), 1920, 1080);
-            routeChart = EarthChart.owner(views.get(4).position(), 3).orElseThrow();
+            routeChart = EarthChart.owner(views.get(4).position(), TERRAIN_VERSION).orElseThrow();
             routeStart = routeChart.resolve(views.get(4).position()).orElseThrow();
             if (targetQualification) {
                 pending = game.getSingleplayerServer().submit(() -> {

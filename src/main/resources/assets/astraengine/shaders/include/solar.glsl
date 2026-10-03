@@ -144,8 +144,12 @@ vec3 evolvingSolarRadiance(vec3 background, vec3 ray, vec3 center, float physica
     color += vec3(0.42, 0.72, 1.0) * core * (0.35 + exp(-elapsed * 0.9) * 8.0) * emitted;
     // Exactly one server-aged flash: finite, spatially bounded, and never replayed by Time.
     float flashWidth = max(physicalRadius * 12.0, 0.045);
+    // Optical wings fall off from the source. A constant hemispherical pedestal would
+    // wash every unobscured background pixel brown, independently of its angular distance.
+    float flashCore = 20.0 * exp(-pow(angle / flashWidth, 2.0));
+    float flashWing = 0.065 * exp(-pow(angle / (flashWidth * 4.0), 2.0));
     color += vec3(1.0, 0.86, 0.68) * SolarLight.y
-           * (0.065 + 20.0 * exp(-pow(angle / flashWidth, 2.0)));
+           * (flashWing + flashCore);
     // The directional cutoff must not expose a bright hemispherical seam when the
     // source is nearly behind the camera, particularly inside a large flash envelope.
     return mix(background, color, smoothstep(0.0, 0.15, along));

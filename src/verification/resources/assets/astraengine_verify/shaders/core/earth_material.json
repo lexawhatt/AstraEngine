@@ -1,0 +1,253 @@
+{
+  "vertex": "astraengine_verify:earth_material",
+  "fragment": "astraengine_verify:earth_material",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "ProbeData"
+    },
+    {
+      "name": "ContinentalGlobe"
+    },
+    {
+      "name": "ContinentalTile0"
+    },
+    {
+      "name": "ContinentalTile1"
+    },
+    {
+      "name": "ContinentalTile2"
+    },
+    {
+      "name": "ContinentalTile3"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "ProbeUv",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0.5,
+        0.5
+      ]
+    },
+    {
+      "name": "ProbeMaterial",
+      "type": "int",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[0]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[1]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[2]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[3]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[4]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[5]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[6]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[7]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[8]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[9]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[10]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "EarthSurfaceColors[11]",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ProbeMode",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "ProbeDirection",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ContinentalReady",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "ContinentalTilesReady",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "ContinentalUp",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "ContinentalEast",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "ContinentalSouth",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "ContinentalSpacing",
+      "type": "float",
+      "count": 4,
+      "values": [
+        4,
+        32,
+        256,
+        1024
+      ]
+    }
+  ]
+}

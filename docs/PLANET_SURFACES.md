@@ -16,6 +16,31 @@ Unknown versions, conflicting identities, unreadable existing manifests and miss
 
 `SolidPlanetTerrain` samples a body-fixed unit direction. Host columns, globe height/color maps and nearby landscape meshes call that same field. Poles and face boundaries do not choose separate terrain seeds.
 
+New Astra Earth worlds select continental terrain v4. It retains the regional drainage graph while
+joining its nodes with cubic Hermite curves. Main tributaries and outgoing channels share geographic
+tangent directions at confluences. Water levels are prepared against the curved route and decrease
+toward ocean outlets. Overlapping tributaries share a bounded hydraulic head, so changing the nearest
+tributary cannot drain a channel or create an uphill water step. Conservative curve bounds cover
+overlap and local reversals; closest-point queries consider all stationary distances of the normalized
+cubic instead of assuming one coarse bracket. Narrower sloped valley walls replace wide flat incision shelves,
+and localized moisture prevents an incised cool dry upland from becoming an artificial desert strip.
+Native blocks, biomes and orbital materials use the same revised sample. Saved v1-v3 generators remain
+pinned to their original routes, climate and geography; existing worlds are not silently migrated or
+repainted. This is bounded regional routing, not a fine-grained hydraulic erosion simulation.
+
+The unreleased v4 revision passes model checks over every regional branch and independent curve
+projection/bound tests. A fresh seven-view native check confirms the canonical river bed/water in actual
+chunks and the geographic layer ownership. Natural-river visual acceptance remains open: narrow channels
+can disappear between coarse mesh samples, and distant vegetation is represented only by its average
+material. A complete host verification batch for the final hydraulic revision is also pending.
+Broad warm arid regions remain actual desert terrain; they are distinct from the narrow low-elevation
+beach class and are not repainted for orbital presentation.
+
+Orbital material filtering classifies each sampled column before averaging its host-derived color and
+liquid coverage. This prevents an interpolated climate from inventing an intermediate material absent
+from its source columns. Height interpolation remains unchanged. An actual GPU check covers mixed
+desert/jungle and ice/liquid cells; filtering does not introduce vegetation, a new climate map or distant trees.
+
 The first profile version has three solid families:
 
 - Rocky bodies: broad basins, mountain ridges, crater bowls and rims, stone and regolith.

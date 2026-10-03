@@ -1,0 +1,31 @@
+{
+  "vertex": "astraengine:space",
+  "fragment": "astraengine:cosmos_exposure_meter",
+  "attributes": [
+    "Position"
+  ],
+  "samplers": [
+    {
+      "name": "Source"
+    }
+  ],
+  "uniforms": [
+    {
+      "name": "Extract",
+      "type": "int",
+      "count": 1,
+      "values": [
+        1
+      ]
+    },
+    {
+      "name": "MeterSize",
+      "type": "float",
+      "count": 2,
+      "values": [
+        64,
+        64
+      ]
+    }
+  ]
+}

@@ -23,6 +23,7 @@ import org.lwjgl.system.MemoryStack;
  */
 public final class CelestialBloomPipeline implements AutoCloseable {
     private final String shaderPrefix;
+    private final CelestialExposure exposureMeter;
     private ShaderInstance downsample;
     private ShaderInstance upsample;
     private ShaderInstance composite;
@@ -34,6 +35,7 @@ public final class CelestialBloomPipeline implements AutoCloseable {
     /** A distinct resource prefix prevents duplicate shader registrations from leaking programs. */
     public CelestialBloomPipeline(String shaderPrefix) {
         this.shaderPrefix = shaderPrefix;
+        exposureMeter = shaderPrefix.equals("cosmos") ? new CelestialExposure() : null;
     }
 
     /** Releases owned attachments on reload; shader disposal remains Minecraft's responsibility. */
@@ -47,6 +49,7 @@ public final class CelestialBloomPipeline implements AutoCloseable {
             event.registerShader(load(event, "down"), loaded -> downsample = loaded);
             event.registerShader(load(event, "up"), loaded -> upsample = loaded);
             event.registerShader(load(event, "compose"), loaded -> composite = loaded);
+            if (exposureMeter != null) { exposureMeter.registerShaders(event); }
         } catch (IOException failure) {
             AstraEngine.LOGGER.error("Could not load {} celestial HDR pipeline; using direct sky", shaderPrefix, failure);
         }
@@ -96,6 +99,11 @@ public final class CelestialBloomPipeline implements AutoCloseable {
             scene.bind();
             celestial.safeGetUniform("HdrOutput").set(1);
             FullscreenPass.draw(celestial);
+            int exposureState = 0;
+            if (exposureMeter != null) {
+                if (options.autoExposure()) { exposureState = exposureMeter.render(scene); }
+                else { exposureMeter.close(); }
+            }
             boolean bloom = options.bloom() && options.bloomStrength() > 0;
             if (bloom) {
                 HdrColorTarget source = scene;
@@ -126,6 +134,8 @@ public final class CelestialBloomPipeline implements AutoCloseable {
             composite.setSampler("BloomColor", bloom ? up[0].texture() : scene.texture());
             composite.safeGetUniform("BloomStrength").set(bloom ? options.bloomStrength() : 0);
             composite.safeGetUniform("Exposure").set(Math.clamp(exposure, 0.1f, 4));
+            composite.setSampler("ExposureState", exposureState != 0 ? exposureState : scene.texture());
+            composite.safeGetUniform("AutoExposure").set(exposureState != 0 ? 1 : 0);
             FullscreenPass.drawOpacity(composite, opacity);
             return true;
         }
@@ -148,6 +158,7 @@ public final class CelestialBloomPipeline implements AutoCloseable {
     /** Releases only owned GPU attachments. May be repeated on resize, reload, logout and shutdown. */
     @Override
     public void close() {
+        if (exposureMeter != null) { exposureMeter.close(); }
         if (scene != null) { scene.close(); scene = null; }
         for (var target : down) { if (target != null) { target.close(); } }
         for (var target : up) { if (target != null) { target.close(); } }

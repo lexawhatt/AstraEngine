@@ -7,12 +7,16 @@ uniform float Flash;
 uniform float NearCoverage;
 uniform float HostFarPlane;
 uniform vec2 BandAltitude;
+uniform vec2 CloudWind;
 in vec3 localPosition;
 in vec3 localNormal;
 in vec3 materialColor;
 in float liquidWater;
 in vec2 materialPosition;
 out vec4 fragColor;
+#moj_import <astraengine:cloud_density.glsl>
+#moj_import <astraengine:earth_optics.glsl>
+#moj_import <astraengine:earth_clouds.glsl>
 float materialHash(ivec2 p) {
     uvec2 cell = uvec2(p) & uvec2(255u);
     uint value = cell.x * 1664525u ^ cell.y * 1013904223u;
@@ -43,7 +47,14 @@ void main() {
     float land = 1.0 - clamp(liquidWater, 0.0, 1.0);
     float snow = smoothstep(0.65, 0.82, min(materialColor.r, min(materialColor.g, materialColor.b)));
     vec3 albedo = materialColor * (1.0 + land * (1.0 - snow * 0.8) * (broad * 0.25 + fine * 0.12));
-    vec3 color = albedo * LightColor * hostShade;
+    float cloudShadow = 1.0;
+    if (CloudPlanet.w > 0.0) {
+        vec3 bodyPointKm = CloudPlanet.xyz + CloudLocalToBody * (localPosition * 0.001);
+        cloudShadow = earthCloudShadowFiltered(bodyPointKm, EarthCloudSun, 6,
+                max(length(dFdx(bodyPointKm)), length(dFdy(bodyPointKm))));
+    }
+    // Only owned geographic sunlight is shadowed. Host block emission is never post-darkened.
+    vec3 color = albedo * LightColor * hostShade * (0.22 + 0.78 * cloudShadow);
     // A smooth water surface reflects the sky most strongly at grazing angles. Keep illumination tied
     // to the same stellar light as land; this is neither emissive water nor a second exposure clock.
     float fresnel = pow(1.0 - clamp(dot(normal, normalize(-localPosition)), 0.0, 1.0), 5.0);

@@ -7,7 +7,11 @@
     "Color",
     "Normal"
   ],
-  "samplers": [],
+  "samplers": [
+    {
+      "name": "CloudNoise"
+    }
+  ],
   "uniforms": [
     {
       "name": "ModelViewMat",
@@ -164,6 +168,83 @@
       "count": 1,
       "values": [
         1
+      ]
+    },
+    {
+      "name": "EarthCloudParams",
+      "type": "float",
+      "count": 4,
+      "values": [
+        -1,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "CloudPlanet",
+      "type": "float",
+      "count": 4,
+      "values": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "CloudLocalToBody",
+      "type": "matrix3x3",
+      "count": 9,
+      "values": [
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "EarthCloudSun",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "CloudWind",
+      "type": "float",
+      "count": 2,
+      "values": [
+        0,
+        0
+      ]
+    },
+    {
+      "name": "CloudLayer",
+      "type": "float",
+      "count": 2,
+      "values": [
+        1.8,
+        3.2
+      ]
+    },
+    {
+      "name": "CloudNoiseLayout",
+      "type": "float",
+      "count": 4,
+      "values": [
+        64,
+        66,
+        528,
+        8
       ]
     }
   ]

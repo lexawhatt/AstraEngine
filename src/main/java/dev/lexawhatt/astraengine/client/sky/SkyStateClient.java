@@ -1,5 +1,7 @@
 package dev.lexawhatt.astraengine.client.sky;
 
+import dev.lexawhatt.astraengine.network.EarthWeatherReceivedEvent;
+import dev.lexawhatt.astraengine.network.EarthWeatherPayload;
 import dev.lexawhatt.astraengine.network.SkyProfileReceivedEvent;
 import dev.lexawhatt.astraengine.client.surface.EarthStateClient;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
@@ -26,6 +28,9 @@ public final class SkyStateClient {
     private float targetPollution;
     private int sampleTicks;
     private ClientLevel sampledLevel;
+    private EarthWeatherPayload weather;
+    private long weatherClockOffset;
+    private ClientLevel weatherLevel;
 
     /** Creates an unbound legacy observer; consumers with Earth context should pass its existing owner. */
     public SkyStateClient() { this(new EarthStateClient()); }
@@ -46,6 +51,37 @@ public final class SkyStateClient {
 
     /** Current validated connection profile; callers cannot mutate it. */
     public PlanetarySkyProfile profile() { return profile; }
+
+    /** Server-authored Earth weather remains available in flight; reload does not replace it with staging-level weather. */
+    public void receiveWeather(EarthWeatherReceivedEvent event) {
+        weather = event.payload();
+        var level = Minecraft.getInstance().level;
+        weatherLevel = level;
+        weatherClockOffset = level == null ? 0 : weather.gameTime() - level.getGameTime();
+    }
+
+    /** Rain/thunder snapshots are sourced from Earth even while the camera occupies another dimension. */
+    public float earthRain() { return weather == null ? 0 : weather.rain(); }
+    public float earthThunder() { return weather == null ? 0 : weather.thunder(); }
+    /** Exact server Earth calendar sample; staging-level time and fixed planetary days cannot replace it. */
+    public double earthSeasonPhase() { return weather == null ? 0 : weather.seasonPhase(); }
+    public long earthDayTime() { return weather == null ? 0 : weather.dayTime(); }
+
+    /** Canonical Earth charts share source weather; a legacy Overworld retains its native interpolation. */
+    public float rain(ClientLevel level, float partialTick) {
+        return chart(level) == null ? level.getRainLevel(partialTick) : earthRain();
+    }
+
+    /** Canonical presentation only; this never changes host precipitation, spawning or emitted block light. */
+    public float thunder(ClientLevel level, float partialTick) {
+        return chart(level) == null ? level.getThunderLevel(partialTick) : earthThunder();
+    }
+
+    /** Uses the synchronized host game clock; neither rendering nor shader reload advances its own clock. */
+    public long earthGameTime(ClientLevel level) {
+        if (level == null || level != weatherLevel) { return weather == null ? 0 : weather.gameTime(); }
+        return Math.max(0, level.getGameTime() + weatherClockOffset);
+    }
 
     /** Local observer latitude for presentation; retains the server profile's date, tilt and optical settings. */
     public PlanetarySkyProfile localProfile(ClientLevel level) {
@@ -151,6 +187,9 @@ public final class SkyStateClient {
         profile = PlanetarySkyProfile.DEFAULT;
         revision = -1;
         sampledLevel = null;
+        weather = null;
+        weatherClockOffset = 0;
+        weatherLevel = null;
         localPollution = 0;
         targetPollution = 0;
         sampleTicks = 0;

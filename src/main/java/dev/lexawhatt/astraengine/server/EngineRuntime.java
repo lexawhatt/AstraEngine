@@ -146,6 +146,7 @@ public final class EngineRuntime {
     }
 
     private void resetSurfaceFrame(PlayerEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) { SkyService.sendWeather(player); }
         if (boundaryInteractions != null && event.getEntity() instanceof ServerPlayer player) { boundaryInteractions.forget(player); }
         if (boundaries != null && event.getEntity() instanceof ServerPlayer player) { boundaries.forget(player); }
         if (surfaceFrames != null && event.getEntity() instanceof ServerPlayer player) {
@@ -161,6 +162,7 @@ public final class EngineRuntime {
 
     private void onTick(ServerTickEvent.Post event) {
         if (travel == null) { return; }
+        SkyService.tickWeather(event.getServer());
         travel.tick();
         if (rocket != null) { rocket.tick(); }
         if (boundaryInteractions != null) { boundaryInteractions.tick(); }

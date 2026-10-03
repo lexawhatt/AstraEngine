@@ -13,11 +13,14 @@ public final class RiverAtlas {
     private static final CubeFace[] FACES = CubeFace.values();
     private static final double MAX_VALLEY = 6000;
     private static final double MAX_MEANDER = 1200;
+    private static final double CURVED_VALLEY_METERS = 1600;
     private final double[] nx, ny, nz, water, area, bends;
     private final int[] downstream, contributors;
+    private final RiverSpline[] curves;
+    private final RiverJunction[] junctions;
     private final int riverCount;
 
-    private RiverAtlas(long seed) {
+    private RiverAtlas(long seed, boolean curved) {
         int size = 6 * RESOLUTION * RESOLUTION;
         nx = new double[size]; ny = new double[size]; nz = new double[size];
         water = new double[size]; bends = new double[size]; area = new double[size]; contributors = new int[size];
@@ -34,7 +37,8 @@ public final class RiverAtlas {
                     nx[i] = normal.x(); ny[i] = normal.y(); nz[i] = normal.z();
                     var sample = ContinentalTerrainV3.base(normal, seed);
                     elevation[i] = sample.heightMeters();
-                    water[i] = Math.max(0, elevation[i] - 64 - sample.mountainMask() * 250);
+                    water[i] = Math.max(0, curved ? elevation[i] - 8
+                            : elevation[i] - 64 - sample.mountainMask() * 250);
                     bends[i] = MAX_MEANDER * Math.clamp(1 - Math.max(0, elevation[i]) / 1600, .12, 1);
                     contributors[i] = elevation[i] > 0 ? 1 : 0;
                     area[i] = elevation[i] > 0 ? 4 * RADIUS * RADIUS / (RESOLUTION * RESOLUTION * 1e6)
@@ -55,6 +59,7 @@ public final class RiverAtlas {
             int node = order[i], parent = downstream[node];
             if (parent >= 0) { area[parent] += area[node]; contributors[parent] += contributors[node]; }
         }
+        curves = curved ? prepareCurves() : null;
         int count = 0;
         // Sample the actual curved route, not just its coarse endpoints, before assigning water levels.
         for (int node = 0; node < size; node++) {
@@ -62,18 +67,23 @@ public final class RiverAtlas {
             count++;
             for (int step = 1; step <= 24; step++) {
                 var sample = ContinentalTerrainV3.base(point(node, step / 24.0), seed);
-                water[node] = Math.min(water[node], Math.max(0, sample.heightMeters() - 64 - sample.mountainMask() * 250));
+                water[node] = Math.min(water[node], Math.max(0, curved ? sample.heightMeters() - 8
+                        : sample.heightMeters() - 64 - sample.mountainMask() * 250));
             }
         }
         for (int i = size - 1; i >= 0; i--) {
             int node = order[i], parent = downstream[node];
             if (parent >= 0) { water[parent] = Math.min(water[parent], Math.max(0, water[node] - .05)); }
         }
+        junctions = curved ? prepareJunctions(order) : null;
         riverCount = count;
     }
 
     /** Build on an owner-selected startup/worker thread. No global seed cache or world references are retained. */
-    public static RiverAtlas prepare(long seed) { return new RiverAtlas(seed); }
+    public static RiverAtlas prepare(long seed) { return new RiverAtlas(seed, false); }
+
+    /** V4 keeps the drainage graph but uses continuous curves and their own downhill water table. */
+    static RiverAtlas prepareCurved(long seed) { return new RiverAtlas(seed, true); }
 
     /** Number of regional channel segments; small sub-grid streams are not inferred from this count. */
     public int riverCount() { return riverCount; }
@@ -95,6 +105,7 @@ public final class RiverAtlas {
         if (!Double.isFinite(fraction) || fraction < 0 || fraction > 1 || downstream[cell] < 0) {
             throw new IllegalArgumentException("River point requires an outgoing edge and a fraction in [0,1]");
         }
+        if (curves != null && curves[cell] != null) { return curves[cell].point(fraction); }
         int parent = downstream[cell];
         double ax = nx[cell], ay = ny[cell], az = nz[cell];
         double dx = nx[parent] - ax, dy = ny[parent] - ay, dz = nz[parent] - az;
@@ -109,6 +120,143 @@ public final class RiverAtlas {
 
     /** Applies the shared river bed/water/valley cross-section to source relief. Safe for concurrent sampling. */
     ContinentalTerrain.Sample shape(SpaceVector normal, ContinentalTerrain.Sample base) {
+        if (curves != null) { return shapeCurved(normal, base); }
+        return shapeLegacy(normal, base);
+    }
+
+    private RiverSpline[] prepareCurves() {
+        int[] mainUpstream = new int[downstream.length];
+        java.util.Arrays.fill(mainUpstream, -1);
+        for (int node = 0; node < downstream.length; node++) {
+            int parent = downstream[node];
+            if (!river(node)) { continue; }
+            int old = mainUpstream[parent];
+            if (old < 0 || area[node] > area[old] || area[node] == area[old] && node < old) { mainUpstream[parent] = node; }
+        }
+        var result = new RiverSpline[downstream.length];
+        for (int node = 0; node < downstream.length; node++) {
+            if (!river(node)) { continue; }
+            int parent = downstream[node];
+            result[node] = new RiverSpline(node(node), node(parent), tangent(node, mainUpstream),
+                    tangent(parent, mainUpstream), CURVED_VALLEY_METERS + 500);
+        }
+        return result;
+    }
+
+    private SpaceVector node(int cell) { return new SpaceVector(nx[cell], ny[cell], nz[cell]); }
+
+    private SpaceVector tangent(int cell, int[] mainUpstream) {
+        var current = node(cell);
+        var before = mainUpstream[cell] >= 0 ? node(mainUpstream[cell]) : current;
+        var after = downstream[cell] >= 0 ? node(downstream[cell]) : current;
+        var incoming = current.subtract(before);
+        var outgoing = after.subtract(current);
+        // Bisect unit directions rather than raw edge lengths: a longer tributary must not turn the
+        // outgoing main channel backwards. Endpoint tangent direction remains shared by every edge.
+        var direction = incoming.length() > 1e-12 ? incoming.normalized() : new SpaceVector(0, 0, 0);
+        if (outgoing.length() > 1e-12) { direction = direction.add(outgoing.normalized()); }
+        direction = direction.subtract(current.multiply(direction.dot(current)));
+        if (direction.length() < 1e-12) {
+            direction = after.subtract(current);
+            direction = direction.subtract(current.multiply(direction.dot(current)));
+        }
+        return direction.normalized();
+    }
+
+    /** Package-scoped pure diagnostics do not expose the immutable atlas arrays. */
+    RiverSpline curve(int cell) { return curves == null ? null : curves[cell]; }
+
+    private RiverJunction[] prepareJunctions(int[] order) {
+        int[] first = new int[downstream.length], next = new int[downstream.length];
+        java.util.Arrays.fill(first, -1);
+        for (int node = 0; node < downstream.length; node++) {
+            if (!river(node)) { continue; }
+            int parent = downstream[node];
+            next[node] = first[parent]; first[parent] = node;
+        }
+        var result = new RiverJunction[downstream.length];
+        for (int parent : order) {
+            int count = 0;
+            for (int node = first[parent]; node >= 0; node = next[node]) { count++; }
+            if (count < 2) { continue; }
+            int[] incoming = new int[count];
+            double[] widths = new double[count];
+            int index = 0;
+            for (int node = first[parent]; node >= 0; node = next[node]) {
+                incoming[index] = node; widths[index++] = channelHalfWidthMeters(node);
+            }
+            result[parent] = RiverJunction.prepare(parent, incoming, curves, water, widths);
+        }
+        return result;
+    }
+
+    boolean candidateNeighborhoodContains(int cell, SpaceVector normal) {
+        CubeFace face = CubeFace.containing(normal);
+        double forward = normal.dot(face.outward());
+        int ix = (int) Math.floor((normal.dot(face.u()) / forward + 1) * .5 * RESOLUTION);
+        int iz = (int) Math.floor((normal.dot(face.v()) / forward + 1) * .5 * RESOLUTION);
+        for (int z = iz - 3; z <= iz + 3; z++) {
+            for (int x = ix - 3; x <= ix + 3; x++) {
+                if (neighbor(face.ordinal(), x, z) == cell) { return true; }
+            }
+        }
+        return false;
+    }
+
+    private ContinentalTerrain.Sample shapeCurved(SpaceVector normal, ContinentalTerrain.Sample base) {
+        if (base.heightMeters() < -40) { return base; }
+        CubeFace face = CubeFace.containing(normal);
+        double forward = normal.dot(face.outward());
+        int ix = (int) Math.floor((normal.dot(face.u()) / forward + 1) * .5 * RESOLUTION);
+        int iz = (int) Math.floor((normal.dot(face.v()) / forward + 1) * .5 * RESOLUTION);
+        double height = base.heightMeters(), channelWater = Double.POSITIVE_INFINITY, wetness = 0;
+        for (int z = iz - 3; z <= iz + 3; z++) {
+            for (int x = ix - 3; x <= ix + 3; x++) {
+                int cell = neighbor(face.ordinal(), x, z);
+                var curve = curves[cell];
+                if (curve == null || !curve.containsCandidate(normal)) { continue; }
+                double t = curve.closestFraction(normal);
+                double distance = curve.point(t).subtract(normal).length() * RADIUS;
+                double halfWidth = channelHalfWidthMeters(cell);
+                int parent = downstream[cell];
+                var junction = junctions[parent];
+                double waterHeight = junction == null ? water[cell] * (1 - t) + water[parent] * t
+                        : junction.head(normal, curve.endpointDistanceMeters(), water[cell]);
+                double valley = Math.clamp(100 + halfWidth * 1.5
+                        + Math.sqrt(Math.max(0, base.heightMeters() - waterHeight)) * 12, 160, CURVED_VALLEY_METERS);
+                if (distance >= halfWidth + valley) { continue; }
+                boolean wet = distance < halfWidth;
+                double candidate, influence;
+                if (wet) {
+                    // Incisions combine by their lowest solid bed, but a dry adjacent bank does not
+                    // own the water in an actual channel. At overlaps use the lower connected water
+                    // surface, so tributaries cannot dam the receiving channel.
+                    channelWater = Math.min(channelWater, waterHeight);
+                    influence = 1;
+                    double depth = Math.clamp(halfWidth * .08, 3, 18);
+                    candidate = Math.min(base.heightMeters(), waterHeight
+                            - depth * (1 - distance * distance / (halfWidth * halfWidth)));
+                } else {
+                    double fraction = (distance - halfWidth) / valley;
+                    // Sloped valley walls rise immediately out of the channel. The previous wide flat
+                    // shelf made kilometer-wide ribbons when regional routing breached a ridge.
+                    double rise = fraction * (2 - fraction);
+                    influence = 1 - rise;
+                    candidate = waterHeight + Math.max(0, base.heightMeters() - waterHeight) * rise;
+                }
+                if (wet || candidate < base.heightMeters()) { wetness = Math.max(wetness, influence); }
+                height = Math.min(height, candidate);
+            }
+        }
+        double level = Math.max(height, Double.isFinite(channelWater) ? channelWater : 0);
+        var result = ContinentalTerrainV3.climate(base, height, level);
+        double moisture = result.moisture() + Math.max(0, .64 - result.moisture()) * Math.sqrt(wetness);
+        return new ContinentalTerrain.Sample(result.heightMeters(), result.temperature(), moisture,
+                result.continentality(), result.mountainMask(), result.waterMeters());
+    }
+
+    /** Exact saved v3 realization; later generation algorithms do not alter these operations. */
+    private ContinentalTerrain.Sample shapeLegacy(SpaceVector normal, ContinentalTerrain.Sample base) {
         if (base.heightMeters() < -40) { return base; }
         CubeFace face = CubeFace.containing(normal);
         double forward = normal.dot(face.outward());

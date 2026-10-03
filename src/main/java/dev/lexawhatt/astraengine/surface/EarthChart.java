@@ -34,8 +34,11 @@ public record EarthChart(CubeFace face, int band, int terrainVersion) implements
     private static final List<EarthChart> THIRD_GENERATION = ALL.stream()
             .map(value -> new EarthChart(value.face(), value.band(), 3)).toList();
 
+    private static final List<EarthChart> FOURTH_GENERATION = ALL.stream()
+            .map(value -> new EarthChart(value.face(), value.band(), 4)).toList();
+
     // Immutable identities only. Per-frame dimension lookup must not construct every possible chart and path.
-    private static final List<Map<String, EarthChart>> DIMENSIONS = IntStream.rangeClosed(1, 3)
+    private static final List<Map<String, EarthChart>> DIMENSIONS = IntStream.rangeClosed(1, ContinentalTerrain.CURRENT_VERSION)
             .mapToObj(version -> Stream.of(CubeFace.values()).flatMap(face ->
                     IntStream.rangeClosed(MIN_BAND, MAX_BAND).mapToObj(band -> new EarthChart(face, band, version)))
                     .collect(Collectors.toUnmodifiableMap(EarthChart::dimensionId, value -> value))).toList();
@@ -47,7 +50,7 @@ public record EarthChart(CubeFace face, int band, int terrainVersion) implements
     public static List<EarthChart> all(int terrainVersion) {
         if (terrainVersion == ContinentalTerrain.VERSION) { return ALL; }
         ContinentalTerrain.requireVersion(terrainVersion);
-        return terrainVersion == 2 ? SECOND_GENERATION : THIRD_GENERATION;
+        return terrainVersion == 2 ? SECOND_GENERATION : terrainVersion == 3 ? THIRD_GENERATION : FOURTH_GENERATION;
     }
 
     public EarthChart {
