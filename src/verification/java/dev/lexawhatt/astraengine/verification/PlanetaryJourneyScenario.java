@@ -272,7 +272,12 @@ final class PlanetaryJourneyScenario {
                 checkpoint.setProperty("earthBlock", block(earthBlock)); checkpoint.setProperty("moonBlock", block(moonBlock));
                 checkpoint.setProperty("pose", player.getX() + "," + player.getY() + "," + player.getZ());
                 checkpoint.setProperty("terrainVersion", Integer.toString(earth.terrainVersion()));
+                long saveStarted = System.nanoTime();
+                AstraEngine.LOGGER.info("ASTRA_JOURNEY_CHECKPOINT_SAVE_STARTED");
                 server.getPlayerList().saveAll(); server.saveEverything(false, true, true);
+                double saveMilliseconds = (System.nanoTime() - saveStarted) / 1_000_000.0;
+                AstraEngine.LOGGER.info("ASTRA_JOURNEY_CHECKPOINT_SAVE_DONE elapsed_ms={}", saveMilliseconds);
+                evidence.append("explicitCheckpointSaveMilliseconds=").append(saveMilliseconds).append('\n');
                 evidence.append("earthReturnRetainedOriginalLandmark=true loadingFrames=").append(loadingFrames).append('\n');
             });
             next(); return false;

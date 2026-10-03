@@ -6,6 +6,7 @@
   "mixins": [
     "EarthBiomeWeatherMixin",
     "EarthHeightmapMixin",
+    "PlanetaryReadHeightmapsMixin",
     "ServerStorageAccessor",
     "PlanetaryLevelMixin",
     "PlanetaryCollisionMixin",

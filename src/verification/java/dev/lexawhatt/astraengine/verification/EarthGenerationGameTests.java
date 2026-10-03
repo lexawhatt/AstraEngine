@@ -16,6 +16,8 @@ import dev.lexawhatt.astraengine.surface.PlanetChart;
 import dev.lexawhatt.astraengine.surface.SolidPlanetProfile;
 import dev.lexawhatt.astraengine.surface.CubeFace;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import net.minecraft.core.BlockPos;
@@ -51,6 +53,56 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /** Exercises the real registered Earth preset codecs and generated host storage independently of player worlds. */
 @PrefixGameTestTemplate(false)
 public final class EarthGenerationGameTests {
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty", timeoutTicks = 400)
+    public static void tallChunkMissingHeightmapsMatchHostAndPreserveSavedMaps(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var system = ExplorationCatalog.get(server).system("sol");
+        var moon = system.bodies().stream().filter(body -> body.id().equals("moon")).findFirst().orElseThrow();
+        var profile = SolidPlanetProfile.create(system, moon).orElseThrow();
+        var level = PlanetSurfaceWorlds.ensure(server, new PlanetChart(profile, CubeFace.POSITIVE_X, 6));
+        var chunk = new ProtoChunk(new ChunkPos(11, -13), UpgradeData.EMPTY, level,
+                level.registryAccess().registryOrThrow(Registries.BIOME), null);
+        chunk.setPersistedStatus(ChunkStatus.FEATURES);
+        int min = level.getMinBuildHeight();
+        int[] heights = {min + 9, min + 33, 17, 900, level.getMaxBuildHeight() - 2};
+        BlockState[] states = {Blocks.STONE.defaultBlockState(), Blocks.WATER.defaultBlockState(),
+                Blocks.OAK_LEAVES.defaultBlockState(), Blocks.CAVE_AIR.defaultBlockState(),
+                Blocks.SNOW.defaultBlockState()};
+        for (int i = 0; i < heights.length; i++) {
+            chunk.setBlockState(new BlockPos(chunk.getPos().getMinBlockX() + i, heights[i],
+                    chunk.getPos().getMinBlockZ() + 2), states[i], false);
+        }
+        // Original, unmodified host priming is the oracle. The new hook is at read(), not this method.
+        var requested = EnumSet.copyOf(ChunkStatus.FEATURES.getChunkSaveHeightmaps());
+        Heightmap.primeHeightmaps(chunk, requested);
+        var saved = ChunkSerializer.write(level, chunk);
+        var missing = saved.copy();
+        var retained = Heightmap.Types.WORLD_SURFACE;
+        for (var type : requested) {
+            if (type != retained) { missing.getCompound("Heightmaps").remove(type.getSerializationKey()); }
+        }
+        var originalRetained = missing.getCompound("Heightmaps").getLongArray(retained.getSerializationKey()).clone();
+        var info = new RegionStorageInfo("astra-heightmap-repair-test", level.dimension(), "chunk");
+        var restored = ChunkSerializer.read(level, level.getPoiManager(), info, chunk.getPos(), missing);
+        for (var type : requested) {
+            helper.assertTrue(Arrays.equals(chunk.getOrCreateHeightmapUnprimed(type).getRawData(),
+                            restored.getOrCreateHeightmapUnprimed(type).getRawData()),
+                    "Missing tall map differs from host for " + type);
+        }
+        helper.assertTrue(Arrays.equals(originalRetained,
+                        restored.getOrCreateHeightmapUnprimed(retained).getRawData()),
+                "Repair replaced a heightmap that was already present in the save");
+        var complete = ChunkSerializer.read(level, level.getPoiManager(), info, chunk.getPos(), saved);
+        for (var type : requested) {
+            helper.assertTrue(Arrays.equals(chunk.getOrCreateHeightmapUnprimed(type).getRawData(),
+                            complete.getOrCreateHeightmapUnprimed(type).getRawData()),
+                    "An empty repair request altered a saved heightmap");
+            helper.assertTrue(restored.getOrCreateHeightmapUnprimed(type).getFirstAvailable(15, 15) == min,
+                    "Empty tall column did not retain the host minimum for " + type);
+        }
+        helper.succeed();
+    }
+
     @GameTest(templateNamespace = "astraengine_verify", template = "empty")
     public static void uniformBiomeEncodingIsLocalExactAndRejectsMixedPalettes(GameTestHelper helper) {
         var registry = helper.getLevel().registryAccess().registryOrThrow(Registries.BIOME);

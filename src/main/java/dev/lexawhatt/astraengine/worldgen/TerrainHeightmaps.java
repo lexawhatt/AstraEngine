@@ -13,7 +13,7 @@ public final class TerrainHeightmaps {
 
     /**
      * Replaces the requested standard heightmaps from actual blocks, including prior feature/mod edits.
-     * Requires exclusive ownership of the chunk by its host worldgen task; does not load neighboring chunks,
+     * Requires exclusive ownership by the host generation or deserialization task; does not load neighboring chunks,
      * mutate blocks, schedule work or retain references. Empty columns use the host minimum build height.
      * Null chunks, sets or members are invalid. Other heightmaps remain unchanged.
      */

@@ -1,6 +1,7 @@
 package dev.lexawhatt.astraengine.mixin;
 
 import dev.lexawhatt.astraengine.worldgen.EarthChunkGenerator;
+import dev.lexawhatt.astraengine.worldgen.PlanetChunkGenerator;
 import dev.lexawhatt.astraengine.worldgen.TerrainHeightmaps;
 import java.util.Set;
 import net.minecraft.server.level.GenerationChunkHolder;
@@ -21,7 +22,9 @@ abstract class EarthHeightmapMixin {
             target = "Lnet/minecraft/world/level/levelgen/Heightmap;primeHeightmaps(Lnet/minecraft/world/level/chunk/ChunkAccess;Ljava/util/Set;)V"))
     private static void astra$primeTerrain(ChunkAccess chunk, Set<Heightmap.Types> types, WorldGenContext context,
             ChunkStep step, StaticCache2D<GenerationChunkHolder> cache, ChunkAccess owner) {
-        if (context.generator() instanceof EarthChunkGenerator) { TerrainHeightmaps.prime(chunk, types); }
+        if (context.generator() instanceof EarthChunkGenerator || context.generator() instanceof PlanetChunkGenerator) {
+            TerrainHeightmaps.prime(chunk, types);
+        }
         else { Heightmap.primeHeightmaps(chunk, types); }
     }
 }
