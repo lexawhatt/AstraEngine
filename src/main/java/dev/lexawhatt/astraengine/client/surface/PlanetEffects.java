@@ -30,6 +30,11 @@ public final class PlanetEffects extends DimensionSpecialEffects {
 
     @Override public Vec3 getBrightnessDependentFogColor(Vec3 color, float brightness) {
         var sample = observation();
+        if (sample != null && sample.chart().profile().mars()) {
+            var fog = dev.lexawhatt.astraengine.surface.MarsAtmosphere.fog(sample.sunDirection().y(), 0,
+                    sample.atmosphereDensity(), sample.incident());
+            return new Vec3(fog.x(), fog.y(), fog.z());
+        }
         return sample == null ? Vec3.ZERO : new Vec3(sample.lightColor().x() * sample.atmosphereDensity() * .38,
                 sample.lightColor().y() * sample.atmosphereDensity() * .48,
                 sample.lightColor().z() * sample.atmosphereDensity() * .65);
@@ -48,7 +53,10 @@ public final class PlanetEffects extends DimensionSpecialEffects {
         if (sample == null) { return; }
         var look = event.getCamera().getLookVector();
         var sun = sample.sunDirection();
-        var fog = SkyIllumination.fog(sun.y(), sun.x() * look.x + sun.y() * look.y + sun.z() * look.z,
+        double cosine = sun.x() * look.x + sun.y() * look.y + sun.z() * look.z;
+        var fog = sample.chart().profile().mars()
+                ? dev.lexawhatt.astraengine.surface.MarsAtmosphere.fog(sun.y(), cosine, sample.atmosphereDensity(), sample.incident())
+                : SkyIllumination.fog(sun.y(), cosine,
                 0, 0, (float) sample.incident(), 0, 0).multiply(sample.atmosphereDensity());
         event.setRed((float) fog.x()); event.setGreen((float) fog.y()); event.setBlue((float) fog.z());
     }

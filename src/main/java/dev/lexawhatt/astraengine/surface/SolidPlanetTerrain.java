@@ -3,12 +3,12 @@ package dev.lexawhatt.astraengine.surface;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 
 /**
- * Version-one global field for solid bodies. All charts sample a single body-fixed direction, including poles
+ * Versioned global field for solid bodies. All charts sample a single body-fixed direction, including poles
  * and face seams. Crater bowls/rims, folded ice and continental relief are procedural approximations, not
  * observational maps or a physical tectonic solver. Immutable and bounded-cost; no chunk generation is needed.
  */
 public final class SolidPlanetTerrain {
-    public enum Material { REGOLITH, ROCK, ICE, SNOW, SAND, GRASS, OCEAN_FLOOR }
+    public enum Material { REGOLITH, ROCK, ICE, SNOW, SAND, GRASS, OCEAN_FLOOR, OXIDIZED_DUST, OXIDIZED_ROCK }
 
     /** Physical elevations in meters above the profile radius. Water is absent when its top equals the bed. */
     public record Sample(double heightMeters, double topMeters, Material material) {
@@ -75,7 +75,9 @@ public final class SolidPlanetTerrain {
                 double crater = craters(x * 34, y * 34, z * 34, seed ^ 0xCA73) * 1900
                         + craters(x * 340, y * 340, z * 340, seed ^ 0xA917) * 240;
                 height = (continental * 2000 + mountain * 3800 + crater + detail) * reliefScale;
-                material = mountain > .3 ? Material.ROCK : Material.REGOLITH;
+                material = profile.oxidizedMars()
+                        ? Math.abs(y) > .985 ? Material.ICE : mountain > .3 ? Material.OXIDIZED_ROCK : Material.OXIDIZED_DUST
+                        : mountain > .3 ? Material.ROCK : Material.REGOLITH;
             }
             default -> throw new IllegalStateException("Unsupported solid-planet material");
         }

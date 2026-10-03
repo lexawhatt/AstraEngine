@@ -3514,6 +3514,18 @@
         128,
         1024
       ]
-    }
+    },
+    {"name": "BodyAtmosphereModel[0]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[1]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[2]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[3]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[4]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[5]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[6]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[7]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[8]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[9]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[10]", "type": "float", "count": 1, "values": [0]},
+    {"name": "BodyAtmosphereModel[11]", "type": "float", "count": 1, "values": [0]}
   ]
 }

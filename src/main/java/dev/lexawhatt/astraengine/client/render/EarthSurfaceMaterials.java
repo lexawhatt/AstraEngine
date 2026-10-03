@@ -54,7 +54,8 @@ final class EarthSurfaceMaterials {
         RenderSystem.assertOnRenderThread();
         return new SolidPlanetPalette(List.of(texture(Blocks.GRAVEL), texture(Blocks.STONE), texture(Blocks.PACKED_ICE),
                 texture(Blocks.SNOW_BLOCK), texture(Blocks.SAND),
-                multiply(atlasTexture("grass_block_top"), rgb(biome(Biomes.PLAINS).getGrassColor(0, 0))), texture(Blocks.GRAVEL)),
+                multiply(atlasTexture("grass_block_top"), rgb(biome(Biomes.PLAINS).getGrassColor(0, 0))), texture(Blocks.GRAVEL),
+                texture(Blocks.RED_SAND), texture(Blocks.TERRACOTTA)),
                 multiply(atlasTexture("water_still"), rgb(biome(Biomes.PLAINS).getWaterColor())));
     }
 

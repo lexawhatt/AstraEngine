@@ -46,6 +46,7 @@ public final class CosmosRenderer implements AutoCloseable {
     private final PlanetSurfaceCache planets = new PlanetSurfaceCache();
     private final OrbitalEditAtlas orbitalEdits = new OrbitalEditAtlas();
     private EarthSurfacePalette earthPalette;
+    private dev.lexawhatt.astraengine.client.surface.PlanetStateClient planetContexts;
     private int continentalVersion;
     private RenderOptions options;
     private ShaderInstance shader;
@@ -112,6 +113,12 @@ public final class CosmosRenderer implements AutoCloseable {
     /** Connection-owned derived edit snapshots; the renderer owns only their bounded GPU atlas. */
     public void setOrbitalSummaries(dev.lexawhatt.astraengine.client.surface.orbit.OrbitalSummaryClient source) {
         orbitalEdits.setSource(source);
+    }
+
+    /** Connection-owned saved material versions; resource reload retains the context, logout clears its owner. */
+    public void setPlanetContexts(dev.lexawhatt.astraengine.client.surface.PlanetStateClient source) {
+        if (source == null) { throw new IllegalArgumentException("Planet context is required"); }
+        planetContexts = source;
     }
 
     /** Sets the procedural detail budget: 0 low, 1 balanced, 2 high. Render thread only. */
@@ -273,7 +280,8 @@ public final class CosmosRenderer implements AutoCloseable {
             CelestialBody body = frame.descriptor();
             SurfaceDefinition definition = SurfaceDefinition.find(system.id(), body.id()).orElse(null);
             SolidPlanetProfile solid = system.id().equals("sol") && body.id().equals("earth") ? null
-                    : SolidPlanetProfile.create(system, body).orElse(null);
+                    : planetContexts == null ? SolidPlanetProfile.create(system, body).orElse(null)
+                    : planetContexts.profile(system.id(), body.id()).orElseGet(() -> SolidPlanetProfile.create(system, body).orElse(null));
             solidProfiles.add(solid);
             if (solid != null && frame.distance() - body.radiusMeters() < nearestAltitude
                     && frame.distance() > body.radiusMeters() - 10_000) {
@@ -313,6 +321,8 @@ public final class CosmosRenderer implements AutoCloseable {
             shader.safeGetUniform("BodyDistanceRatio[" + i + "]").set(celestialFrame.distanceRatio(i));
             shader.safeGetUniform("BodyColorKind[" + i + "]").set((float) color.x(), (float) color.y(),
                     (float) color.z(), (float) body.kind().ordinal());
+            shader.safeGetUniform("BodyAtmosphereModel[" + i + "]").set(
+                    system.id().equals("sol") && body.id().equals("mars") ? 1.0f : 0.0f);
             shader.safeGetUniform("BodySurface[" + i + "]").set(seed, body.atmosphere(),
                     body.ringInnerRatio(), body.ringOuterRatio());
             shader.safeGetUniform("BodyLightTilt[" + i + "]").set((float) light.x(), (float) light.y(),

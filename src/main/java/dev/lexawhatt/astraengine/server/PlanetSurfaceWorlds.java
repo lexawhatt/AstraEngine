@@ -62,6 +62,20 @@ public final class PlanetSurfaceWorlds {
         for (var binding : PlanetSurfaceBindings.get(server).bindings()) { open(server, binding); }
     }
 
+    /**
+     * Resolves the permanent saved realization before the default for a new body. Server thread only, no
+     * allocation. A descriptor conflict fails closed; visiting another chart never upgrades terrain materials.
+     */
+    public static Optional<dev.lexawhatt.astraengine.surface.SolidPlanetProfile> profile(MinecraftServer server,
+            dev.lexawhatt.astraengine.cosmos.CosmosSystem system, dev.lexawhatt.astraengine.cosmos.CelestialBody body) {
+        requireServer(server);
+        var proposed = dev.lexawhatt.astraengine.surface.SolidPlanetProfile.create(system, body);
+        if (proposed.isEmpty()) { return proposed; }
+        var saved = PlanetSurfaceBindings.get(server).profile(system.id(), body.id());
+        if (saved.isPresent()) { saved.get().frame(system, 0); return saved; }
+        return proposed;
+    }
+
     /** Canonical loaded generic chart only; a dimension name without its saved generator grants no binding. */
     public static Optional<PlanetChart> chart(ServerLevel level) {
         if (level == null) { throw new IllegalArgumentException("A server level is required"); }

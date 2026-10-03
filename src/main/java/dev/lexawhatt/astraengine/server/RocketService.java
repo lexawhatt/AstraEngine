@@ -207,7 +207,7 @@ public final class RocketService implements AutoCloseable {
     private BodyFixedFrame bodyFrame(CosmosSystem system, CelestialBody body, ExplorationCatalog catalog) {
         return system.id().equals("sol") && body.id().equals("earth")
                 ? surfaceFrame(SurfaceDefinition.byBody("earth"), system, catalog)
-                : dev.lexawhatt.astraengine.surface.SolidPlanetProfile.create(system, body).orElseThrow()
+                : PlanetSurfaceWorlds.profile(server, system, body).orElseThrow()
                         .frame(system, orbitalSeconds(catalog, system.id()));
     }
 
@@ -216,7 +216,7 @@ public final class RocketService implements AutoCloseable {
         return system.id().equals("sol") && body.id().equals("earth")
                 ? EarthChart.owner(address, EarthWorlds.terrainVersion(server)).orElseThrow()
                 : dev.lexawhatt.astraengine.surface.PlanetChart.owner(
-                        dev.lexawhatt.astraengine.surface.SolidPlanetProfile.create(system, body).orElseThrow(), address).orElseThrow();
+                        PlanetSurfaceWorlds.profile(server, system, body).orElseThrow(), address).orElseThrow();
     }
 
     private void prepareSpaceExit(ServerPlayer player, dev.lexawhatt.astraengine.surface.CubeStorageChart chart) {
@@ -225,17 +225,65 @@ public final class RocketService implements AutoCloseable {
         if (flight != null) { flight.getChunkSource().addRegionTicket(TICKET, new ChunkPos(0, 0), 2, player.getUUID()); }
     }
 
+    private void requestOrbit(ServerPlayer player) {
+        if (!currentEntity(player) || !player.isAlive() || player.isPassenger() || player.isSleeping()) {
+            message(player, "unavailable"); return;
+        }
+        var chart = PlanetSurfaceWorlds.getCube(player.serverLevel()).orElse(null);
+        var flight = server.getLevel(FLIGHT);
+        if (chart == null || flight == null
+                || !chart.contains(new SpaceVector(player.getX(), player.getY(), player.getZ()))
+                || !PreparedPlayerReturn.acceptsSource(server, player)) {
+            message(player, "orbit_unavailable"); return;
+        }
+        var session = ownedSession(player);
+        if (session == null) {
+            beginGroundInspection(player, chart);
+            session = ownedSession(player);
+        }
+        if (session == null || session.ground == null || session.orbitRequested) { return; }
+        session.orbitRequested = true;
+        session.orbitRequestedTick = server.getTickCount();
+        flight.getChunkSource().addRegionTicket(TICKET, new ChunkPos(0, 0), 2, player.getUUID());
+        message(player, "orbit_preparing");
+    }
+
+    private void cancelOrbit(ServerPlayer player, Session session) {
+        session.orbitRequested = false;
+        release(player.getUUID());
+        message(player, "orbit_cancelled");
+    }
+
     private void leaveGround(ServerPlayer player, Session session, dev.lexawhatt.astraengine.surface.CubeStorageChart chart,
             FlightDynamics.Input input, ExplorationCatalog catalog) {
         if (server.getTickCount() < session.boundaryRetryTick) { return; }
+        if (session.orbitRequested
+                && (!chart.contains(new SpaceVector(player.getX(), player.getY(), player.getZ()))
+                        || !PreparedPlayerReturn.acceptsSource(server, player))) {
+            cancelOrbit(player, session);
+            return;
+        }
         var flight = server.getLevel(FLIGHT);
         if (flight == null || flight.getChunkSource().getChunkNow(0, 0) == null) { return; }
         initializeLanding(flight, catalog);
         if (!flight.isEmptyBlock(new BlockPos(8, 80, 8)) || !flight.isEmptyBlock(new BlockPos(8, 81, 8))) { return; }
         var pilot = catalog.player(player.getUUID());
         var frame = chartFrame(chart, catalog);
-        var state = PlanetaryFlightGround.state(player, chart, frame, ZERO);
-        var desired = FlightDynamics.desiredVelocity(input, Math.min(PlanetaryFlightGround.MAX_SPEED, pilot.speedMetersPerSecond()));
+        var movement = player.getDeltaMovement();
+        var state = PlanetaryFlightGround.state(player, chart, frame,
+                new SpaceVector(movement.x, movement.y, movement.z));
+        // Carry the accepted physical motion through the handoff, including ordinary creative ascent.
+        // A selected speed may exceed the final clipped surface step and is not collision authority.
+        var desired = state.velocity();
+        if (session.orbitRequested) {
+            // An explicit inspection shortcut, not the manual boundary. Preserve the actual geographic
+            // direction and current body rotation; retain the real source for R exit and login recovery.
+            var address = chart.geographic(new SpaceVector(player.getX(), player.getY(), player.getZ()));
+            state = new FlightDynamics.State(frame.toSystemPoint(address.normal()
+                    .multiply(chart.radiusMeters() + 150_000 + player.getEyeHeight())), ZERO);
+            desired = ZERO;
+            input = new FlightDynamics.Input(0, 0, 0, input.orientation(), false);
+        }
         var source = Point.of(player);
         long revision = ++boundaryRevision;
         var payload = new dev.lexawhatt.astraengine.network.SpaceBoundaryHandoffPayload(revision,
@@ -252,6 +300,7 @@ public final class RocketService implements AutoCloseable {
             session.boundaryRetryTick = server.getTickCount() + 20; return;
         }
         session.ground.close(); session.ground = null; session.source = source;
+        session.orbitRequested = false;
         session.input = input; session.bodyFixedInput = false;
         player.setDeltaMovement(Vec3.ZERO); player.fallDistance = 0;
         pilot.navigate(new FlightDynamics.State(state.position(), desired), input.orientation());
@@ -337,7 +386,7 @@ public final class RocketService implements AutoCloseable {
                 double partial = calendarAdvancing ? ticks - whole : 0;
                 future = EarthEphemeris.sample(calendarProfile, Math.addExact(calendarDayTime, whole), partial).frame();
             } else {
-                future = dev.lexawhatt.astraengine.surface.SolidPlanetProfile.create(system, body).orElseThrow()
+                future = PlanetSurfaceWorlds.profile(server, system, body).orElseThrow()
                         .frame(system, timeline(catalog, system.id()).secondsAt(ticks));
             }
             // Manual local flight already follows the body's orbital translation. Only spin/tilt changes the address.
@@ -439,6 +488,7 @@ public final class RocketService implements AutoCloseable {
     public void action(ServerPlayer player, FlightActionPayload payload) {
         if (!acceptAction(player)) { return; }
         if (payload.action() == FlightActionPayload.Action.TOGGLE) { toggle(player); return; }
+        if (payload.action() == FlightActionPayload.Action.ORBIT) { requestOrbit(player); return; }
         if (payload.action() == FlightActionPayload.Action.TAKE_OFF) {
             if (!active(player) && (SurfaceWorlds.definition(player.serverLevel().dimension()).isPresent()
                     || PlanetSurfaceWorlds.getCube(player.serverLevel()).isPresent())) { toggle(player); }
@@ -446,6 +496,9 @@ public final class RocketService implements AutoCloseable {
         }
         Session session = ownedSession(player);
         if (session == null || !session.entered || !controlledLocation(player, session) || !player.isAlive()) { return; }
+        if (session.orbitRequested && payload.action() == FlightActionPayload.Action.BRAKE) {
+            cancelOrbit(player, session);
+        }
         ExplorationCatalog catalog = ExplorationCatalog.get(server);
         ExplorationCatalog.Pilot pilot = catalog.player(player.getUUID());
         if (session.ground != null && payload.action() != FlightActionPayload.Action.SPEED_UP
@@ -613,6 +666,7 @@ public final class RocketService implements AutoCloseable {
             if (payload.brake()) { cancelSurface(ExplorationCatalog.get(server), player, session, "surface_cancelled"); }
             return;
         }
+        if (session.orbitRequested && payload.brake()) { cancelOrbit(player, session); }
         if (session.approach != null) {
             if (payload.brake()) { finishApproach(ExplorationCatalog.get(server), player, session, "approach_cancelled"); }
             return;
@@ -693,6 +747,18 @@ public final class RocketService implements AutoCloseable {
             }
             if (session.ground != null) {
                 var chart = PlanetSurfaceWorlds.getCube(player.serverLevel()).orElseThrow();
+                if (session.orbitRequested) {
+                    if (server.getTickCount() - session.orbitRequestedTick > 220) {
+                        cancelOrbit(player, session);
+                    } else {
+                        var pilot = catalog.player(player.getUUID());
+                        var input = new FlightDynamics.Input(0, 0, 0, pilot.orientation(), false);
+                        player.setDeltaMovement(Vec3.ZERO); player.fallDistance = 0;
+                        leaveGround(player, session, chart, input, catalog);
+                        if (server.getTickCount() % 2 == 0) { send(player, session); }
+                        continue;
+                    }
+                }
                 var input = session.input;
                 var pilot = catalog.player(player.getUUID());
                 var frame = chartFrame(chart, catalog);
@@ -1158,6 +1224,8 @@ public final class RocketService implements AutoCloseable {
         private List<CosmosSystem> charted = List.of();
         private int age;
         private boolean entered;
+        private boolean orbitRequested;
+        private int orbitRequestedTick;
         private final FlightInputWindow controls = new FlightInputWindow();
         private FlightDynamics.Input input;
         private boolean bodyFixedInput;

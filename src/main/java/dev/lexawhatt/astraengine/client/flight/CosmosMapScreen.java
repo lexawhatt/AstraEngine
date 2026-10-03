@@ -35,6 +35,7 @@ public final class CosmosMapScreen extends Screen {
     private Button target;
     private Button scan;
     private Button mode;
+    private Button orbit;
 
     public CosmosMapScreen(RocketController controller) {
         super(text("title"));
@@ -101,6 +102,9 @@ public final class CosmosMapScreen extends Screen {
         mode = addRenderableWidget(Button.builder(text(controller.active() ? "leave" : "enter"), button -> {
             controller.action(FlightActionPayload.Action.TOGGLE, ""); onClose();
         }).bounds(panelX, height - 71, 198, 20).build());
+        orbit = addRenderableWidget(Button.builder(text("orbit"), button -> {
+            controller.action(FlightActionPayload.Action.ORBIT, ""); onClose();
+        }).bounds(panelX + 100, height - 71, 98, 20).tooltip(Tooltip.create(text("orbit_hint"))).build());
         addRenderableWidget(Button.builder(text("smoothing", String.format(Locale.ROOT, "%.2f", controller.smoothing())), button -> {
             controller.cycleSmoothing(); rebuildWidgets();
         }).bounds(14, height - 34, 164, 20).build());
@@ -148,7 +152,11 @@ public final class CosmosMapScreen extends Screen {
         target.setMessage(text(galactic ? "aim_system" : "target"));
         target.active = selected && (!galactic || idle);
         scan.active = idle;
-        mode.setMessage(text(controller.active() ? "leave" : "enter"));
+        orbit.visible = controller.canRequestOrbit();
+        orbit.active = orbit.visible;
+        mode.setWidth(orbit.visible ? 96 : 198);
+        mode.setMessage(text(orbit.visible ? controller.active() ? "leave_short" : "enter_short"
+                : controller.active() ? "leave" : "enter"));
     }
 
     @Override

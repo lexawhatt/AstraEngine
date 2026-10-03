@@ -66,22 +66,18 @@ calculations also support other radii, but this particular scene is Earth-sized.
 
 These distances exclude terrain and atmospheric refraction. The sky is a simple
 calibration atmosphere, not the seasonal Overworld atmosphere. The pass writes
-color at `AFTER_SKY`, before nearby blocks and plain DH terrain, and writes no
+color at `AFTER_SKY`, before nearby blocks, and writes no
 host depth. Minecraft owns shader reload/disposal. It allocates no private render
-targets and does not borrow DH depth buffers or replace third-party programs.
+targets and does not replace third-party programs.
 
 ## Current limits
 
-- Nearby host blocks, water, collision and DH LOD meshes remain flat. This is a
+- Nearby host blocks, water and collision remain flat. This is a
   distant spherical reference, not complete terrain reprojection or globe walking.
-- DH composition is bounded to a 32-chunk (512 m) radius in the qualification
-  fixture. At that distance Earth's tangent-plane sag is about 0.0206 m. This
-  mathematical error is not a qualification of arbitrary DH distances or settings.
 - The nominal sea reference remains Y=64. The analytic water now follows the
   source-water height Y=63+8/9 (the host applies a further 0.001 m raster epsilon).
-  The calibration ocean and host fog share a marine color; DH's default world-fog
-  mode reads that color. Native water/DH materials and lighting still differ, so
-  this does not promise an exact seamless material join or change DH settings.
+  The calibration ocean and host fog share a marine color. Native water materials
+  and lighting still differ, so this does not promise an exact material join.
 - Active Iris shader packs retain their own sky and terrain; the spherical
   calibration pass is disabled. This fallback does not add curved terrain,
   shadows, reflections or temporal-history integration to a shader pack.
@@ -111,10 +107,7 @@ TSV records both nominal and visible-water eye altitude/radius, plus the actual
 camera and projection; Creative flight modifies effective
 FOV, so the option value alone is not a projection measurement.
 
-For plain DH, place its original JAR in another fresh profile's `mods/` and run
-`horizon-dh`. The fixture temporarily requests 32 chunks and real chunk generation,
-records buffer callbacks and actual depth coverage, then captures LOD ON/OFF/ON.
-For the stable Iris stack with an active pack, use a third fresh profile and run
+For the stable Iris stack with an active pack, use another fresh profile and run
 `horizon-iris`. It requires zero horizon draws and unchanged Iris configuration
 through toggles/reload. Inspect the captures as well as completion markers and the
 Gradle result; a callback count alone does not demonstrate visible composition.

@@ -1,13 +1,8 @@
 package dev.lexawhatt.astraengine.verification;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.seibel.distanthorizons.api.DhApi;
-import com.seibel.distanthorizons.api.interfaces.world.IDhApiLevelWrapper;
-import com.seibel.distanthorizons.coreapi.DependencyInjection.WorldGeneratorInjector;
-import dev.lexawhatt.astraengine.compat.distant.EmptyFlightLodGenerator;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.server.EarthWorlds;
-import dev.lexawhatt.astraengine.server.RocketService;
 import dev.lexawhatt.astraengine.surface.ContinentalTerrain;
 import dev.lexawhatt.astraengine.surface.CubeFace;
 import dev.lexawhatt.astraengine.surface.EarthChart;
@@ -21,22 +16,20 @@ import java.util.concurrent.CompletableFuture;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.GameRules;
 
-/** Disposable usual-pack rivers, ocean mouth, relief and actual optional-DH worker verification. */
+/** Disposable native rivers, ocean mouth and relief visual verification. */
 final class RiverScenario {
     private record View(String name, GeographicPosition observer, float yaw, float pitch) { }
     private final Minecraft game = Minecraft.getInstance();
     private final ContinentalTerrain terrain = new ContinentalTerrain(3, ContinentalTerrain.SEED);
-    private final DistantTerrainProbe probe = new DistantTerrainProbe();
     private final List<View> views = new ArrayList<>();
     private final StringBuilder evidence = new StringBuilder("Routed v3 geography / native usual mod pack\n");
     private CompletableFuture<?> pending = CompletableFuture.completedFuture(null);
     private int step, ticks, index;
 
-    RiverScenario(boolean benchmark) {
-        if (!benchmark) { step = 1; }
+    RiverScenario() {
+        step = 1;
         game.options.renderDistance().set(6);
         game.options.simulationDistance().set(5);
         game.options.cloudStatus().set(CloudStatus.OFF);
@@ -112,34 +105,10 @@ final class RiverScenario {
     boolean tick() throws Exception {
         if (!pending.isDone()) { return false; }
         pending.join();
-        if (!probe.configure()) { return false; }
-        if (step == 0) {
-            if (++ticks < 120) { return false; }
-            IDhApiLevelWrapper earth = null, flight = null;
-            for (var candidate : DhApi.Delayed.worldProxy.getAllLoadedLevelWrappers()) {
-                if (candidate.getWrappedMcObject() instanceof ServerLevel level) {
-                    if (level.dimension().equals(game.level.dimension())) { earth = candidate; }
-                    if (level.dimension().equals(RocketService.FLIGHT)) { flight = candidate; }
-                }
-            }
-            if (earth == null || flight == null) { return false; }
-            require(WorldGeneratorInjector.INSTANCE.get(flight) instanceof EmptyFlightLodGenerator,
-                    "Real flight world did not register its empty generator");
-            var capturedEarth = earth; var capturedFlight = flight;
-            pending = CompletableFuture.runAsync(() -> {
-                String result = RiverLodBenchmark.run(capturedEarth, WorldGeneratorInjector.INSTANCE.get(capturedEarth), capturedFlight);
-                synchronized (evidence) { evidence.append(result); }
-                try {
-                    var folder = game.gameDirectory.toPath().resolve("evidence"); Files.createDirectories(folder);
-                    Files.writeString(folder.resolve("benchmark.txt"), result, StandardOpenOption.CREATE_NEW);
-                } catch (java.io.IOException failure) { throw new java.io.UncheckedIOException(failure); }
-            });
-            step = 1; ticks = 0; return false;
-        }
         if (step == 1) {
             if (index >= views.size()) {
                 Files.writeString(game.gameDirectory.toPath().resolve("evidence/rivers.txt"), evidence, StandardOpenOption.CREATE_NEW);
-                probe.close(); return true;
+                return true;
             }
             var view = views.get(index);
             var chart = EarthChart.owner(view.observer(), 3).orElseThrow();
@@ -158,18 +127,16 @@ final class RiverScenario {
             });
             ticks = 0; step = 2; return false;
         }
-        if (++ticks < (step == 2 ? 220 : 40) || !game.level.hasChunkAt(game.player.blockPosition())) { return false; }
+        if (++ticks < 220 || !game.level.hasChunkAt(game.player.blockPosition())) { return false; }
         var view = views.get(index);
         var folder = game.gameDirectory.toPath().resolve("evidence"); Files.createDirectories(folder);
         try (NativeImage image = Screenshot.takeScreenshot(game.getMainRenderTarget())) {
-            image.writeToFile(folder.resolve(view.name() + (step == 2 ? "" : "-dh-off") + ".png"));
+            image.writeToFile(folder.resolve(view.name() + ".png"));
         }
-        evidence.append(view).append('\n').append(probe.description()).append('\n');
+        evidence.append(view).append('\n');
         evidence.append("hostFar=").append(game.gameRenderer.getDepthFar())
                 .append(" nativeChunks=").append(game.options.getEffectiveRenderDistance())
                 .append(" camera=").append(game.gameRenderer.getMainCamera().getPosition()).append('\n');
-        if (step == 2) { probe.renderEnabled(false); step = 3; ticks = 0; return false; }
-        probe.renderEnabled(true);
         index++; step = 1; ticks = 0;
         return false;
     }

@@ -42,6 +42,7 @@ uniform mat3 EarthInverseRotation;
 uniform vec4 BodyGeography[12];
 uniform int BodyGeographySeed[12];
 uniform int AtmosphereBodyIndex;
+uniform float BodyAtmosphereModel[12];
 uniform vec4 AtmosphereObserver;
 uniform vec4 SurfaceHorizon;
 uniform vec3 SurfaceFog;
@@ -220,10 +221,12 @@ vec3 planetSurface(int bodyIndex, vec3 n, vec3 viewRay, vec3 light, vec4 materia
     vec3 albedo = material.rgb;
     float water = 0.0;
     float clouds = 0.0;
+    float terrainAltitude = 0.0;
     bool solidMapped = geography.x > 2.5 && PlanetSlots[bodyIndex] >= 0;
     bool hostSurface = solidMapped || ContinentalEarth != 0 && geography.x > 1.5 && geography.x < 2.5;
     if (solidMapped) {
         vec4 sampleValue = planetTerrainSample(bodyIndex, p, geography.z);
+        terrainAltitude = sampleValue.x;
         albedo = sampleValue.yzw;
         water = kind == 3 && sampleValue.x < 0.0 ? 1.0 : 0.0;
         vec3 fixedLight = mappedSurfaceCoordinates(light, tilt, spin, geography);
@@ -297,6 +300,11 @@ vec3 planetSurface(int bodyIndex, vec3 n, vec3 viewRay, vec3 light, vec4 materia
     if (orbitalLookup(bodyIndex, p, geography.z, normalFootprint * geography.z, observedSurface, observedLight)) {
         albedo = mix(albedo, observedSurface.rgb, observedLight.y);
         hostSurface = true;
+    }
+    if (BodyAtmosphereModel[bodyIndex] > 0.5) {
+        // Match the host Mars dust-light ratios before display decoding. Actual material observations remain
+        // canonical; this illumination also warms historical v1 gray substrate without replacing its blocks.
+        albedo *= mix(vec3(1.0), vec3(1.0, 0.825, 0.665), exp(-max(0.0, terrainAltitude) / 10800.0));
     }
     vec3 color = albedo * (0.004 + diffuse * 1.35);
     if (hostSurface) {
@@ -565,8 +573,10 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle, inout float bloomWe
     vec3 tangentNormal = normalize(ray * along - center + vec3(1e-12));
     float haloDay = smoothstep(-0.25, 0.25, dot(tangentNormal, light));
     if (index != AtmosphereBodyIndex) {
-        color += mix(vec3(0.25, 0.045, 0.005), vec3(0.035, 0.16, 0.46), haloDay)
-               * halo * parameters.y * (0.12 + haloDay);
+        vec3 haloColor = BodyAtmosphereModel[index] > 0.5
+                ? mix(vec3(0.12, 0.035, 0.01), vec3(0.45, 0.23, 0.10), haloDay)
+                : mix(vec3(0.25, 0.045, 0.005), vec3(0.035, 0.16, 0.46), haloDay);
+        color += haloColor * halo * parameters.y * (0.12 + haloDay);
     }
     float ringHit;
     vec3 ringNormal = normalize(vec3(0.0, cos(tilt), sin(tilt)));
@@ -604,7 +614,8 @@ vec3 body(vec3 color, vec3 ray, int index, float pixelAngle, inout float bloomWe
                 EvolutionIndex >= 0 ? SolarLight.x + SolarLight.y * 0.6 : 1.0,
                 hit > 0.0 ? 1.0 - discCoverage : 1.0,
                 EvolutionIndex >= 0 ? BodyDirectionRadius[EvolutionIndex].w : 0.00465,
-                hit > 0.0 ? hit * (BodyGeography[index].z + BodyGeography[index].y) * 0.001 : -1.0);
+                hit > 0.0 ? hit * (BodyGeography[index].z + BodyGeography[index].y) * 0.001 : -1.0,
+                BodyAtmosphereModel[index]);
     }
     return color;
 }

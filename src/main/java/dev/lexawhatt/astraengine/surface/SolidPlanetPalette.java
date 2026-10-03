@@ -8,7 +8,7 @@ public record SolidPlanetPalette(List<SpaceVector> colors, SpaceVector water) {
     public static final SolidPlanetPalette DEFAULT = new SolidPlanetPalette(List.of(
             new SpaceVector(.48, .46, .44), new SpaceVector(.46, .46, .46), new SpaceVector(.58, .71, .91),
             new SpaceVector(.94, .96, .97), new SpaceVector(.78, .74, .56), new SpaceVector(.36, .5, .19),
-            new SpaceVector(.48, .46, .44)), new SpaceVector(.08, .24, .49));
+            new SpaceVector(.48, .46, .44), new SpaceVector(.66, .34, .17), new SpaceVector(.59, .36, .27)), new SpaceVector(.08, .24, .49));
 
     public SolidPlanetPalette {
         if (colors == null || colors.size() != SolidPlanetTerrain.Material.values().length || water == null) {

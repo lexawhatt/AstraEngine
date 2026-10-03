@@ -27,6 +27,13 @@ coordinates.
 5. On a planetary surface, **R** leaves inspection at the reached location.
    In space, **R** or **Leave Rocket mode** recovers to the saved real departure.
 
+For a direct inspection shortcut, open the map on a bound planetary surface and
+choose **To orbit**, or run `/astra-flight orbit`. The server prepares the flight
+stage and places the view at 150 km above the same geographic location. Selected
+speed is retained; **B** cancels preparation and **R** in space returns to the real
+departure point. This is an explicit shortcut, separate from manual ascent through
+the 100 km boundary. An unavailable or vetoed destination leaves the player on the surface.
+
 These controls are available to ordinary players on an AstraEngine server.
 **Approach body** selects an observation point in space. Supported solid planets
 and moons use [persistent geographic surfaces](PLANET_SURFACES.md); enter them by
@@ -93,6 +100,7 @@ Client commands provide the main actions and precise settings:
 ```text
 /astra-flight
 /astra-flight map
+/astra-flight orbit
 /astra-flight atlas
 /astra-flight scan
 /astra-flight speed local
@@ -375,7 +383,7 @@ speed. Existing v4-v6 visits remain exact. For v1-v3, only charted Sol and the c
 system are inferred as visited on migration:
 an old scan is not proof of physical travel. Old neighbors stay on the map, and
 the current neighborhood is refreshed on login. Malformed data is rejected.
-Navigation snapshots use protocol v9, actions v6, controls v4, numeric speed v1, and custom
+Navigation snapshots use protocol v9, actions v7, controls v4, numeric speed v1, and custom
 definition synchronization v3, so client and server need matching mod versions. Only a player's
 discovered custom definitions are sent, before navigation refers to them; client
 resource reload retains them and logout clears them. The aggregate custom

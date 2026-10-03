@@ -6,9 +6,6 @@ license="${mod_license}"
 config="astraengine.mixins.json"
 
 [[mixins]]
-config="astraengine.distant.mixins.json"
-
-[[mixins]]
 config="astraengine.lithium.mixins.json"
 
 [[mods]]
@@ -29,13 +26,6 @@ side="BOTH"
 modId="iris"
 type="optional"
 versionRange="[1.8,)"
-ordering="AFTER"
-side="CLIENT"
-
-[[dependencies.${mod_id}]]
-modId="distanthorizons"
-type="optional"
-versionRange="[0,)"
 ordering="AFTER"
 side="CLIENT"
 

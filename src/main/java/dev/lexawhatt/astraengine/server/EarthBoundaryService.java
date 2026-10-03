@@ -142,7 +142,7 @@ public final class EarthBoundaryService implements AutoCloseable {
             if (section.isPresent()) { sections.add(section.orElseThrow()); } else { complete = false; }
         }
         EarthBoundarySnapshot previous = current.snapshot;
-        if (previous != null && previous.complete() == complete && previous.anchorFeet().distance(feet) < 4
+        if (previous != null && previous.complete() == complete && previous.visibleFrom(source, feet)
                 && sameSections(previous.sections(), sections)) { return; }
         if (previous != null && previous.complete()) {
             current.recent.addLast(new RecentRevision(previous.revision(), server.getTickCount()));

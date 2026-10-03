@@ -64,6 +64,15 @@ public final class PlanetSurfaceBindings extends SavedData {
     public long nextContextRevision() { contextRevision = Math.incrementExact(contextRevision); return contextRevision; }
     public Binding binding(String dimensionId) { return bindings.get(dimensionId); }
 
+    /** Existing immutable body realization, without opening worlds or allocating a chart. Server thread only. */
+    public java.util.Optional<dev.lexawhatt.astraengine.surface.SolidPlanetProfile> profile(String systemId, String bodyId) {
+        for (var binding : bindings.values()) {
+            if (binding.chart() instanceof PlanetChart planet && planet.profile().systemId().equals(systemId)
+                    && planet.profile().bodyId().equals(bodyId)) { return java.util.Optional.of(planet.profile()); }
+        }
+        return java.util.Optional.empty();
+    }
+
     /** Adds one exact definition, rejecting a conflicting identity or exhausted capacity before mutation. */
     public Binding bind(CubeStorageChart chart, ChunkGenerator generator) {
         Binding proposed = new Binding(chart, generator);

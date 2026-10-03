@@ -10,13 +10,15 @@ vec2 planetAtmosphereInterval(vec3 origin, vec3 ray, float radius) {
 }
 
 vec3 planetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight,
-                        float irradiance, float skyCoverage, float sunRadius, float surfaceDistanceKm) {
+                        float irradiance, float skyCoverage, float sunRadius, float surfaceDistanceKm, float atmosphereModel) {
+    bool mars = atmosphereModel > 0.5;
+    float shellHeight = mars ? 60.0 : 80.0;
     float radius = observer.w;
     vec3 origin = observer.xyz;
     float observerHeight = length(origin) - radius;
     // Rounded voxel floors and negative elevations can sit just below the nominal sea-level sphere.
     if (observerHeight < 0.002) { origin = safeUnit(origin, vec3(0, 1, 0)) * (radius + 0.002); }
-    vec2 outer = planetAtmosphereInterval(origin, ray, radius + 80.0);
+    vec2 outer = planetAtmosphereInterval(origin, ray, radius + shellHeight);
     float start = max(0.0, outer.x);
     float finish = outer.y;
     vec2 ground = planetAtmosphereInterval(origin, ray, radius);
@@ -31,9 +33,11 @@ vec3 planetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight
     float surfaceFacing = max(0.0, -dot(ray, normalize(origin + ray * finish)));
     float aerialGain = 1.0 - (1.0 - skyCoverage) * smoothstep(0.0, 0.45, surfaceFacing) * 0.70;
     int steps = Detail >= 5 ? 10 : Detail >= 4 ? 8 : 6;
-    vec3 betaRayleigh = vec3(0.0058, 0.0135, 0.0331);
-    vec3 betaMie = vec3(0.0032);
-    vec3 betaOzone = vec3(0.00065, 0.00188, 0.00008);
+    // Mars keeps weak molecular scattering and a warm dust component; Earth coefficients remain unchanged.
+    vec3 betaRayleigh = vec3(0.0058, 0.0135, 0.0331) * (mars ? 0.008 : 1.0);
+    vec3 betaMie = mars ? vec3(0.018, 0.010, 0.0045) : vec3(0.0032);
+    vec3 betaOzone = mars ? vec3(0.0) : vec3(0.00065, 0.00188, 0.00008);
+    vec2 scaleHeight = mars ? vec2(10.8) : vec2(8.0, 1.2);
     float mu = dot(ray, sunlight);
     float rayleighPhase = 0.0596831 * (1.0 + mu * mu);
     float miePhase = 0.015 * (1.0 - 0.76 * 0.76)
@@ -45,11 +49,11 @@ vec3 planetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight
         float a = float(i) / float(steps);
         float b = float(i + 1) / float(steps);
         // Resolve the dense first kilometers when the observer is inside the shell.
-        if (observerHeight < 80.0) { a *= a; b *= b; }
+        if (observerHeight < shellHeight) { a *= a; b *= b; }
         float stepKm = (finish - start) * (b - a);
         vec3 position = origin + ray * (start + (a + b) * 0.5 * (finish - start));
         float height = max(0.0, length(position) - radius);
-        vec2 density = exp(-height / vec2(8.0, 1.2));
+        vec2 density = exp(-height / scaleHeight);
         float ozone = max(0.0, 1.0 - abs(height - 25.0) / 15.0);
         vec3 extinction = betaRayleigh * density.x + betaMie * density.y + betaOzone * ozone;
         vec3 stepTransmission = exp(-extinction * stepKm);
@@ -60,10 +64,17 @@ vec3 planetaryAtmosphere(vec3 background, vec3 ray, vec4 observer, vec3 sunlight
         // Curvature regularizes the horizon optical path; sunset extinction remains spectral.
         float airMass = 2.0 / max(0.015, sunHeight + sqrt(sunHeight * sunHeight + 0.003));
         float ozoneColumn = 15.0 * (1.0 - smoothstep(10.0, 40.0, height));
-        vec3 sunTransmission = exp(-(betaRayleigh * density.x * 8.0 + betaMie * density.y * 1.2
+        vec3 sunTransmission = exp(-(betaRayleigh * density.x * scaleHeight.x + betaMie * density.y * scaleHeight.y
                 + betaOzone * ozoneColumn) * airMass);
-        vec3 source = (betaRayleigh * density.x * rayleighPhase + betaMie * density.y * miePhase)
+        float dustPhase = mars ? rayleighPhase * 0.55 + miePhase * 0.12 : miePhase;
+        vec3 source = (betaRayleigh * density.x * rayleighPhase + betaMie * density.y * dustPhase)
                 * sunTransmission * lit * max(0.0, irradiance) * (18.0 * aerialGain);
+        // Dust's blue forward-scattering twilight lobe is confined to the solar direction, not the entire limb.
+        if (mars) {
+            float blueTwilight = (1.0 - smoothstep(0.015, 0.13, abs(sunHeight))) * smoothstep(0.92, 0.998, mu);
+            source += vec3(0.001, 0.003, 0.007) * density.y * blueTwilight * lit
+                    * max(0.0, irradiance) * aerialGain;
+        }
         scattering += transmission * source * (vec3(1.0) - stepTransmission) / max(extinction, vec3(1e-7));
         transmission *= stepTransmission;
     }

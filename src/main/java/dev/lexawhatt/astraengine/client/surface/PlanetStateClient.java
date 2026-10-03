@@ -11,6 +11,7 @@ import java.util.Optional;
 public final class PlanetStateClient {
     private long revision = -1;
     private Map<String, PlanetChart> charts = Map.of();
+    private Map<String, Map<String, SolidPlanetProfile>> profiles = Map.of();
 
     public void receive(PlanetContextReceivedEvent event) {
         var payload = event.payload();
@@ -20,12 +21,18 @@ public final class PlanetStateClient {
         if (payload.revision() == revision && !charts.equals(replacement)) {
             throw new IllegalArgumentException("Same planetary context revision changed its immutable chart definitions");
         }
-        charts = Map.copyOf(replacement); revision = payload.revision();
+        var nextProfiles = new HashMap<String, Map<String, SolidPlanetProfile>>();
+        for (var chart : replacement.values()) {
+            var profile = chart.profile();
+            nextProfiles.computeIfAbsent(profile.systemId(), ignored -> new HashMap<>()).put(profile.bodyId(), profile);
+        }
+        nextProfiles.replaceAll((system, bodies) -> Map.copyOf(bodies));
+        profiles = Map.copyOf(nextProfiles); charts = Map.copyOf(replacement); revision = payload.revision();
     }
     public Optional<PlanetChart> chart(String dimensionId) { return Optional.ofNullable(charts.get(dimensionId)); }
     public Optional<SolidPlanetProfile> profile(String systemId, String bodyId) {
-        return charts.values().stream().map(PlanetChart::profile)
-                .filter(profile -> profile.systemId().equals(systemId) && profile.bodyId().equals(bodyId)).findFirst();
+        var bodies = profiles.get(systemId);
+        return bodies == null ? Optional.empty() : Optional.ofNullable(bodies.get(bodyId));
     }
-    public void clear() { charts = Map.of(); revision = -1; }
+    public void clear() { charts = Map.of(); profiles = Map.of(); revision = -1; }
 }

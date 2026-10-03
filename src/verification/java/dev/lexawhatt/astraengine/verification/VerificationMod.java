@@ -24,11 +24,14 @@ public final class VerificationMod {
             event.register(PlanetaryTerrainGameTests.class);
             event.register(ContinentalTerrainGameTests.class);
             event.register(EarthGenerationGameTests.class);
+            event.register(UniformPaletteReadGameTests.class);
+            event.register(MarsSurfaceGameTests.class);
             event.register(SolidPlanetGameTests.class);
             event.register(BoundaryInteractionGameTests.class);
             event.register(EarthBoundaryGameTests.class);
             event.register(ChartCollisionGameTests.class);
             event.register(SpaceBoundaryGameTests.class);
+            event.register(InspectionAirGameTests.class);
             event.register(OrbitalSummaryGameTests.class);
             event.register(TerrainStorageGameTests.class);
             event.register(TerrainHeightmapGameTests.class);

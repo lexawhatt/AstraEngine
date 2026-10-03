@@ -15,7 +15,7 @@ combinations or shader packs.
 | --- | --- | --- |
 | Overworld sky, clouds, fog and lightmap | Astra's automatic seasonal atmosphere, or the selected preview | The pack owns these effects, even with a forced Astra environment |
 | Opaque-world lights, flashlight, profile darkness and profile post-processing | Ordinary Astra lighting path | Disabled; the pack owns terrain lighting and post-processing |
-| Bound continental Earth distant terrain | Shared geographic background, rendered before host/DH terrain | Native background disabled; pack and DH retain terrain ownership |
+| Bound continental Earth distant terrain | Shared geographic background, rendered before host terrain | Native background disabled; the pack retains terrain ownership |
 | Rocket cosmos and selected resource-profile skies | Ordinary celestial stage | Composited after the pack in non-Overworld dimensions, only into clear-depth sky pixels |
 | Bound Moon/Earth surface skies | Shared orbital frame, atmosphere and visual skylight correction | Late celestial sky composition; pack retains terrain lighting and fog |
 | Upper Earth chart atmosphere,16..48km | Gradual surface-to-orbit display blend | The same gradual blend into clear-depth pixels after pack finalization in non-Overworld charts |
@@ -32,8 +32,7 @@ reset the date or stellar event. These ownership choices apply to actual active
 pack state, including after toggling, reload and dimension changes.
 
 The continental Earth background uses a private projection and depth target.
-It does not replace DH shaders, force a render distance, copy stale DH depth into
-the host buffer, or curve existing DH meshes. Its native atmosphere clips against
+It does not change the host render distance or projection. Its native atmosphere clips against
 that private geographic depth as well as ordinary host depth. Active packs retain
 their own terrain, clouds and fog; this fallback is not planetary integration into
 the pack's shadow or temporal passes.
@@ -215,227 +214,19 @@ For the standalone Sodium/add-on row, prepare another fresh directory containing
 its four mod JARs, omit Iris and the shader pack, and use `-PverifyPhase=ship-visual`.
 The active-pack phase deliberately requires Iris; it is not an absence test.
 
-## Distant Horizons terrain experiment
+## Distant Horizons integration retired
 
-The independent [highlands prototype](PLANETARY_TERRAIN.md) was verified with
-original **Distant Horizons 3.3.3**, Minecraft 1.21.1 and NeoForge 21.1.252.
-[Exact publisher release](https://modrinth.com/mod/distanthorizons/version/9w34y8ai).
-DH is optional and is not bundled. Its public API is a compile-only dependency
-for cloud ownership and direct Earth LOD generation; verification also uses API 7.2
-for measurements. No DH implementation, renderer or configuration is bundled.
+Astra's planetary view uses its own geographic landscape and orbital caches.
+The former DH generators, tall-chunk converter mixins, and cloud/fog adapters
+have been removed. The planetary verification profile excludes DH. Co-installing
+it is not a supported spherical-terrain composition path, and Astra does not
+change its settings, delete its caches or modify launcher installations.
 
-The plain NeoForge experiment passed with native render distance **4 chunks**,
-DH radius **32 chunks**, fixed midday and the real 2048-block generator. Same-pose
-DH ON/OFF/ON captures show the distant mountain slope disappearing and returning;
-the run also observed target-world LOD callbacks and nonclear DH depth. Early
-captures during cold cache/mesh preparation lacked terrain and are retained as
-readiness evidence, not presented as a finished frame. This is a bounded visible
-terrain test, not an FPS qualification or a maximum-distance measurement.
-
-The same visible ON/OFF/ON scenario also passed with the stable add-on stack:
-Sodium 0.6.13, Iris 1.8.12, Sodium Extra 0.6.0, Reese's Options 1.8.3,
-Chloride 1.7.8 and active Complementary Reimagined r5.9.3. The pack retains its
-sky, clouds and fog. The logs retain upstream shader warnings about unavailable
-version-specific uniforms and uninitialized shader values; the scoped terrain
-scenario completed with no captured OpenGL error. This is not a claim that all
-shader-pack features or other dimensions are compatible.
-
-For this custom terrain, select DH's **CHUNKS_ONLY** generation plan. The
-[upstream API contract](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/api/src/main/java/com/seibel/distanthorizons/api/enums/worldGeneration/EDhApiGeneratorPlan.java)
-recommends it where the rough surface approximation would not match a custom
-world generator. Astra does not silently alter the player's DH settings. The
-fixture changes temporary API overrides in a disposable profile and restores them.
-LODs use DH's own derived cache; authoritative terrain and player modifications
-remain in Minecraft's saved chunks.
-
-The CHUNKS_ONLY advice concerns the independent highlands prototype. The Astra
-Earth preset instead provides the direct geographic override described below.
-
-**This does not establish full Astra sky compatibility.** The highlands currently
-use the host sky. DH has a separate depth buffer, while Astra's late custom sky
-currently tests host depth alone. With Iris, a distant-terrain pixel can therefore
-be mistaken for empty sky and overwritten. The corresponding
-[upstream copy pass](https://gitlab.com/distant-horizons-team/distant-horizons/-/blob/a54dd3eb1df0078e63a71266d042c10d9cda4493/common/src/main/java/com/seibel/distanthorizons/common/render/openGl/postProcessing/copy/GlDhCopyShader.java)
-composites color without making host depth a combined terrain buffer. Custom
-planet skies, Astra terrain-light post effects, distant transparency, reload and
-multiplayer need their own integration checks. Do not infer support for those
-paths from the highlands experiment.
-
-Local original artifacts, hashes, source audit and native evidence are under
-`Workflow/verification/planetary-terrain-2026-09-30/`. They are not shipped in the JAR.
-
-## Direct Earth LOD generation
-
-With DH 3.3.3 / public API 7.2 installed, an actual `EarthChunkGenerator` server
-level registers its own
-[world-generator override](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/api/src/main/java/com/seibel/distanthorizons/api/interfaces/override/worldGenerator/IDhApiWorldGenerator.java).
-This applies to the Astra Earth Overworld and its saved face/altitude charts.
-Ordinary vanilla Overworlds, other generators, and client-only connections to
-servers without this integration retain DH's existing generator.
-
-The adapter returns `API_DATA_SOURCES` directly: one 64-by-64 column tile at the
-requested resolution, using Earth's saved geographic field, base block materials,
-biome palette and exact vertical storage interval. Each column contains at most
-five material/air runs. It creates no Minecraft chunks, executes no biome features
-and uses DH's supplied worker pool. The same bounded sample count covers larger
-areas at coarser detail, rather than generating every block in those areas.
-
-At detail levels zero and one, a worker-local quart-biome cache reduces full
-biome-field samples per tile from 4096 to 256 and 1024 respectively. Surface heights
-and vertical runs retain their original per-column sampling; negative coordinates
-use the exact host four-block cell centers. Version-three river levels and the
-saved river biome are included. No cache survives a request or crosses levels.
-
-The permanent `astraengine:flight` staging world also supplies direct air columns
-when its actual flat generator has empty layers, the void biome, no structures
-and no generation features. Changed datapack definitions retain their normal DH
-path. This override does not generate Minecraft chunks, and actual saved LIGHT
-columns still supersede the procedural FEATURES data.
-
-DH retains its configured render distance, CPU limits, generation enablement,
-database and renderer. The queue can still describe work as "generating chunks";
-that upstream label does not identify the override's actual workload. This is
-demand-driven LOD generation around requested views, not whole-planet pregeneration.
-Database writes, propagation, mesh creation and drawing still have costs.
-
-The adapter's read-only diagnostics separate cumulative worker time from waiting
-on DH's supplied executor, and report current/peak waiting and running requests.
-These counters describe this adapter's calls, not DH's complete database, meshing
-or renderer queues. No additional executor or persistent request cache is owned.
-
-This is an undecorated base-surface approximation. Trees, caves, structures and
-player lighting enter through DH's real chunk observations. Completed approximate
-columns use DH's FEATURES priority to avoid repeated SURFACE refinement requests;
-real LIGHT-stage chunk columns have higher priority and supersede them. No saved
-Minecraft terrain or existing DH cache is deleted or rewritten as a migration.
-
-The override supplies data, not spherical geometry: existing DH meshes remain
-flat in each storage chart. It does not fix the documented late-sky/depth or
-shader-pack ownership limitations. Unsupported API major versions retain normal
-DH generation with a diagnostic; DH is not required on a server or client.
-
-The disposable `earth-dh` native phase checks the actual registration and worker
-path, four resolutions through DH's own data validator, exact base-column
-materials, negative-Y interval coverage, explicit lit air, real LIGHT-over-FEATURES
-merge priority, ON/OFF/ON rendering and reload. It records generation time separately
-from render intervals. Add original DH 3.3.3 and the desired optional stack to a
-fresh fixture's `mods/`, then run:
-
-```sh
-./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-earth-dh -PverifyPhase=earth-dh
-```
-
-The 2026-10-01 run passed with the author's 25-mod stack (Sodium 0.8.13,
-Chloride 1.8.1, DH 3.3.3, Zume 1.2.2; no Iris), Fancy, 4-chunk native distance,
-32-chunk DH radius and clouds off. It completed 71 tiles / 290,816 columns using
-1.733 seconds of cumulative generator worker time. This excludes queue waiting,
-database propagation and rendering; it is not end-to-end throughput. On Intel UHD
-CML GT2 / Mesa 26.2.3, 206 observed render intervals averaged 126.06 ms, p95
-166.67 ms and p99 183.35 ms. Frame-rate optimization remains necessary; no FPS
-improvement is established by this run. The isolated build also passed 277 pure
-tests and 48 dedicated GameTests without DH, including every Earth storage band.
-
-The final terrain-v3 provinces/climate `earth-rivers` fixture compares the prior uncached adapter
-with the quart cache over identical geographic requests on the same supplied DH
-executor. All 4096 columns' materials, biomes, heights and skylight match at each
-tested resolution. The copied 25-mod stack uses a 6-chunk native distance, 32-chunk
-DH radius, clouds off and a fresh world. Each row has six warmups and 30 alternating
-measured requests per implementation on Intel UHD CML GT2 / Mesa 26.2.3:
-
-| DH detail | Prior worker mean / p95 | Cached worker mean / p95 |
-| --- | --- | --- |
-| 0 (1 m spacing) | 34.152 / 46.650 ms | 19.686 / 26.572 ms |
-| 1 (2 m spacing) | 39.121 / 52.554 ms | 23.144 / 31.349 ms |
-| 4 (16 m spacing) | 38.859 / 54.245 ms | 37.941 / 56.973 ms |
-| 12 (4096 m spacing) | 44.138 / 58.984 ms | 44.939 / 60.087 ms |
-
-Inside-task elapsed time fell about 42% and 41% at the two cached resolutions;
-there is no demonstrated improvement at coarser levels. Queue-inclusive detail-0
-means were 1354.348 / 1464.627 ms with p95 2496.096 / 2913.265 ms: DH scheduling and
-other stages remain significant. These figures are neither full-pack frame timing
-nor a guarantee of lower queue latency. The fixture also validates raised river
-water and exact empty-flight air through DH's real data-source validator.
-
-Native ON/OFF captures show the new river valleys, alpine ranges and dry uplands.
-The direct far surface remains undecorated until real chunk observations arrive.
-The overhead river's pale polygon was reproduced with DH's original fog: its
-radial falloff saturated at a 32-chunk radius even though the geographic view
-continued below a camera 800 m above the water. A frame-scoped API 7.2 fog callback
-now uses the native background's physical haze length without changing user
-configuration. In a same-pose original/fixed/off comparison, a shared 1400-pixel
-interior water region's mean RGB error against the no-DH view fell from 90.67 to
-3.59 on an 8-bit scale. A subtle textured water join remains; this is not pixel-identical coverage
-or a general spherical-DH geometry integration. Reload and viewport resize retain
-the callback. These bounded checks do not establish a finished planetary alpha.
-
-A subsequent copied-pack run used an RTX 3050 Laptop GPU / NVIDIA 615.71.09,
-Java 21.0.12.1 with a 12 GiB heap, 1920x1080, 12 native/simulation chunks and a
-256-chunk DH radius. The verification harness used a 60 FPS cap, VSync off and
-60 Hz headless presentation, not the launcher's 120 FPS/VSync-on mode. A repeated
-240 m forest route measured 1444 frame intervals: p50 18.287 ms, p95 39.495 ms,
-p99 75.469 ms. Its 606 server ticks measured p50 11.013 ms, p95 52.324 ms and
-p99 74.980 ms. The initial 50 ms p95 frame target passes; the same server target
-does not. DH paused its supplied generator executor while its chunk-builder
-backlog grew beyond 1000 jobs; the provider remained bounded at five waiting
-requests. Substantial allocation and tail stalls still require work. This is a
-measured profile, not a universal frame-rate guarantee or a before/after speedup.
-
-## Distant Horizons cloud ownership
-
-DH 3.3.3 renders its own box clouds independently of NeoForge's ordinary
-`DimensionSpecialEffects.renderClouds` hook. Astra's volumetric atmosphere and
-those DH clouds can otherwise overlap, even without Sodium. The optional bridge
-uses DH's public cancellable generic-object event and suppresses only the exact
-`DistantHorizons:Clouds` group in the currently rendered dimension while Astra
-owns that sky. Terrain LODs and unrelated generic objects retain DH ownership.
-See the upstream [cloud-group construction](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/core/src/main/java/com/seibel/distanthorizons/core/render/renderer/CloudRenderHandler.java)
-and [cancellable event contract](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/api/src/main/java/com/seibel/distanthorizons/api/methods/events/abstractEvents/DhApiBeforeGenericObjectRenderEvent.java).
-
-The engine does not rewrite DH, Minecraft cloud, or shader-pack settings. With
-Astra's Overworld atmosphere active, Minecraft Clouds ON shows Astra's clouds;
-Clouds OFF hides them and does not reveal a second DH cloud layer. Disabling the
-Astra environment restores DH ownership. An actual active Iris pack retains
-cloud ownership and receives no Astra cloud cancellation. Missing Astra shaders
-restore the host sky. An unavailable optional event API leaves DH clouds untouched
-and logs one failure; it does not change graphics preferences.
-The listener binds once per connection, survives reload without duplication and
-unbinds on logout. It retains no world, player or GPU resource.
-
-DH's own `overrideVanillaGraphicsSettings` option can change Minecraft Clouds to
-OFF during its initial renderer setup. Astra honors that resulting choice; it
-does not silently turn clouds back on. Select Clouds ON to display Astra's
-volumetric clouds. This startup behavior is in the upstream
-[LOD renderer](https://gitlab.com/distant-horizons-team/distant-horizons-core/-/blob/b02c66d778beea11a931291815d652cd8abaa7ad/core/src/main/java/com/seibel/distanthorizons/core/render/renderer/LodRenderer.java).
-
-The native `dh-clouds` fixture uses original DH 3.3.3 and Zume 1.2.2 without
-Sodium. The 2026-10-01 native run passed Fancy/OFF/Fast, disabled-Astra fallback
-and reload comparisons, with one event listener before and after reload. The
-`dh-clouds-iris` run also passed with the stable Iris/add-on stack and Complementary
-r5.9.3: 4,317 observed cloud groups and zero Astra cancellations while the pack
-remained active. Both runs retain six captures and unchanged pack/API settings.
-For reproduction, add the original Zume 1.2.2 artifact to a fresh profile and run
-`runVerifyClient -PverifyPhase=dh-clouds` or `dh-clouds-iris` with the corresponding
-mod stack and `-PverifyDirectory=...`.
-These are explicit verification scenarios, not a guarantee for every DH release.
-
-## Spherical ocean calibration
-
-The separate [horizon calibration world](PLANETARY_HORIZON.md) draws its analytic
-sea/sky at `AFTER_SKY`, before plain DH terrain. It borrows no DH depth and installs
-no DH program override. Native checks cover the pinned DH 3.3.3 at 32 chunks / 512 m:
-real LOD depth and visible ON/OFF/ON composition with the spherical background.
-Its meshes stay flat. The ocean now follows the source-water height and shares
-a marine fog color with the host. At the same daylight camera pose, the central
-near-water join's mean largest-channel jump fell from 150.49 to 11.00 on an 8-bit
-image, a 92.69% reduction. This is one fixed visual comparison: a smaller material
-seam remains, and seamless joins or larger-distance spherical DH geometry are
-not qualified.
-
-With the stable Iris/Sodium/Chloride stack and active Complementary Reimagined,
-the horizon pass yields completely. Native toggle/reload checks retain the actual
-pack settings and zero Astra horizon draws. This is a host/pack fallback, not
-curved pack geometry or shared shadows/reflections. The older custom celestial
-sky/DH depth limitation above remains open outside this opt-in path.
+Earlier tests in this document that explicitly name DH describe their historical
+stack. They do not establish current DH support. Original logs, screenshots and
+failed performance measurements remain retained as development evidence; removal
+is a change of renderer scope, not a claim that those failures were fixed in DH.
+Sodium, Iris and the other listed integrations retain their own stated scope.
 
 ## Original artifact references
 

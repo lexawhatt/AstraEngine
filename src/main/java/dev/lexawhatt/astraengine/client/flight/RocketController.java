@@ -140,6 +140,7 @@ public final class RocketController {
         if (earth == null) { throw new IllegalArgumentException("Earth connection owner is required"); }
         this.earth = earth;
         this.options = options; this.solar = solar; renderer.setBloomOptions(options);
+        renderer.setPlanetContexts(earth.planets());
     }
 
     private static KeyMapping key(String name, int code) {
@@ -363,6 +364,12 @@ public final class RocketController {
         return snapshot != null && snapshot.active() && minecraft.level != null
                 && (minecraft.level.dimension().equals(RocketService.FLIGHT)
                     || earth.cubeChart(minecraft.level.dimension().location().toString()).isPresent());
+    }
+
+    /** Client UI availability only; the server validates the occupied world and owns the actual transfer. */
+    public boolean canRequestOrbit() {
+        return groundChart() != null && minecraft.player != null && minecraft.player.isAlive()
+                && !minecraft.player.isPassenger() && !minecraft.player.isSleeping();
     }
 
     public CosmosSystem currentSystem() {
@@ -882,6 +889,9 @@ public final class RocketController {
                 .executes(context -> { action(FlightActionPayload.Action.TOGGLE, ""); return 1; })
                 .then(Commands.literal("takeoff").executes(context -> {
                     action(FlightActionPayload.Action.TAKE_OFF, ""); return 1;
+                }))
+                .then(Commands.literal("orbit").executes(context -> {
+                    action(FlightActionPayload.Action.ORBIT, ""); return 1;
                 }))
                 .then(Commands.literal("land").executes(context -> {
                     action(FlightActionPayload.Action.LAND_BODY, targetBody); return 1;

@@ -41,8 +41,12 @@ Press **R** on a bound planet to inspect it with free movement through real terr
 Crossing **100,000 m** transfers between the surface and space at the reached
 geographic position. The server prepares the destination and preserves the view;
 unready terrain holds movement at a valid position. There is no mandatory landing
-animation. Surface inspection is capped at 2,560 m/s and slows near storage seams.
+animation. Loaded clear-air ascent supports up to 51,200 m/s; movement near actual
+terrain retains bounded collision steps and a 2,560 m/s limit. Prepared storage
+seams and horizontal chunk streaming remain bounded.
 Press **R** again on the surface to leave inspection at the reached position.
+The map's **To orbit** button, also available as `/astra-flight orbit`, prepares a
+direct view 150 km above the same location and retains the real departure for return.
 
 Rocky, icy and ocean planets and moons use the same storage, traversal and
 space-boundary contracts with their own physical radii and saved profiles.
@@ -75,7 +79,7 @@ Orbital and distant surfaces capture active block textures and the default Earth
 biome tints: forests use canopy colors, snow stays pale, and frozen seas use ice
 instead of liquid-ocean color and reflections. These are regional material summaries;
 individual tree geometry is not reconstructed from orbit. Actual surface edits
-overlay those regional materials. The background layers beneath host/DH geometry
+overlay those regional materials. The background layers beneath host geometry
 and yields to active Iris packs. Existing worlds and legacy patches retain their
 saved generation versions.
 
@@ -83,7 +87,7 @@ New **Astra Earth** worlds use terrain v3: routed rivers join ocean outlets thro
 meandering valleys, with dissected mountain ranges, plateaus, old uplands, lowland
 basins and ocean trenches. Regional temperature, moisture and rain shadows separate
 dry interiors, forests and snowy highlands. Bed and water elevations
-are shared by chunks, direct DH data and planetary presentation. Existing v1/v2
+are shared by chunks and planetary presentation. Existing v1/v2
 worlds keep their geography; use a new Astra Earth world for the new generation.
 See [river generation and its resolution limits](docs/EARTH_WORLD.md).
 
@@ -94,15 +98,14 @@ Old saved generators keep their underground version. **F8** toggles a rebindable
 64-block inspection flashlight; enclosed unlit views are dark while local lamps
 and night vision remain usable. Active Iris packs retain lighting ownership.
 
-With optional Distant Horizons 3.3.3, Astra Earth supplies
-[geographic LOD columns directly](docs/COMPATIBILITY.md#direct-earth-lod-generation)
-from that same terrain source. Distant generation does not create full Minecraft
-chunks; observed chunks and player edits retain priority. This supplies base
-terrain data, while DH still owns its cache, drawing and configured work budget.
+Distant terrain is rendered by Astra's own bounded geographic mesh and orbital
+height caches. Distant Horizons integration has been retired; planetary testing
+uses a profile without DH. No extra distance fog is added to hide terrain joins.
+The renderer samples the shared field without generating the whole planet as chunks.
 
 An opt-in [horizon calibration world](docs/PLANETARY_HORIZON.md) adds an Earth-radius
 spherical ocean and fixed visual towers. It demonstrates altitude-dependent
-horizons and bottom-first occlusion. Near blocks and DH meshes remain flat; active
+horizons and bottom-first occlusion. Near blocks remain flat; active
 Iris packs retain their own sky. This is a geometry prototype, not globe traversal.
 
 ## Consumer ship rendering
@@ -288,10 +291,8 @@ Forced environment previews do not replace the pack's Overworld sky. The pack do
 automatically display Astra's seasons or stellar events. Production code never
 changes shader settings.
 
-With Distant Horizons 3.3.3, Astra suppresses DH's separate box-cloud layer while
-its own atmosphere is active. Set Minecraft Clouds to Fast or Fancy for Astra
-clouds; Off hides them. DH's startup graphics override can set this option to Off.
-The fix is verified with DH 3.3.3 + Zume 1.2.2, without Sodium.
+Minecraft Clouds Fancy/Fast enables Astra's clouds when its atmosphere owns the
+sky; Off hides them. Active Iris packs retain their own cloud rendering.
 
 `/astra-render compatibility` reports installed versions and actual pack state.
 [Version matrix, current verification status and feature limits](docs/COMPATIBILITY.md).
@@ -623,3 +624,6 @@ The audio fixture observes real Minecraft playback requests and decoded channels
 checking a single impact and cleanup of its own sounds. Original Ogg assets are
 created by the development script `tools/audio/synthesize_solar.py`; Python,
 NumPy, and ffmpeg are not required to play the mod.
+
+Mars material versions, old-save preservation and thin dust atmosphere are documented in
+[Mars surface and atmosphere](docs/MARS_SURFACE.md).

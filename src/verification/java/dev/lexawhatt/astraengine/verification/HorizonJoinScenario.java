@@ -1,13 +1,6 @@
 package dev.lexawhatt.astraengine.verification;
 
 import com.mojang.blaze3d.platform.NativeImage;
-import com.seibel.distanthorizons.api.DhApi;
-import com.seibel.distanthorizons.coreapi.DependencyInjection.WorldGeneratorInjector;
-import com.seibel.distanthorizons.core.api.internal.ClientApi;
-import com.seibel.distanthorizons.core.util.threading.PriorityTaskPicker;
-import com.seibel.distanthorizons.core.util.threading.ThreadPoolUtil;
-import dev.lexawhatt.astraengine.client.compat.DistantFogCompatibility;
-import dev.lexawhatt.astraengine.compat.distant.EarthLodGenerator;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.server.EarthWorlds;
 import dev.lexawhatt.astraengine.surface.ContinentalTerrain;
@@ -36,7 +29,6 @@ import jdk.jfr.Recording;
 import net.minecraft.client.CloudStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ChunkTrackingView;
 import net.minecraft.world.level.chunk.status.ChunkStatus;
 import net.minecraft.world.level.GameRules;
@@ -47,16 +39,15 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.opengl.GL11;
 
-/** Native same-pose DH fog/coverage and corner-join regression, plus repeated bounded streaming measurements. */
+/** Native landscape/host coverage and corner-join regression, plus repeated bounded streaming measurements. */
 final class HorizonJoinScenario {
     private record View(String name, GeographicPosition position, float yaw, float pitch) { }
     private final Minecraft game = Minecraft.getInstance();
     private final boolean usual = System.getProperty("astraengine.verify.phase", "").endsWith("-usual");
     private final boolean residentQualification = System.getProperty("astraengine.verify.phase", "").contains("-resident-");
     private final boolean targetQualification = System.getProperty("astraengine.verify.phase", "").contains("-target-");
-    private final boolean probeOnly = System.getProperty("astraengine.verify.phase", "").contains("-probe-");
+    private final boolean profileRoutes = !System.getProperty("astraengine.verify.phase", "").contains("-unprofiled-");
     private final ContinentalTerrain terrain = new ContinentalTerrain(3, ContinentalTerrain.SEED);
-    private final DistantTerrainProbe dh = new DistantTerrainProbe();
     private final List<View> views = new ArrayList<>();
     private final List<Double> frames = new ArrayList<>();
     private final List<Double> serverTicks = Collections.synchronizedList(new ArrayList<>());
@@ -65,7 +56,7 @@ final class HorizonJoinScenario {
     private final Consumer<ServerTickEvent.Post> tickEnd = event -> {
         if (this.measure && this.tickStarted != 0) { serverTicks.add((System.nanoTime() - this.tickStarted) / 1e6); }
     };
-    private final StringBuilder evidence = new StringBuilder("A1 geographic join / original copied mod pack\n");
+    private final StringBuilder evidence = new StringBuilder("Native geographic join / copied mod pack without DH\n");
     private CompletableFuture<?> pending = CompletableFuture.completedFuture(null);
     private volatile boolean measure;
     private long frameStarted, tickStarted, windowStarted, gcMillis, allocatedBytes;
@@ -73,14 +64,11 @@ final class HorizonJoinScenario {
     private EarthChart routeChart;
     private SpaceVector routeStart;
     private Object landscape;
-    private DistantFogCompatibility fog;
     private Recording routeProfile;
     private RouteWindow routeWindow;
     private CompletableFuture<Residency> residencyProbe;
     private Residency clientResidency;
     private long settleStarted, stableStarted, nextResidencyProbe;
-    private int lastBuilderQueue = Integer.MAX_VALUE;
-    private int lastLoadQueue = Integer.MAX_VALUE;
     private int clientMissingSamples;
     private volatile int serverMissingSamples;
     private int residentSamples;
@@ -90,8 +78,6 @@ final class HorizonJoinScenario {
     private final long targetInformationStarted = System.nanoTime();
     private final Coverage targetClient = new Coverage();
     private final Coverage targetServer = new Coverage();
-    private final QueueProgress targetBuildQueue = new QueueProgress();
-    private final QueueProgress targetLoadQueue = new QueueProgress();
 
     private record Residency(int visible, int expectedVisible, int route, int expectedRoute,
                              int requestedRadius, int effectiveRadius) {
@@ -101,6 +87,8 @@ final class HorizonJoinScenario {
     }
 
     HorizonJoinScenario() {
+        require(!net.neoforged.fml.ModList.get().isLoaded("distanthorizons"),
+                "Native landscape qualification requires the copied mod pack without Distant Horizons");
         game.options.renderDistance().set(usual ? 12 : 6);
         game.options.simulationDistance().set(usual ? 12 : 5);
         if (targetQualification) { game.options.broadcastOptions(); }
@@ -166,8 +154,6 @@ final class HorizonJoinScenario {
     boolean tick() throws Exception {
         if (!pending.isDone()) { return false; }
         pending.join();
-        if (!dh.configure()) { return false; }
-        if (usual) { dh.radiusChunks(256); }
         if (targetQualification && !targetInformationReady) {
             if (targetInformation == null) {
                 targetInformation = game.getSingleplayerServer().submit(() -> {
@@ -185,7 +171,7 @@ final class HorizonJoinScenario {
                     "Actual requested/server-tracked12-radius target was not acknowledged before the itinerary");
             if (!targetInformationReady) { return false; }
             evidence.append("Target setup: actual requested/server-tracked12 verified before the first scene; "
-                    + "original paired-view itinerary and two240m/600tick routes, one30s ordinary settle.\n");
+                    + "original geographic itinerary and two240m/600tick routes, one30s ordinary settle; native pipeline only.\n");
         }
         if (step == 0) {
             var view = views.get(viewIndex);
@@ -194,11 +180,6 @@ final class HorizonJoinScenario {
             pending = game.getSingleplayerServer().submit(() -> {
                 var server = game.getSingleplayerServer();
                 var player = server.getPlayerList().getPlayers().getFirst();
-                if (viewIndex == 0) {
-                    DistantBiomeProbe.verify(server.overworld());
-                    if (residentQualification || probeOnly) { evidence.append(DistantUniformRunProbe.verify(server.overworld())); }
-                    if (probeOnly) { return; }
-                }
                 var rules = server.overworld().getGameRules();
                 rules.getRule(GameRules.RULE_DAYLIGHT).set(false, server);
                 rules.getRule(GameRules.RULE_WEATHER_CYCLE).set(false, server);
@@ -210,28 +191,22 @@ final class HorizonJoinScenario {
             step = 1; ticks = 0; return false;
         }
         if (step == 1) {
-            if (probeOnly) { return finish(); }
             if (++ticks < 180) { return false; }
             Object renderer = field(game.level.effects(), "renderer");
             landscape = field(renderer, "landscape");
             if (field(landscape, "frameDepth") == null) { return false; }
-            fog = (DistantFogCompatibility) field(landscape, "distantFog");
-            require(fog.adjustedPasses() > 0, "DH geographic fog callback did not execute");
-            capture("fixed-dh-on");
-            if (viewIndex == 1) { member(fog, "failed").setBoolean(fog, true); step = 2; }
-            else { dh.renderEnabled(false); step = 3; }
+            capture("native-landscape");
+            step = viewIndex == 1 ? 2 : 3;
             ticks = 0; return false;
         }
         if (step == 2) {
             if (++ticks < 50) { return false; }
-            capture("original-dh-fog");
-            member(fog, "failed").setBoolean(fog, false);
-            dh.renderEnabled(false); step = 3; ticks = 0; return false;
+            capture("native-settled");
+            step = 3; ticks = 0; return false;
         }
         if (step == 3) {
             if (++ticks < 50) { return false; }
-            capture("dh-off");
-            dh.renderEnabled(true);
+            capture("native-after-settle");
             if (++viewIndex < views.size()) {
                 if (viewIndex == views.size() - 1) {
                     GLFW.glfwSetWindowSize(game.getWindow().getWindow(), 960, 540);
@@ -251,12 +226,12 @@ final class HorizonJoinScenario {
                             routeStart.z(), -90, 12);
                 });
                 settleStarted = System.nanoTime(); nextResidencyProbe = settleStarted; step = 8;
-                evidence.append("Target settle: bounded30s; no force-loading, no DH queue-drain precondition.\n");
+                evidence.append("Target settle: bounded30s; no force-loading or queue-drain precondition.\n");
             } else { step = 4; }
             ticks = 0; return false;
         }
         if (step == 4) {
-            if (routeProfile == null) {
+            if (profileRoutes && routeProfile == null) {
                 routeProfile = new Recording(Configuration.getConfiguration("profile"));
                 routeProfile.setName(routePass == 2 ? "Astra resident forest route" : "Astra usual forest routes");
                 routeProfile.setMaxAge(Duration.ofMinutes(3));
@@ -279,11 +254,16 @@ final class HorizonJoinScenario {
             });
             frames.clear(); serverTicks.clear(); frameStarted = 0; routeTick = 0;
             if (targetQualification) {
-                targetClient.clear(); targetServer.clear(); targetBuildQueue.clear(); targetLoadQueue.clear();
-                lodMetrics();
+                targetClient.clear(); targetServer.clear();
+                nativeMetrics();
             }
             windowStarted = System.nanoTime(); gcMillis = gcMillis(); allocatedBytes = allocatedBytes(); measure = true;
-            routeWindow = new RouteWindow(); routeWindow.pass = routePass; routeWindow.begin();
+            if (profileRoutes) {
+                routeWindow = new RouteWindow(); routeWindow.pass = routePass; routeWindow.begin();
+            } else {
+                evidence.append("JFR=disabled; ordinary frame/tick/allocation/GC/native residency counters retained; ")
+                        .append("absolute acceptance only, not a profiler-matched speedup comparison\n");
+            }
             evidence.append("routePass=").append(routePass).append(" startNanos=").append(windowStarted)
                     .append(" wallTime=").append(Instant.now())
                     .append(" source=").append(routeChart).append(" origin=").append(routeStart).append('\n');
@@ -308,10 +288,10 @@ final class HorizonJoinScenario {
                     player.connection.teleport(routeStart.x() + dx, routeStart.y(), routeStart.z(), -90, 12);
                 });
             }
-            if (routeTick % 100 == 0) { lodMetrics(); }
+            if (routeTick % 100 == 0) { nativeMetrics(); }
             if (routeTick < 600) { return false; }
             measure = false;
-            routeWindow.end(); routeWindow.commit(); routeWindow = null;
+            if (routeWindow != null) { routeWindow.end(); routeWindow.commit(); routeWindow = null; }
             evidence.append("routePass=").append(routePass).append(" seconds=")
                     .append((System.nanoTime() - windowStarted) / 1e9)
                     .append(" frame=").append(summary(frames)).append(" tick=").append(summary(serverTicks))
@@ -319,10 +299,9 @@ final class HorizonJoinScenario {
                     .append(" allocatedBytes=").append(allocatedBytes < 0 ? -1 : allocatedBytes() - allocatedBytes)
                     .append(" usedHeap=").append(Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory()).append('\n');
             if (targetQualification) {
-                lodMetrics();
+                nativeMetrics();
                 evidence.append("Target route=").append(routePass).append(" clientCoverage=").append(targetClient)
-                        .append(" serverCoverage=").append(targetServer).append(" builderProgress=").append(targetBuildQueue)
-                        .append(" loadingProgress=").append(targetLoadQueue)
+                        .append(" serverCoverage=").append(targetServer)
                         .append(" frameP95Target50ms=").append(percentile95(frames) <= 50)
                         .append(" serverTickP95Target50ms=").append(percentile95(serverTicks) <= 50)
                         .append("; missing moving-view edges are streaming; route-center residency is separate.\n");
@@ -360,31 +339,21 @@ final class HorizonJoinScenario {
         if (step == 6) {
             settleStarted = System.nanoTime(); nextResidencyProbe = settleStarted; step = 7;
             evidence.append("Resident settle: max180s, stable20s, complete current native view and all route-center chunks,")
-                    .append(" DH build/load queues<=16 and non-growing; requested client distance broadcast through host packet,")
-                    .append(" no forced chunk loads/tickets or DH settings changed\n");
+                    .append(" requested client distance broadcast through the host packet,")
+                    .append(" no forced chunk loads/tickets; native-only residency qualification\n");
             return false;
         }
         if (step == 7) {
             long now = System.nanoTime();
             if (residencyProbe != null) {
                 var server = residencyProbe.join(); residencyProbe = null;
-                var builder = ThreadPoolUtil.getChunkToLodBuilderExecutor();
-                var loading = ThreadPoolUtil.getRenderLoadingExecutor();
-                int buildQueue = builder == null ? -1 : builder.getQueueSize();
-                int loadQueue = loading == null ? -1 : loading.getQueueSize();
-                boolean settled = clientResidency.complete() && server.complete() && buildQueue >= 0 && buildQueue <= 16
-                        && loadQueue >= 0 && loadQueue <= 16 && buildQueue <= lastBuilderQueue && loadQueue <= lastLoadQueue;
-                lastBuilderQueue = buildQueue; lastLoadQueue = loadQueue;
+                boolean settled = clientResidency.complete() && server.complete();
                 if (!settled) { stableStarted = 0; }
                 else if (stableStarted == 0) { stableStarted = now; }
                 evidence.append("settleSeconds=").append((now - settleStarted) / 1e9)
                         .append(" client=").append(clientResidency).append(" server=").append(server)
-                        .append(" builderQueue=").append(buildQueue).append(" loadQueue=").append(loadQueue)
                         .append(" stableSeconds=").append(stableStarted == 0 ? 0 : (now - stableStarted) / 1e9)
-                        .append(" builder=").append(poolState(builder)).append(" loading=").append(poolState(loading))
-                        .append(" generation=").append(poolState(ThreadPoolUtil.getWorldGenExecutor()))
-                        .append(" propagation=").append(poolState(ThreadPoolUtil.getUpdatePropagatorExecutor()))
-                        .append(" io=").append(poolState(ThreadPoolUtil.getFileHandlerExecutor())).append('\n');
+                        .append('\n');
                 Files.writeString(output().resolve("resident-settle.txt"), evidence);
                 if (!settleThreadsCaptured && now - settleStarted >= 90_000_000_000L) {
                     var stacks = new StringBuilder("Bounded settle observation; measured routes are not running\n");
@@ -420,9 +389,7 @@ final class HorizonJoinScenario {
             if (residencyProbe != null) {
                 evidence.append("targetSettleSeconds=").append((now - settleStarted) / 1e9)
                         .append(" client=").append(clientResidency).append(" server=").append(residencyProbe.join())
-                        .append(" builder=").append(poolState(ThreadPoolUtil.getChunkToLodBuilderExecutor()))
-                        .append(" loading=").append(poolState(ThreadPoolUtil.getRenderLoadingExecutor()))
-                        .append(" generation=").append(poolState(ThreadPoolUtil.getWorldGenExecutor())).append('\n');
+                        .append('\n');
                 residencyProbe = null;
                 Files.writeString(output().resolve("target-settle.txt"), evidence);
             }
@@ -441,13 +408,6 @@ final class HorizonJoinScenario {
         int radius = game.options.renderDistance().get();
         return residency(x, z, radius, radius, game.options.getEffectiveRenderDistance(),
                 (cx, cz) -> game.level.getChunkSource().getChunk(cx, cz, ChunkStatus.FULL, false) != null);
-    }
-
-    private static String poolState(PriorityTaskPicker.Executor executor) {
-        if (executor == null) { return "absent"; }
-        return "[queue=" + executor.getQueueSize() + ",active=" + executor.getRunningTaskCount()
-                + ",done=" + executor.getCompletedTaskCount() + ",avgMs=" + executor.getAverageRunTimeInMs()
-                + ",canRun=" + executor.canRun() + "]";
     }
 
     private Residency serverResidency(double x, double z) {
@@ -489,7 +449,7 @@ final class HorizonJoinScenario {
     private boolean finish() throws java.io.IOException {
         closeProfile();
         Files.writeString(output().resolve("measurements.txt"), evidence, StandardOpenOption.CREATE_NEW);
-        dh.close(); NeoForge.EVENT_BUS.unregister(render); NeoForge.EVENT_BUS.unregister(tickStart);
+        NeoForge.EVENT_BUS.unregister(render); NeoForge.EVENT_BUS.unregister(tickStart);
         NeoForge.EVENT_BUS.unregister(tickEnd); return true;
     }
 
@@ -503,7 +463,7 @@ final class HorizonJoinScenario {
                 .append(" hostRenderedSections=").append(game.levelRenderer.countRenderedSections())
                 .append(" sectionStatistics=").append(game.levelRenderer.getSectionStatistics())
                 .append(" clientCoverage=").append(clientResidency(game.player.getX(), game.player.getZ()))
-                .append('\n').append(dh.description()).append('\n');
+                .append('\n');
         Files.writeString(output().resolve("route-progress.txt"), evidence);
         require(GL11.glGetError() == GL11.GL_NO_ERROR, "Route-end capture leaked OpenGL error");
     }
@@ -517,7 +477,7 @@ final class HorizonJoinScenario {
                 .append(game.getWindow().getWidth()).append('x').append(game.getWindow().getHeight())
                 .append(" hostRenderedSections=").append(game.levelRenderer.countRenderedSections())
                 .append(" sectionStatistics=").append(game.levelRenderer.getSectionStatistics())
-                .append(" adjustedFog=").append(fog.adjustedPasses()).append('\n').append(dh.description()).append('\n');
+                .append('\n');
         Files.writeString(output().resolve("progress.txt"), evidence);
         require(GL11.glGetError() == GL11.GL_NO_ERROR, "A1 capture leaked OpenGL error");
     }
@@ -530,30 +490,11 @@ final class HorizonJoinScenario {
         frameStarted = now;
     }
 
-    private void lodMetrics() {
-        // Pinned DH internals are diagnostic-only here, never a production scheduling dependency.
-        var generation = ThreadPoolUtil.getWorldGenExecutor();
-        var building = ThreadPoolUtil.getChunkToLodBuilderExecutor();
-        var loading = ThreadPoolUtil.getRenderLoadingExecutor();
-        if (targetQualification) {
-            long now = System.nanoTime(); targetBuildQueue.sample(building, now); targetLoadQueue.sample(loading, now);
-            evidence.append("targetPools builder=").append(poolState(building)).append(" loading=").append(poolState(loading))
-                    .append(" generation=").append(poolState(generation)).append(" propagation=")
-                    .append(poolState(ThreadPoolUtil.getUpdatePropagatorExecutor())).append('\n');
-        }
-        evidence.append("routeTick=").append(routeTick).append(" DH gate=")
-                .append(ThreadPoolUtil.worldGenThreadsCanRun()).append(" cameraSpeed=")
-                .append(ClientApi.INSTANCE.getAvgCameraSpeed())
-                .append(" generationQueue=").append(generation == null ? -1 : generation.getQueueSize())
-                .append(" chunkBuilderQueue=").append(building == null ? -1 : building.getQueueSize())
-                .append(" renderLoadQueue=").append(loading == null ? -1 : loading.getQueueSize()).append('\n');
-        for (var wrapper : DhApi.Delayed.worldProxy.getAllLoadedLevelWrappers()) {
-            if (wrapper.getWrappedMcObject() instanceof ServerLevel level
-                    && level.dimension().equals(game.level.dimension())
-                    && WorldGeneratorInjector.INSTANCE.get(wrapper) instanceof EarthLodGenerator generator) {
-                evidence.append("routeTick=").append(routeTick).append(" ").append(generator.metrics()).append('\n');
-            }
-        }
+    private void nativeMetrics() {
+        evidence.append("routeTick=").append(routeTick)
+                .append(" hostRenderedSections=").append(game.levelRenderer.countRenderedSections())
+                .append(" sectionStatistics=").append(game.levelRenderer.getSectionStatistics())
+                .append(" clientChunks=").append(game.level.getChunkSource().gatherStats()).append('\n');
     }
 
     private static long localNoon(View view) {
@@ -616,27 +557,6 @@ final class HorizonJoinScenario {
             return "[samples=" + samples + ",missingView=" + viewMissing + ",missingRoute=" + routeMissing
                     + ",radiusMismatch=" + radiusMismatch + ",minimumVisible=" + minimumVisible
                     + ",minimumRoute=" + minimumRoute + "]";
-        }
-    }
-
-    private static final class QueueProgress {
-        private int first = -1, last = -1, peak, completedFirst, completedLast;
-        private long nonemptySince, nonemptyNanos;
-        void clear() { first = -1; last = -1; peak = 0; completedFirst = 0; completedLast = 0;
-            nonemptySince = 0; nonemptyNanos = 0; }
-        void sample(PriorityTaskPicker.Executor executor, long now) {
-            if (executor == null) { return; }
-            last = executor.getQueueSize(); completedLast = executor.getCompletedTaskCount();
-            if (first < 0) { first = last; completedFirst = completedLast; }
-            peak = Math.max(peak, last);
-            if (last == 0) { nonemptySince = 0; }
-            else if (nonemptySince == 0) { nonemptySince = now; }
-            nonemptyNanos = nonemptySince == 0 ? 0 : now - nonemptySince;
-        }
-        @Override public String toString() {
-            return "[first=" + first + ",last=" + last + ",peak=" + peak + ",delta=" + (last - first)
-                    + ",completed=" + (completedLast - completedFirst) + ",observedNonemptySeconds=" + nonemptyNanos / 1e9
-                    + "; observed continuity is not oldest-job age]";
         }
     }
 

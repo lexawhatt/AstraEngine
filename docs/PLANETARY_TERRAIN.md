@@ -98,9 +98,9 @@ The highlands currently use the host sky and atmosphere. Shared orbital terrain,
 altitude-dependent atmospheric integration and landing at arbitrary geographic
 coordinates are not provided by this prototype.
 
-Distant Horizons is an optional experiment described in
-[renderer compatibility](COMPATIBILITY.md#distant-horizons-terrain-experiment).
-Its LOD cache is separate from authoritative Minecraft block storage.
+The former Distant Horizons experiment is
+[retired](COMPATIBILITY.md#distant-horizons-integration-retired). Current planetary
+work uses the native geographic landscape and authoritative Minecraft block storage.
 
 ## Reproduce verification
 
@@ -116,9 +116,3 @@ phase's completion marker, checkpoint and saved world, then verifies modified
 blocks above one kilometer and below sea level. Captures include geographic F3.
 Both phases must produce `verified-<phase>.txt` and a successful Gradle exit.
 
-For DH, use another fresh directory, put the original pinned DH JAR in its `mods/`
-folder, and run `terrain-dh` instead of `terrain-create`. The fixture uses a real
-custom world, waits for LOD preparation, records API observations and saves same-pose
-ON/OFF/ON captures. Inspect the images: a successful callback counter alone is not
-proof of visible terrain. If Iris is installed, an active pack is required. Use
-the complete stable stack in the compatibility guide; do not mix Sodium generations.

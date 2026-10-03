@@ -81,9 +81,9 @@ ore economy or replacement plugin framework.
 
 These inspection dimensions retain the host sky, fog and weather; their physical
 altitude does not yet drive an atmospheric density model. The shared spherical
-field does not replace the orbital planet material or provide arbitrary landings. Distant Horizons remains optional; its
-existing bounded [terrain experiment](COMPATIBILITY.md#distant-horizons-terrain-experiment)
-does not qualify these new dimensions at every distance or with every shader pack.
+field does not replace the orbital planet material or provide arbitrary landings.
+The former Distant Horizons experiment is retired; current planetary rendering
+uses the native geographic landscape.
 The separate [ocean horizon calibration](PLANETARY_HORIZON.md) remains the current
 physical-curvature reference.
 

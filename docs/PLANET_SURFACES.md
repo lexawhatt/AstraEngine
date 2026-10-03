@@ -14,7 +14,7 @@ Unknown versions, conflicting identities, unreadable existing manifests and miss
 
 ## Shared geography and presentation
 
-`SolidPlanetTerrain` samples a body-fixed unit direction. Host columns, direct Distant Horizons data, globe height/color maps and nearby landscape meshes call that same field. Poles and face boundaries do not choose separate terrain seeds.
+`SolidPlanetTerrain` samples a body-fixed unit direction. Host columns, globe height/color maps and nearby landscape meshes call that same field. Poles and face boundaries do not choose separate terrain seeds.
 
 The first profile version has three solid families:
 
@@ -26,7 +26,7 @@ These are deterministic procedural approximations, not observational planetary m
 
 Gas giants, stars, black holes and the Solar System ice giants have no invented solid floor. Supported descriptor radii remain physical meters. Very small solid bodies scale nearby landscape rings and texture coverage with their radius.
 
-For a solid body whose center falls inside the supported storage depth, the innermost valid radial block forms a bedrock core at least one meter from the mathematical center. Lower cells have no canonical writable owner. A read-only collision boundary also protects this cutoff if creative editing removes its bedrock; ordinary movement cannot enter a singular negative-radius coordinate. Host generation, direct LOD and base-column queries share this cutoff.
+For a solid body whose center falls inside the supported storage depth, the innermost valid radial block forms a bedrock core at least one meter from the mathematical center. Lower cells have no canonical writable owner. A read-only collision boundary also protects this cutoff if creative editing removes its bedrock; ordinary movement cannot enter a singular negative-radius coordinate. Host generation and base-column queries share this cutoff.
 
 The client owns a bounded globe atlas and three local detail tiles. The detail tiles share one GPU texture; the complete celestial pass uses eleven samplers, within Minecraft 1.21.1's twelve tracked texture units. Resource reload retires GPU objects and stale sampling jobs without changing connection descriptors or saved world definitions.
 
@@ -34,11 +34,10 @@ Generic surface skies use the shared celestial pass in the actual body frame, in
 
 ## Host integration
 
-The optional DH generator supplies `API_DATA_SOURCES` directly from the height/material field through the executor provided by DH. It does not create ordinary chunks to obtain unvisited procedural LOD. Real host chunks retain priority for modified terrain. Neither the direct generator nor orbital textures grant block ownership. DH sky light is stored on each material run at its top: exposed ground and water receive full sky, overlying water attenuates it, and opaque cover or a clipped covered ceiling stays dark. Explicit air does not transfer its light to an adjacent solid run. Existing cached approximate columns retain their stored lighting until updated; loading this version does not discard user LOD data.
-
-DH 3.3.3 repeatedly looks up the same immutable biome wrapper while scanning tall real chunks. A narrowly versioned optional mixin remembers the last holder/wrapper pair inside each DH chunk wrapper for 4,064-block height intervals. This height guard also includes another mod's world if it uses that exact height; it is not a generator-identity test. The actual biome is still sampled on every lookup, and changed biome holders use DH's original conversion. The immutable pair is published atomically, has no process-wide owner and retains no additional level reference. The hook exists because the public DH API offers no interception for this lookup; it does not alter scan bounds, blocks, light, caves, player edits, scheduling or user settings. Other DH versions and ordinary-height chunks retain their original path.
-
-The same exact-version adapter also coalesces an already unchanged opaque run in DH's real-chunk converter. It skips only the remaining part of a section whose entire block and biome palettes prove one value and whose skipped DH block/sky-light samples are all zero. Changed palettes, caves, transparent blocks, biome boundaries, lit cells and foreign chunk-wrapper implementations retain the ordinary scan. Immutable height bounds are captured once per conversion and discarded with that invocation. A failed singleton proof is remembered only within that conversion so mixed sections immediately use the ordinary scan; positive proofs are never cached across later edits. Two synchronous identity predicates are reused only inside that conversion, and the scalar loop-local hook allocates no mutable local reference per scanned voxel. The original DH converter still emits columns, runs material/biome overrides, compresses and saves its data. Native comparisons against the unmodified scan verify identical packed columns, mappings and event positions, including a real material/biome override. There is no public DH uniform-run hook, so this optional integration is restricted to the inspected 3.3.3 implementation. It does not replace the scheduler, bypass health gates or change user options.
+Distant terrain uses the native geographic landscape and bounded orbital caches.
+The former Distant Horizons generators, converter hooks and rendering adapters
+have been retired. Use a profile without DH for planetary worlds. Source samples
+and render caches do not grant block ownership or replace actual host collision.
 
 Saving an unchanged uniform section created by Astra generation reuses an exact host-codec NBT template for one of eight fixed vanilla materials. The same path applies to exact vanilla palettes loaded from disk in tall Earth/planetary chunks, after proving their current singleton membership under the host guard. Every save receives an independent copy. Mixed palettes, other materials, foreign container implementations and other encoding operations follow the normal host path. The bounded block templates retain no worlds, biomes, registries or mutable palettes.
 

@@ -16,12 +16,15 @@ import java.util.Optional;
  */
 public record SolidPlanetProfile(int version, String systemId, String bodyId, long seed, double radiusMeters,
         CelestialBody.Kind kind, double rotationSeconds, double axialTiltRadians, float atmosphereStrength) {
+    /** Existing generic bodies retain v1. Only newly bound Sol Mars uses the explicit v2 material realization. */
     public static final int VERSION = 1;
+    public static final int MARS_VERSION = 2;
     /** The host horizontal-coordinate envelope; unsupported larger solids retain their astronomical descriptor. */
     public static final double MAX_RADIUS_METERS = 29_000_000;
 
     public SolidPlanetProfile {
-        if (version != VERSION || systemId == null || !(systemId.matches("[a-z0-9_-]{1,64}")
+        if ((version != VERSION && (version != MARS_VERSION || !"sol".equals(systemId) || !"mars".equals(bodyId)))
+                || systemId == null || !(systemId.matches("[a-z0-9_-]{1,64}")
                 || CosmosIds.isCustom(systemId)) || bodyId == null || !bodyId.matches("[a-z0-9_-]{1,64}")
                 || kind != CelestialBody.Kind.ROCKY && kind != CelestialBody.Kind.OCEAN && kind != CelestialBody.Kind.ICE
                 || !Double.isFinite(radiusMeters) || radiusMeters < 16 || radiusMeters > MAX_RADIUS_METERS
@@ -50,7 +53,8 @@ public record SolidPlanetProfile(int version, String systemId, String bodyId, lo
         long seed = mix(system.seed() ^ stableHash(system.id() + "/" + body.id()));
         double rotation = !body.parentId().isEmpty() && body.orbitalPeriodSeconds() > 0
                 ? body.orbitalPeriodSeconds() : 18_000 + unit(seed) * 140_000;
-        return Optional.of(new SolidPlanetProfile(VERSION, system.id(), body.id(), seed, body.radiusMeters(),
+        return Optional.of(new SolidPlanetProfile(system.id().equals("sol") && body.id().equals("mars") ? MARS_VERSION : VERSION,
+                system.id(), body.id(), seed, body.radiusMeters(),
                 body.kind(), rotation, body.axialTiltRadians(), body.atmosphere()));
     }
 
@@ -74,17 +78,25 @@ public record SolidPlanetProfile(int version, String systemId, String bodyId, lo
         }
         var body = system.bodies().stream().filter(value -> value.id().equals(bodyId)).findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Surface body is absent from its saved system"));
-        if (!create(system, body).filter(this::equals).isPresent()) {
+        if (create(system, body).map(value -> new SolidPlanetProfile(version, value.systemId(), value.bodyId(),
+                value.seed(), value.radiusMeters(), value.kind(), value.rotationSeconds(), value.axialTiltRadians(),
+                value.atmosphereStrength())).filter(this::equals).isEmpty()) {
             throw new IllegalArgumentException("Surface descriptor differs from its saved realization");
         }
         return BodyFixedFrame.of(system, body, orbitalSeconds,
                 Math.IEEEremainder(orbitalSeconds, rotationSeconds) / rotationSeconds * Math.PI * 2);
     }
 
+    /** Sol Mars presentation identity, independent of its saved terrain-material version. */
+    public boolean mars() { return systemId.equals("sol") && bodyId.equals("mars"); }
+
+    /** Whether the saved terrain includes the explicitly versioned oxidized surface materials. */
+    public boolean oxidizedMars() { return mars() && version == MARS_VERSION; }
+
     /** Exponential density relative to the surface, a presentation observation rather than survival policy. */
     public double atmosphereDensity(double altitudeMeters) {
         if (!Double.isFinite(altitudeMeters)) { throw new IllegalArgumentException("Atmosphere altitude must be finite"); }
-        return atmosphereStrength * Math.exp(-Math.max(0, altitudeMeters) / (2000 + atmosphereStrength * 8000));
+        return atmosphereStrength * Math.exp(-Math.max(0, altitudeMeters) / (mars() ? 10_800 : 2000 + atmosphereStrength * 8000));
     }
 
     private static long stableHash(String value) {

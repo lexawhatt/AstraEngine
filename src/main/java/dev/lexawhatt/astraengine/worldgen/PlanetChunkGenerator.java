@@ -70,7 +70,7 @@ public final class PlanetChunkGenerator extends ChunkGenerator {
 
     public PlanetChart chart() { return chart; }
     public SolidPlanetTerrain terrain() { return terrain; }
-    /** Exact undecorated column runs for DH, without allocating a host chunk or voxel-height array. */
+    /** Exact undecorated column runs for surface consumers, without allocating a host chunk or voxel-height array. */
     public List<TerrainLayer> terrainLayers(int x, int z) {
         if (!ownsColumn(x, z)) { return List.of(new TerrainLayer(chart.minY(), chart.minY() + chart.height(),
                 Blocks.AIR.defaultBlockState())); }
@@ -129,10 +129,13 @@ public final class PlanetChunkGenerator extends ChunkGenerator {
             case GRASS -> Blocks.GRASS_BLOCK.defaultBlockState();
             case REGOLITH, OCEAN_FLOOR -> Blocks.GRAVEL.defaultBlockState();
             case ROCK -> Blocks.STONE.defaultBlockState();
+            case OXIDIZED_DUST -> Blocks.RED_SAND.defaultBlockState();
+            case OXIDIZED_ROCK -> Blocks.TERRACOTTA.defaultBlockState();
         };
         BlockState deep = chart.profile().kind() == dev.lexawhatt.astraengine.cosmos.CelestialBody.Kind.ICE
                 ? Blocks.PACKED_ICE.defaultBlockState() : Blocks.STONE.defaultBlockState();
-        BlockState subsurface = sample.material() == SolidPlanetTerrain.Material.GRASS ? Blocks.DIRT.defaultBlockState() : deep;
+        BlockState subsurface = chart.profile().oxidizedMars() ? Blocks.TERRACOTTA.defaultBlockState()
+                : sample.material() == SolidPlanetTerrain.Material.GRASS ? Blocks.DIRT.defaultBlockState() : deep;
         return new TerrainColumns.Column(firstAir, (int) Math.floor(sample.topMeters()) - chart.altitudeOriginMeters(),
                 surface, subsurface, deep);
     }

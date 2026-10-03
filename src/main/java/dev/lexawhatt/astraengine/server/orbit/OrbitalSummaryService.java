@@ -197,7 +197,7 @@ public final class OrbitalSummaryService implements AutoCloseable {
         }
         for (var body : system.bodies()) {
             if (bodyObservers.containsKey(body.id())) { continue; }
-            var profile = SolidPlanetProfile.create(system, body).orElse(null);
+            var profile = PlanetSurfaceWorlds.profile(server, system, body).orElse(null);
             if (profile != null) { bodyObservers.put(body.id(), profile.frame(system, seconds).toBodyPoint(pilot.position())); }
         }
         return new Interest(system.id(), Map.copyOf(bodyObservers));

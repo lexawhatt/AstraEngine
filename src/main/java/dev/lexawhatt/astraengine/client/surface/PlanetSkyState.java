@@ -54,7 +54,8 @@ public final class PlanetSkyState {
         double direct = Math.clamp(sun.y() * 4 + .015, 0, 1) * incident;
         var airless = new SpaceVector(direct, direct, direct);
         var atmospheric = SkyIllumination.skyLight(sun.y(), 0, 0, (float) incident);
-        var light = airless.multiply(1 - density).add(atmospheric.multiply(density));
+        var light = profile.mars() ? dev.lexawhatt.astraengine.surface.MarsAtmosphere.light(sun.y(), density, incident)
+                : airless.multiply(1 - density).add(atmospheric.multiply(density));
         return new Observation(chart, sun, light, density, incident);
     }
 

@@ -7,7 +7,7 @@ import java.util.function.BooleanSupplier;
 
 /**
  * Immutable samples of a saved solid planet: RGBA stores physical bed elevation followed by display RGB.
- * Globe, local relief, host blocks and direct DH all use SolidPlanetTerrain. This is bounded presentation
+ * Globe, local relief and host blocks all use SolidPlanetTerrain. This is bounded presentation
  * data, never collision authority or a full planet chunk pregenerator.
  */
 public final class SolidPlanetMap {

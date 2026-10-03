@@ -72,6 +72,59 @@ public final class SpaceBoundaryGameTests {
     private static final String RECOVERY = "astraengine_flight_recovery";
 
     @GameTest(templateNamespace = "astraengine_verify", template = "empty", timeoutTicks = 400)
+    public static void orbitShortcutRejectsUnboundSourcesAndPreservesVetoedSurface(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var base = SolidPlanetGameTests.chart("moon");
+        var chart = new PlanetChart(base.profile(), CubeFace.NEGATIVE_Z, 5);
+        var level = PlanetSurfaceWorlds.ensure(server, chart);
+        level.getChunk(0, 0);
+        staging(server).getChunk(0, 0);
+        var unbound = new FakePlayer(helper.getLevel(), new GameProfile(UUID.randomUUID(), "NoOrbitSource"));
+        var player = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "OrbitSource"));
+        player.setPos(8.5, 80, 8.5);
+        var rocket = new RocketService(server);
+        try (var connection = new HostPlayerConnection(player);
+                var otherConnection = new HostPlayerConnection(unbound)) {
+            var request = new FlightActionPayload(FlightActionPayload.Action.ORBIT, "");
+            rocket.action(unbound, request);
+            helper.assertTrue(!rocket.active(unbound) && !unbound.getPersistentData().contains(RECOVERY),
+                    "Unbound orbit request created flight or a recovery record");
+            var catalog = ExplorationCatalog.get(server);
+            var pilot = catalog.player(player.getUUID());
+            invoke(pilot, "speed", 19_317.0);
+            var sourcePosition = player.position();
+            rocket.action(player, request);
+            var sessions = (Map<?, ?>) value(rocket, "sessions");
+            var session = sessions.get(player.getUUID());
+            helper.assertTrue(session != null && (Boolean) value(session, "orbitRequested")
+                            && player.serverLevel() == level && player.position().equals(sourcePosition),
+                    "Orbit request must prepare asynchronously without moving its real source");
+            var vetoes = new AtomicInteger();
+            Consumer<EntityTravelToDimensionEvent> veto = event -> {
+                if (event.getEntity() == player && event.getDimension().equals(RocketService.FLIGHT)) {
+                    vetoes.incrementAndGet(); event.setCanceled(true);
+                }
+            };
+            NeoForge.EVENT_BUS.addListener(EventPriority.HIGHEST, veto);
+            try {
+                invoke(rocket, "leaveGround", player, session, chart,
+                        new FlightDynamics.Input(0, 0, 0, pilot.orientation(), false), catalog);
+            } finally { NeoForge.EVENT_BUS.unregister(veto); }
+            helper.assertTrue(vetoes.get() == 1 && value(session, "ground") != null
+                            && player.serverLevel() == level && player.position().equals(sourcePosition)
+                            && !player.getPersistentData().contains(RECOVERY)
+                            && pilot.speedMetersPerSecond() == 19_317,
+                    "Vetoed orbit transfer changed ownership, source, recovery or selected speed");
+            long epoch = (Long) invoke(value(session, "controls"), "navigationEpoch");
+            rocket.control(player, new FlightControlPayload(0, 0, 0, pilot.orientation(), true, 1, epoch, true));
+            helper.assertTrue(!(Boolean) value(session, "orbitRequested") && rocket.active(player)
+                            && value(session, "ground") != null && player.position().equals(sourcePosition),
+                    "Cancelling an orbit request must retain ordinary surface inspection and the reached pose");
+        } finally { rocket.close(); }
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty", timeoutTicks = 400)
     public static void respawnRetiresExactInspectionOwnerAndStaleDisconnectCannotStopReplacement(GameTestHelper helper) {
         var server = helper.getLevel().getServer();
         var base = SolidPlanetGameTests.chart("moon");

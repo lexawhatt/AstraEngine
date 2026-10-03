@@ -30,7 +30,6 @@ import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.common.Mod;
-import net.neoforged.fml.ModList;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -99,7 +98,7 @@ public final class AstraEngine {
         // PayloadRegistrar defaults to MAIN: both request handlers run on the owning logical-server thread.
         event.registrar("2").playToClient(SurfacePayload.TYPE, SurfacePayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new SurfaceReceivedEvent(payload)));
-        event.registrar("6").playToServer(FlightActionPayload.TYPE, FlightActionPayload.CODEC, (payload, context) -> {
+        event.registrar("7").playToServer(FlightActionPayload.TYPE, FlightActionPayload.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) { runtime.flightAction(player, payload); }
         });
         event.registrar("1").playToServer(EarthLandingPayload.TYPE, EarthLandingPayload.CODEC, (payload, context) -> {
@@ -116,15 +115,6 @@ public final class AstraEngine {
     private void onCommonSetup(FMLCommonSetupEvent event) {
         dev.lexawhatt.astraengine.surface.ContinentalTerrain.prepareCanonical();
         event.enqueueWork(NavigationRules::register);
-        event.enqueueWork(() -> {
-            if (ModList.get().isLoaded("distanthorizons")) {
-                try {
-                    dev.lexawhatt.astraengine.compat.distant.DistantTerrainBridge.register();
-                } catch (LinkageError unavailableApi) {
-                    LOGGER.error("Direct Earth LOD adapter could not link to the installed DH API", unavailableApi);
-                }
-            }
-        });
         LOGGER.info("AstraEngine initialized");
     }
 }

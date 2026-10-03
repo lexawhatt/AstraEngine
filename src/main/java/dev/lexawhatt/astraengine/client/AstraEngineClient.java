@@ -21,10 +21,8 @@ import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.editor.SceneEditor;
 import dev.lexawhatt.astraengine.client.ship.ShipRenderer;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
-import dev.lexawhatt.astraengine.client.compat.DistantCloudCompatibility;
 import dev.lexawhatt.astraengine.compat.construction.ArchivedConstruction;
 import dev.lexawhatt.astraengine.surface.HorizonScene;
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.entity.NoopRenderer;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
@@ -43,15 +41,6 @@ import net.neoforged.neoforge.common.NeoForge;
 public final class AstraEngineClient {
     private static final ShipRenderer SHIPS = new ShipRenderer();
     private static final HorizonRenderer HORIZON = new HorizonRenderer();
-    private static DistantCloudCompatibility distantClouds;
-
-    /** Render-thread optional cloud diagnostics, available after physical-client initialization. */
-    public static DistantCloudCompatibility distantCloudCompatibility() {
-        RenderSystem.assertOnRenderThread();
-        if (distantClouds == null) { throw new IllegalStateException("Client cloud integration is not initialized"); }
-        return distantClouds;
-    }
-
     /** Render-thread calibration controls; host-owned instance survives reload while session values reset on logout. */
     public static HorizonRenderer horizonRenderer() {
         RenderSystem.assertOnRenderThread();
@@ -115,10 +104,6 @@ public final class AstraEngineClient {
             else { RenderSystem.recordRenderCall(sky::close); }
         });
         AstralOverworldEffects overworld = new AstralOverworldEffects(sky, solar, options, seasons);
-        distantClouds = new DistantCloudCompatibility(
-                () -> overworld.ownsClouds(Minecraft.getInstance().level) || HORIZON.active());
-        NeoForge.EVENT_BUS.addListener(distantClouds::frame);
-        NeoForge.EVENT_BUS.addListener(distantClouds::logout);
         modEventBus.addListener((RegisterDimensionSpecialEffectsEvent event) -> event.register(
                 BuiltinDimensionTypes.OVERWORLD_EFFECTS, overworld));
         NeoForge.EVENT_BUS.addListener(overworld::fogColor);

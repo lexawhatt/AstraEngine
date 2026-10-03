@@ -10,7 +10,6 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.client.sky.SkyVisibility;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
-import dev.lexawhatt.astraengine.client.compat.DistantFogCompatibility;
 import dev.lexawhatt.astraengine.client.sky.SkyIllumination;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
@@ -46,7 +45,7 @@ import net.neoforged.neoforge.client.event.ViewportEvent;
 import org.joml.Matrix4f;
 import org.lwjgl.opengl.GL11;
 
-/** Connection/render-thread owner of Earth's distant mesh and private depth. No host or DH geometry is replaced. */
+/** Connection/render-thread owner of Earth's distant mesh and private depth. No host geometry is replaced. */
 final class EarthLandscapeRenderer implements AutoCloseable {
     private final EarthStateClient earth;
     private final SkyStateClient seasons;
@@ -62,8 +61,6 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     private Pending pending;
     private ClientLevel level;
     private Depth frameDepth;
-    private DistantFogCompatibility.Frame fogFrame;
-    private final DistantFogCompatibility distantFog = new DistantFogCompatibility(() -> fogFrame);
     private boolean failed;
     private boolean targetFailed;
     private long draws;
@@ -88,7 +85,7 @@ final class EarthLandscapeRenderer implements AutoCloseable {
         }
     }
 
-    void clearFrame() { frameDepth = null; fogFrame = null; }
+    void clearFrame() { frameDepth = null; }
     Depth depth() { return frameDepth; }
     long draws() { return draws; }
 
@@ -125,7 +122,6 @@ final class EarthLandscapeRenderer implements AutoCloseable {
         if (Math.abs(camera.x) > chart.radiusMeters() || Math.abs(camera.z) > chart.radiusMeters()) { return; }
         update(chart, camera.x, camera.z);
         if (vertices == null || mesh == null || targetFailed || !visible()) { return; }
-        distantFog.bind();
         RenderTarget main = game.getMainRenderTarget();
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
         var planet = chart instanceof PlanetChart && planetSky != null ? planetSky.sample(game.level, camera) : null;
@@ -177,7 +173,7 @@ final class EarthLandscapeRenderer implements AutoCloseable {
             terrain.safeGetUniform("Flash").set(flash);
             terrain.safeGetUniform("AtmosphereDensity").set((float) atmosphereDensity);
             terrain.safeGetUniform("NearCoverage").set(nearCoverage(game, camera));
-            // DH may extend getDepthFar independently of the host section render distance.
+            // Keep the native clipping bound tied to actual host section visibility.
             terrain.safeGetUniform("HostFarPlane").set(Math.min(game.gameRenderer.getDepthFar(),
                     game.options.getEffectiveRenderDistance() * 64.0f));
             terrain.safeGetUniform("BandAltitude").set((float) (chart.altitudeOriginMeters() + chart.minY()),
@@ -195,9 +191,6 @@ final class EarthLandscapeRenderer implements AutoCloseable {
             FullscreenPass.draw(compose);
         }
         frameDepth = new Depth(target.getDepthTextureId(), new Matrix4f(projection).mul(event.getModelViewMatrix()).invert());
-        float[] fog = RenderSystem.getShaderFogColor();
-        fogFrame = new DistantFogCompatibility.Frame(game.level.dimension().location().toString(),
-                (float) (22_000 / Math.max(1e-6, atmosphereDensity)), fog[0], fog[1], fog[2]);
         draws++;
     }
 
@@ -299,8 +292,6 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     @Override public void close() {
         palette = null; planetPalette = null;
         RenderSystem.assertOnRenderThread();
-        fogFrame = null;
-        distantFog.close();
         if (pending != null) { pending.cancelled().set(true); pending = null; }
         if (vertices != null) { vertices.close(); vertices = null; }
         if (target != null) { target.destroyBuffers(); target = null; }

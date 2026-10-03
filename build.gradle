@@ -175,8 +175,7 @@ dependencies {
     // The upstream mod is never bundled or required at runtime by AstraEngine.
     compileOnly('maven.modrinth:iris:t3ruzodq') { transitive = false }
     verificationCompileOnly('maven.modrinth:iris:t3ruzodq') { transitive = false }
-    // Optional DH cloud events and geographic LOD generation use its public API; DH is never bundled or required.
-    compileOnly('maven.modrinth:distanthorizons:9w34y8ai') { transitive = false }
+    // Historical optional-DH diagnostics remain verification-only; no DH code or dependency ships in the mod.
     verificationCompileOnly('maven.modrinth:distanthorizons:9w34y8ai') { transitive = false }
     verificationImplementation sourceSets.main.output
     testImplementation platform('org.junit:junit-bom:5.11.4')

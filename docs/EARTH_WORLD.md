@@ -21,9 +21,14 @@ suppresses Minecraft's intermediary waiting screen. Slow or unavailable terrain
 retains the reached valid pose. Stop or turn away to cancel space-entry preparation;
 a veto cannot move the player into an unaccepted destination. Real builds are not
 cleared, and neither procedural height fields nor client acknowledgements create
-collision authority. Ground inspection uses normal block collision, a maximum
-2,560 m/s physical speed and bounded steps near storage seams. Space has its separate
-astronomical speed range. Legacy local patches retain their separate guided route.
+collision authority. Ground inspection uses normal block collision. Already loaded,
+entirely empty swept sections permit vertical movement up to 51,200 m/s; nonempty
+terrain retains 2,560 m/s movement with small collision steps. Horizontal streaming
+and prepared seam crossings remain bounded. The selected speed is retained across
+these local constraints. Space has its separate astronomical speed range.
+The map's **To orbit** button prepares an explicit 150 km shortcut above the current
+geographic location, with **B** cancellation and **R** recovery to its real source.
+Legacy local patches retain their separate guided route.
 
 The bound Earth uses the Overworld's saved calendar for Sol orbital motion and
 its complete axial/spin orientation. The default 365 game days span one canonical
@@ -51,8 +56,8 @@ Missing `cave_version` decodes as zero, preserving old solid underground generat
 Saved version one retains its original broad chambers and 2,400-meter depth envelope.
 Already saved chunks are never recarved. Changing a saved generator by hand is not
 a migration and can introduce chunk borders. The cave field uses physical altitude
-across face/band representations, including the automatic storage handoffs described below. Direct DH background data uses the cheap
-uncarved exterior column; actual lit chunks replace it with observed geometry.
+across face/band representations, including the automatic storage handoffs described below. The native distant mesh samples the exterior field; nearby actual chunks
+retain their carved geometry and local lighting.
 
 With Astra's automatic sky/lighting active, enclosed unlit cells lose the host's
 pre-gamma ambient boost. Block-source light and night vision retain their behavior.
@@ -65,8 +70,8 @@ The geographic surface also continues beyond loaded chunks as a bounded distant
 mesh from the same saved height/climate field. Oceans and mountain silhouettes
 use the physical Earth radius. Near the player, the mesh preserves the host's flat
 chart appearance; a smooth presentation transition ends at 32.768 km in the physical
-tangent view. This does not reproject host/DH blocks or change collision. Current
-chunks and DH LODs render over the background. The derived mesh contains procedural terrain with bounded observed edit summaries.
+tangent view. This does not reproject host blocks or change collision. Current
+chunks render over the background. The derived mesh contains procedural terrain with bounded observed edit summaries.
 Only real nearby block observations are voxel interaction targets.
 Beach/desert materials use the same climate classification as the block generator;
 water follows the source-water surface datum. Derivative-filtered material detail
@@ -97,6 +102,13 @@ save format or global palette patch is introduced. At the FEATURES stage, Earth
 heightmap priming skips section palettes which cannot satisfy the requested block
 predicate. It still reads actual blocks, including earlier mod edits, and writes
 the standard host heightmaps. Other generators retain Minecraft's original path.
+
+Owned 4064-meter Earth and solid-planet chunk reads reuse at most sixteen successful
+singleton block/biome decodes within that one read. The first value passes the
+original codec, and reuse requires an exact canonical NBT key and the same codec;
+each section receives an independent ordinary host container. Partial/error results,
+mixed palettes and other generators retain the original path. Templates never cross
+reads, registries or worlds, and the saved format is unchanged.
 This avoids scanning thousands of water layers for a seabed outside the current
 altitude band. The whole globe is not
 generated at full block detail during creation.
@@ -158,7 +170,7 @@ pregeneration. Noncanonical pure-model seeds prepare their own immutable atlas
 at construction and must be constructed on a startup/worker thread.
 
 The same sampler returns bed elevation, water elevation, temperature and moisture.
-Chunk columns, direct DH columns, landing queries and distant/orbital presentation
+Chunk columns, landing queries and distant/orbital presentation
 use those observations. Regional rivers are ordinary Minecraft water over gravel;
 a twelve-meter rock roof protects submerged river beds from the cave carver.
 A dedicated saved river biome entry retains host river decoration. The twelve
@@ -217,7 +229,6 @@ These are base regional summaries. A separate bounded layer of observed surface
 edits adds buildings, excavation, changed surface materials and exposed emission
 to nearby orbital and distant views; see [persistent surface summaries](PLANET_SURFACES.md).
 Custom consumer biome-palette synchronization remains outside the base palette.
-The optional DH base-column override remains undecorated until actual chunk data arrives.
 
 The server announces the Earth binding at login. The client retains it across
 resource reload and clears it on logout. F3 then displays longitude, latitude and
@@ -275,10 +286,8 @@ flashlight, local block emission and night-vision images, and exercises rebindin
 menu suppression, resource reload and disconnect. Pure connected-component checks
 and dedicated carver/legacy-codec/ocean-roof tests complement this visible scenario.
 
-The `earth-rivers` phase requires DH 3.3.3 in its disposable profile. It creates
-terrain v3, compares the prior and optimized DH loops over identical geographic
-requests, validates raised river water and empty flight data, and captures river
-valley, elevated river, ocean-mouth and mountain views. Six real generated river
-chunks are also checked by dedicated GameTests, including their water level,
-river biome and protected cave roofs. Pure checks cover outlet reachability,
-downhill profiles, confluences, globe seams and bounded shoreline refinement.
+Six real generated river chunks are checked by dedicated GameTests, including
+their water level, river biome and protected cave roofs. Pure checks cover outlet
+reachability, downhill profiles, confluences, globe seams and bounded shoreline
+refinement. Earlier DH-specific river measurements are retired historical evidence;
+the planetary renderer and alpha qualification now use the native landscape.

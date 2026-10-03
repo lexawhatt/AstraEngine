@@ -409,7 +409,7 @@ terrain heights, block ownership or collision.
 
 `EarthLandscapeRenderer` draws that mesh into a private color/depth target at the
 main viewport size, using its own 4,000 km far plane. Only covered pixels compose at
-AFTER_SKY. Host opaque terrain and optional DH draw afterward. The host depth buffer
+AFTER_SKY. Host opaque terrain draws afterward. The host depth buffer
 and projection remain unchanged. Atmospheric transport receives a borrowed depth
 texture plus its actual inverse projection for this frame; it reconstructs distances
 separately and lets host geometry cover the background. Raw depths are never compared.
@@ -421,15 +421,10 @@ The near coverage mask excludes land only inside the current storage band and
 native far-plane bound. A bounded 16-to-48-meter neighborhood checks existing
 client chunks, actual top heightmaps and the host renderer's compiled-section
 state before yielding to nearby geometry. Missing/unmeshed terrain retains the
-background; these checks never request chunk generation. DH can extend the host
-projection far plane, so that value is additionally capped by native render distance.
+background; these checks never request chunk generation. The far-plane bound is
+also capped by native render distance.
 Background water remains beneath translucent host fluids. Looking down from an
 upper band retains the geographic ground below that band.
 
-When the native background is actually drawn, an optional DH API 7.2 fog callback
-uses the same 22 km altitude-dependent exponential length and fog color for DH's
-terrain pass. The parameters belong to that pass; no user setting is written.
-This prevents a short configured LOD radius from turning terrain directly below
-a high observer into an opaque sky-colored polygon. The callback is dimension
-and frame scoped, yields to active packs and suppressed/failed native rendering,
-and is removed on reload or world retirement.
+Distant Horizons integration is retired. Native geographic geometry and actual
+host chunks provide the planetary view; no additional masking fog is introduced.
