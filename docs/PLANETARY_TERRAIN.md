@@ -115,4 +115,3 @@ The first phase refuses an existing fixture world. The second requires the first
 phase's completion marker, checkpoint and saved world, then verifies modified
 blocks above one kilometer and below sea level. Captures include geographic F3.
 Both phases must produce `verified-<phase>.txt` and a successful Gradle exit.
-
