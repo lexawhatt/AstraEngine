@@ -343,6 +343,13 @@ bloom levels. HDR controls and limits are described in the
 [rendering documentation](RENDERING.md); full global illumination and physical
 ray tracing are not implemented.
 
+Above canonical Earth's 100 km boundary, the renderer omits distant galaxy work
+only where a conservative bound establishes full opaque surface coverage. The
+limb and uncertain rays retain the complete background, and star derivatives
+are evaluated before that branch. Terrain intersections, clouds, atmospheric
+transport and material quality keep their existing budgets. Ground views,
+other bodies and lensing retain the ordinary path.
+
 ## Viewing the Milky Way from outside
 
 The sky uses the observer's galactic position and one stable galaxy seed, so

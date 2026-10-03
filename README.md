@@ -596,6 +596,22 @@ This fixture has a 600-second deadline and toggles Iris settings only in its
 disposable test directory. It checks pack ownership, toggles, reload and shadow
 isolation, then consumer previews, depth and free-camera flight.
 
+The opaque Earth background optimization has an independent native comparison:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-earth-core -PverifyPhase=earth-core-occlusion
+```
+
+It compares the retained original shader with the registered renderer, checks
+actual surface hit and full pixel coverage, and exercises uncertain limb rays,
+ground/lensing fallbacks and the relief-distance boundary. Forward and reverse
+GPU timing windows use clouds disabled; this does not qualify cloud performance.
+Use a fresh directory and retain its settings/mod list with the results.
+
+The separate `earth-relief-cost` phase measures whole-renderer timing differences
+with private relief/background bypasses. These bypasses are diagnostic only and
+never change the shipped renderer's quality settings.
+
 ## Structure
 
 - `src/main/java/dev/lexawhatt/astraengine/`: common mod code.

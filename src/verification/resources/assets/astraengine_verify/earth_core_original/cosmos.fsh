@@ -135,8 +135,8 @@ vec3 stars(vec3 ray, float scale, float density, float gain) {
 
 #moj_import <astraengine:galaxy.glsl>
 
-vec3 universe(vec3 ray, float pixelAngle, vec3 derivativeStars) {
-    return galacticSky(ray, pixelAngle, derivativeStars);
+vec3 universe(vec3 ray, float pixelAngle) {
+    return galacticSky(ray, pixelAngle);
 }
 
 vec3 surfaceCoordinates(vec3 n, float tilt, float spin) {
@@ -671,69 +671,6 @@ bool foregroundOfLens(vec3 ray, int index, float lensPlane) {
     return ratio < 1.0;
 }
 
-// Conservative opaque Earth core: retain the full path wherever coverage is uncertain.
-// Retain every uncertain ray. This changes only work hidden by a fully opaque canonical Earth.
-const float EARTH_CORE_FP = 0.000003814697265625; // 64 binary32 unit roundoffs.
-
-bool earthOpaqueCore(vec3 ray, float pixelAngle) {
-    if (ContinentalEarth == 0 || LensIndex >= 0 || SurfaceHorizon.w != 0.0 || BodyCount <= 0
-            || any(isnan(ray)) || any(isinf(ray)) || isnan(pixelAngle) || isinf(pixelAngle)) { return false; }
-    float raySquared = dot(ray, ray);
-    if (raySquared < 0.99 || raySquared > 1.01 || pixelAngle <= 0.0) { return false; }
-    for (int index = 0; index < 12; index++) {
-        if (index >= BodyCount) { break; }
-        vec4 geography = BodyGeography[index];
-        if (!(geography.x > 1.5 && geography.x < 2.5) || int(BodyColorKind[index].w + 0.5) != 3
-                || geography.y < 100000.0 || geography.z != 6371000.0
-                || any(isnan(geography)) || any(isinf(geography))) { continue; }
-        vec4 descriptor = BodyDirectionRadius[index];
-        vec3 center = descriptor.xyz;
-        float radius = descriptor.w;
-        float centerSquared = dot(center, center);
-        float distanceMeters = geography.z + geography.y;
-        if (any(isnan(descriptor)) || any(isinf(descriptor)) || centerSquared < 0.99 || centerSquared > 1.01
-                || radius <= 0.0 || radius >= 1.0 || !(distanceMeters > 0.0)
-                || abs(radius - geography.z / distanceMeters) > EARTH_CORE_FP * (1.0 + radius)) { continue; }
-        float alongRay = dot(ray, center);
-        if (!(alongRay > 0.0)) { continue; }
-        float separation = length(center - ray * alongRay);
-        float radiusLower = radius - EARTH_CORE_FP * (1.0 + radius);
-        if (geography.w > 0.5 && geography.y < 500000.0) {
-            vec3 up = mappedSurfaceCoordinates(-center, BodyLightTilt[index].w, BodySpin[index], geography);
-            vec3 fixedRay = mappedSurfaceCoordinates(ray, BodyLightTilt[index].w, BodySpin[index], geography);
-            float along = distanceMeters * dot(up, fixedRay);
-            // Bound the source sea-shell c/q endpoint, including coefficient roundoff. A strictly
-            // positive discriminant lower bound avoids tangent-root conditioning assumptions.
-            float alongError = EARTH_CORE_FP * distanceMeters * (dot(abs(up), abs(fixedRay)) + 1.0);
-            float alongUpper = along + alongError;
-            float c = geography.y * (2.0 * geography.z + geography.y);
-            float cUpper = c + EARTH_CORE_FP * abs(geography.y) * (2.0 * abs(geography.z) + abs(geography.y));
-            float discLower = alongUpper * alongUpper - cUpper
-                    - EARTH_CORE_FP * (alongUpper * alongUpper + abs(cUpper));
-            if (!(alongUpper < 0.0) || !(discLower > 0.0)) { continue; }
-            float qLower = (-alongUpper + sqrt(discLower)) * (1.0 - EARTH_CORE_FP);
-            if (!(qLower > 0.0)) { continue; }
-            float maximumTravel = cUpper / qLower / distanceMeters * (1.0 + 4.0 * EARTH_CORE_FP);
-            if (!(maximumTravel > 0.0) || maximumTravel > 2.0 || isnan(maximumTravel) || isinf(maximumTravel)) { continue; }
-            vec2 outer = reliefShell(along, geography.y, geography.z, 10000.0);
-            vec2 inner = reliefShell(along, geography.y, geography.z, 0.0);
-            if (!(outer.y > 0.0) || outer.y < outer.x || inner.x <= max(0.0, outer.x) || inner.y < inner.x) { continue; }
-            // Every accepted original march/refinement travel and its sea fallback is <=inner.x.
-            // Minimize the actual unrotated camera-relative radius over the enlarged travel interval,
-            // not an ideal sphere: normalized CPU directions and GPU rotations can differ by ulps.
-            float closest = clamp(alongRay / raySquared, 0.0, maximumTravel);
-            float pointError = EARTH_CORE_FP * (length(center) + length(ray) * maximumTravel + 1.0);
-            radiusLower = length(center - ray * closest) - pointError;
-        }
-        // The initial sphere uses pixelAngle; displaced coverage uses at most
-        // pixelAngle + .5*pixelAngle^2. Keep a separate rounding margin and strict inequality.
-        float limb = pixelAngle + 0.5 * pixelAngle * pixelAngle;
-        float comparisonError = EARTH_CORE_FP * (abs(radiusLower) + abs(separation) + limb + 1.0);
-        if (radiusLower > 0.0 && separation + limb + comparisonError < radiusLower) { return true; }
-    }
-    return false;
-}
-
 void main() {
     vec4 reconstructed = InverseViewProjection * vec4(clipPosition, 1.0, 1.0);
     vec3 ray = normalize(reconstructed.xyz / reconstructed.w);
@@ -753,10 +690,8 @@ void main() {
             lensPlane = surface > 0.0 ? surface : max(dot(ray, descriptor.xyz), 0.001);
         }
     }
-    // Keep the sole background derivative site unconditional, even under opaque Earth.
-    // The expensive galaxy volumes/population have no implicit derivatives or texture sampling.
-    vec3 derivativeStars = stars(sourceRay, 370.0, 0.012, 0.07);
-    vec3 color = earthOpaqueCore(ray, pixelAngle) ? vec3(0.0) : universe(sourceRay, pixelAngle, derivativeStars);
+    // Compute background derivatives before divergent body paths.
+    vec3 color = universe(sourceRay, pixelAngle);
     float bloomWeight = 1.0;
     // One body-material call site prevents drivers from triplicating the full
     // relief program. The host bounds BodyCount to 12 and all relief loop budgets.

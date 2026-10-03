@@ -337,11 +337,11 @@ vec3 atlasRegion(vec3 background, vec3 worldRay, int index, float pixelAngle) {
     return background * transmission + emission;
 }
 
-vec3 galacticSky(vec3 worldRay, float pixelAngle, vec3 derivativeStars) {
+vec3 galacticSky(vec3 worldRay, float pixelAngle) {
     vec3 color = vec3(0.00001, 0.000015, 0.000025);
     // A faint unresolved extragalactic residue is direction-only; local stars below
     // occupy fixed three-dimensional cells and catalog stars use real CPU descriptors.
-    color += derivativeStars;
+    color += stars(worldRay, 370.0, 0.012, 0.07);
     for (int galaxy = 0; galaxy < 9; galaxy++) {
         if (galaxy >= GalaxyCount) { break; }
         vec3 observer = GalaxyObserver[galaxy].xyz;
@@ -372,9 +372,4 @@ vec3 galacticSky(vec3 worldRay, float pixelAngle, vec3 derivativeStars) {
         color += CatalogStarColor[star] * source.w * exp(-dot(offset, offset) / (width * width));
     }
     return max(color, vec3(0));
-}
-
-// Non-Cosmos callers retain the original unguarded background contract.
-vec3 galacticSky(vec3 worldRay, float pixelAngle) {
-    return galacticSky(worldRay, pixelAngle, stars(worldRay, 370.0, 0.012, 0.07));
 }
