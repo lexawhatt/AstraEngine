@@ -16,6 +16,7 @@ import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.surface.SurfaceDefinition;
 import dev.lexawhatt.astraengine.surface.SurfaceGeography;
 import dev.lexawhatt.astraengine.surface.EarthSurfacePalette;
+import dev.lexawhatt.astraengine.surface.SolidPlanetProfile;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +43,8 @@ public final class CosmosRenderer implements AutoCloseable {
     private final LateSkyRenderer lateSky = new LateSkyRenderer("cosmos");
     private final SurfaceHeightCache earthHeights = new SurfaceHeightCache();
     private final ContinentalSurfaceCache continental = new ContinentalSurfaceCache();
+    private final PlanetSurfaceCache planets = new PlanetSurfaceCache();
+    private final OrbitalEditAtlas orbitalEdits = new OrbitalEditAtlas();
     private EarthSurfacePalette earthPalette;
     private int continentalVersion;
     private RenderOptions options;
@@ -59,6 +62,8 @@ public final class CosmosRenderer implements AutoCloseable {
     public void registerShaders(RegisterShadersEvent event) {
         earthHeights.close();
         continental.close();
+        planets.close();
+        orbitalEdits.close();
         earthPalette = null;
         bloom.registerShaders(event);
         lateSky.registerShaders(event);
@@ -83,6 +88,8 @@ public final class CosmosRenderer implements AutoCloseable {
     public void close() {
         earthHeights.close();
         continental.close();
+        planets.close();
+        orbitalEdits.close();
         earthPalette = null;
         bloom.close();
         lateSky.close();
@@ -96,8 +103,15 @@ public final class CosmosRenderer implements AutoCloseable {
 
     /** Selects the server-confirmed new Earth geography; legacy worlds retain their saved surface field. */
     public void setContinentalEarth(int version) {
-        if (version < 0 || version > 2) { throw new IllegalArgumentException("Unknown continental terrain version"); }
+        if (version < 0 || version > dev.lexawhatt.astraengine.surface.ContinentalTerrain.CURRENT_VERSION) {
+            throw new IllegalArgumentException("Unknown continental terrain version");
+        }
         continentalVersion = version;
+    }
+
+    /** Connection-owned derived edit snapshots; the renderer owns only their bounded GPU atlas. */
+    public void setOrbitalSummaries(dev.lexawhatt.astraengine.client.surface.orbit.OrbitalSummaryClient source) {
+        orbitalEdits.setSource(source);
     }
 
     /** Sets the procedural detail budget: 0 low, 1 balanced, 2 high. Render thread only. */
@@ -162,7 +176,7 @@ public final class CosmosRenderer implements AutoCloseable {
                        double timeSeconds, double orbitalSeconds, FlightOrientation earthOrientation,
                        float warp, float exposure) {
         renderFrame(event, system, cameraMeters, timeSeconds, orbitalSeconds, earthOrientation,
-                warp, exposure, FlightOrientation.IDENTITY, false);
+                warp, exposure, FlightOrientation.IDENTITY, false, 1);
     }
 
     /** Ground view using the same signed orbital epoch and complete Earth rotation as flight. */
@@ -171,7 +185,18 @@ public final class CosmosRenderer implements AutoCloseable {
                              float exposure, FlightOrientation localToSystem) {
         if (localToSystem == null) { throw new IllegalArgumentException("Surface orientation must not be null"); }
         renderFrame(event, system, cameraMeters, timeSeconds, orbitalSeconds, earthOrientation,
-                0, exposure, localToSystem, true);
+                0, exposure, localToSystem, true, 1);
+    }
+
+    /** Blends the shared orbital view above a bound atmosphere without changing physical radii or its HDR exposure. */
+    public void renderSurface(RenderLevelStageEvent event, CosmosSystem system, SpaceVector cameraMeters,
+                             double timeSeconds, double orbitalSeconds, FlightOrientation earthOrientation,
+                             float exposure, FlightOrientation localToSystem, float opacity) {
+        if (localToSystem == null || !Float.isFinite(opacity) || opacity < 0 || opacity > 1) {
+            throw new IllegalArgumentException("Surface composition requires an orientation and opacity in [0,1]");
+        }
+        renderFrame(event, system, cameraMeters, timeSeconds, orbitalSeconds, earthOrientation,
+                0, exposure, localToSystem, true, opacity);
     }
 
     private static BodyFixedFrame fixedFrame(SurfaceDefinition definition,
@@ -183,7 +208,7 @@ public final class CosmosRenderer implements AutoCloseable {
     private void renderFrame(RenderLevelStageEvent event, CosmosSystem system, SpaceVector cameraMeters,
                              double timeSeconds, double orbitalSeconds, FlightOrientation earthOrientation,
                              float warp, float exposure, FlightOrientation localToSystem,
-                             boolean surfaceView) {
+                             boolean surfaceView, float opacity) {
         if (RenderCompatibility.shadowPass()) { return; }
         boolean late = RenderCompatibility.lateWorldPasses();
         var stage = late ? RenderLevelStageEvent.Stage.AFTER_LEVEL : RenderLevelStageEvent.Stage.AFTER_SKY;
@@ -239,10 +264,23 @@ public final class CosmosRenderer implements AutoCloseable {
         }
         shader.safeGetUniform("Evolution").set(solar.depletion(), solar.collapse(), solar.explosionSeconds(), solar.remnant());
         shader.safeGetUniform("SolarLight").set(solar.luminosity(), solar.flash(), solar.radiusScale(), 0.0f);
+        List<SolidPlanetProfile> solidProfiles = new ArrayList<>();
+        SolidPlanetProfile nearestProfile = null;
+        SpaceVector nearestObserver = null;
+        double nearestAltitude = Double.POSITIVE_INFINITY;
         for (int i = 0; i < bodyCount; i++) {
             CelestialFrame.Body frame = frames.get(i);
             CelestialBody body = frame.descriptor();
             SurfaceDefinition definition = SurfaceDefinition.find(system.id(), body.id()).orElse(null);
+            SolidPlanetProfile solid = system.id().equals("sol") && body.id().equals("earth") ? null
+                    : SolidPlanetProfile.create(system, body).orElse(null);
+            solidProfiles.add(solid);
+            if (solid != null && frame.distance() - body.radiusMeters() < nearestAltitude
+                    && frame.distance() > body.radiusMeters() - 10_000) {
+                nearestAltitude = frame.distance() - body.radiusMeters();
+                nearestProfile = solid;
+                nearestObserver = nearestAltitude < 520_000 ? solid.frame(system, orbitalSeconds).toBodyPoint(cameraMeters) : null;
+            }
             if (!mappedContinent && definition != null && definition.geography().kind() == SurfaceGeography.Kind.EARTH
                     && frame.distance() > body.radiusMeters() - 1000 && frame.distance() < body.radiusMeters() + 120_000) {
                 nearbyEarth = true;
@@ -262,7 +300,7 @@ public final class CosmosRenderer implements AutoCloseable {
             float seed = Math.floorMod(body.id().hashCode() ^ (int) system.seed(), 1024);
             float renderRadius = frame.radiusRatio();
             // The legacy lunar material retains its local reference shell until its own relief intersection is added.
-            if (definition != null && definition.geography().kind() == SurfaceGeography.Kind.MOON
+            if (solid == null && definition != null && definition.geography().kind() == SurfaceGeography.Kind.MOON
                     && frame.distance() < body.radiusMeters() + 100_000) {
                 var fixed = fixedFrame(definition, system, timeSeconds, orbitalSeconds, earthOrientation);
                 SpaceVector bodyPoint = fixed.toBodyPoint(cameraMeters);
@@ -279,12 +317,12 @@ public final class CosmosRenderer implements AutoCloseable {
                     body.ringInnerRatio(), body.ringOuterRatio());
             shader.safeGetUniform("BodyLightTilt[" + i + "]").set((float) light.x(), (float) light.y(),
                     (float) light.z(), (float) body.axialTiltRadians());
-            shader.safeGetUniform("BodyGeography[" + i + "]").set(definition == null ? 0 : definition.geography().kind().ordinal() + 1,
+            shader.safeGetUniform("BodyGeography[" + i + "]").set(solid != null ? 3 : definition == null ? 0 : definition.geography().kind().ordinal() + 1,
                     (float) (frame.distance() - body.radiusMeters()), (float) body.radiusMeters(),
-                    definition != null && definition.geography().kind() == SurfaceGeography.Kind.EARTH ? 1 : 0);
+                    solid != null || definition != null && definition.geography().kind() == SurfaceGeography.Kind.EARTH ? 1 : 0);
             shader.safeGetUniform("BodyGeographySeed[" + i + "]").set(
                     definition == null ? 0 : definition.geography().shaderSeed());
-            if (definition != null && body.atmosphere() > 0) {
+            if ((definition != null || solid != null) && body.atmosphere() > 0) {
                 SpaceVector relativeKm = cameraMeters.subtract(frame.position()).multiply(0.001);
                 if (relativeKm.length() < body.radiusMeters() * 0.03) {
                     atmosphereIndex = i;
@@ -297,7 +335,9 @@ public final class CosmosRenderer implements AutoCloseable {
             double rotationSeconds = body.kind() == CelestialBody.Kind.PULSAR
                     ? 1.2 + seed / 1024.0 * 2.0
                     : body.kind() == CelestialBody.Kind.GAS_GIANT ? 36000 : 86400;
-            shader.safeGetUniform("BodySpin[" + i + "]").set(definition == null
+            shader.safeGetUniform("BodySpin[" + i + "]").set(solid != null
+                    ? (float) (Math.IEEEremainder(orbitalSeconds, solid.rotationSeconds()) / solid.rotationSeconds() * Math.PI * 2)
+                    : definition == null
                     ? (float) ((timeSeconds % rotationSeconds) / rotationSeconds * Math.PI * 2)
                     : (float) (earthOrientation == null ? definition.spinRadians(orbitalSeconds, timeSeconds * 20)
                             : Math.IEEEremainder(orbitalSeconds, body.orbitalPeriodSeconds()) / body.orbitalPeriodSeconds() * Math.PI * 2));
@@ -307,6 +347,9 @@ public final class CosmosRenderer implements AutoCloseable {
         if (mappedContinent) { continental.update(continentalVersion, continentalObserver); }
         else { continental.close(); }
         continental.bind(shader);
+        planets.update(solidProfiles, nearestProfile, nearestObserver);
+        planets.bind(shader, solidProfiles);
+        orbitalEdits.bind(shader, system.id(), frames.stream().map(frame -> frame.descriptor().id()).toList());
         shader.safeGetUniform("EvolutionIndex").set(evolutionIndex);
         shader.safeGetUniform("AtmosphereBodyIndex").set(atmosphereIndex);
         shader.safeGetUniform("SurfaceHorizon").set((float) up.x(), (float) up.y(), (float) up.z(),
@@ -315,17 +358,17 @@ public final class CosmosRenderer implements AutoCloseable {
         shader.safeGetUniform("SurfaceFog").set(fog[0], fog[1], fog[2]);
         shader.safeGetUniform("NucleusBodyIndex").set(nucleusIndex);
         if (late) {
-            lateSky.render(() -> drawSky(exposure));
+            lateSky.render(() -> drawSky(exposure, 1), opacity);
         } else {
             lateSky.close();
-            drawSky(exposure);
+            drawSky(exposure, opacity);
         }
     }
 
-    private void drawSky(float exposure) {
-        if (!bloom.render(shader, options, exposure, 8)) {
+    private void drawSky(float exposure, float opacity) {
+        if (!bloom.render(shader, options, exposure, 11, opacity)) {
             shader.safeGetUniform("HdrOutput").set(0);
-            try (var state = new FullscreenPass(8)) { FullscreenPass.draw(shader); }
+            try (var state = new FullscreenPass(11)) { FullscreenPass.drawOpacity(shader, opacity); }
         }
     }
 

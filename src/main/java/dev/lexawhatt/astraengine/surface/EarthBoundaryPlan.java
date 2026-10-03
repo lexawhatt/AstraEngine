@@ -9,12 +9,12 @@ import java.util.Optional;
 import net.minecraft.core.SectionPos;
 
 /** Immutable bounded section request around a nearby storage seam. Planning never reads or generates a world. */
-public record EarthBoundaryPlan(EarthChart source, SpaceVector anchorFeet, SpaceVector focusFeet,
+public record EarthBoundaryPlan(CubeStorageChart source, SpaceVector anchorFeet, SpaceVector focusFeet,
         int radiusMeters, List<Address> sections) {
     public static final double PREPARE_DISTANCE = 48;
 
     /** A canonical section owner, not a copy in the observing chart. */
-    public record Address(EarthChart chart, SectionPos section) {
+    public record Address(CubeStorageChart chart, SectionPos section) {
         public Address {
             if (chart == null || section == null) { throw new IllegalArgumentException("Boundary section address is required"); }
             section = SectionPos.of(section.x(), section.y(), section.z());
@@ -35,17 +35,17 @@ public record EarthBoundaryPlan(EarthChart source, SpaceVector anchorFeet, Space
      * altitude edge has no stored neighbor. Smaller radii bound corner observations to the packet budget.
      * Null/outside source positions throw; the caller owns prefetch tickets and preparation status.
      */
-    public static Optional<EarthBoundaryPlan> around(EarthChart source, SpaceVector feet) {
+    public static Optional<EarthBoundaryPlan> around(CubeStorageChart source, SpaceVector feet) {
         if (source == null || !source.contains(feet)) { throw new IllegalArgumentException("Boundary planning requires canonical feet"); }
-        double radius = EarthChart.RADIUS_METERS;
+        double radius = source.radiusMeters();
         double x = feet.x(), y = feet.y(), z = feet.z(); boolean near = false;
         if (Math.abs(x) > radius - PREPARE_DISTANCE) { x = Math.copySign(radius - .001, x); near = true; }
         if (Math.abs(z) > radius - PREPARE_DISTANCE) { z = Math.copySign(radius - .001, z); near = true; }
-        if (y < EarthChart.MIN_Y + PREPARE_DISTANCE && source.band() > EarthChart.MIN_BAND) {
-            y = EarthChart.MIN_Y + .001; near = true;
+        if (y < source.minY() + PREPARE_DISTANCE && source.chart(source.face(), source.band() - 1).isPresent()) {
+            y = source.minY() + .001; near = true;
         }
-        if (y > EarthChart.MIN_Y + EarthChart.HEIGHT - PREPARE_DISTANCE && source.band() < EarthChart.MAX_BAND) {
-            y = EarthChart.MIN_Y + EarthChart.HEIGHT - .001; near = true;
+        if (y > source.minY() + source.height() - PREPARE_DISTANCE && source.chart(source.face(), source.band() + 1).isPresent()) {
+            y = source.minY() + source.height() - .001; near = true;
         }
         if (!near) { return Optional.empty(); }
         var focus = new SpaceVector(x, y, z);
@@ -58,18 +58,30 @@ public record EarthBoundaryPlan(EarthChart source, SpaceVector anchorFeet, Space
         throw new IllegalStateException("Earth seam neighborhood cannot fit its bounded section budget");
     }
 
-    private static List<Address> sections(EarthChart source, SpaceVector focus, int extent) {
-        var owners = new LinkedHashSet<EarthChart>();
+    /** A real bounded destination view for a free space crossing, including any adjacent canonical owners. */
+    public static EarthBoundaryPlan arrival(CubeStorageChart source, SpaceVector feet) {
+        if (source == null || !source.contains(feet)) { throw new IllegalArgumentException("Arrival planning requires canonical feet"); }
+        for (int extent : new int[]{16, 12, 8, 4}) {
+            var addresses = sections(source, feet, extent);
+            if (addresses.size() <= EarthBoundarySnapshot.MAX_SECTIONS) {
+                return new EarthBoundaryPlan(source, feet, feet, extent, addresses);
+            }
+        }
+        throw new IllegalStateException("Arrival neighborhood cannot fit its bounded section budget");
+    }
+
+    private static List<Address> sections(CubeStorageChart source, SpaceVector focus, int extent) {
+        var owners = new LinkedHashSet<CubeStorageChart>();
         for (int x : new int[]{-extent, 0, extent}) {
             for (int y : new int[]{-extent, 0, extent}) {
                 for (int z : new int[]{-extent, 0, extent}) {
-                    EarthChartRebase.resolve(source, focus.add(new SpaceVector(x, y, z)), SpaceVector.ZERO,
+                    CubeChartRebase.resolve(source, focus.add(new SpaceVector(x, y, z)), SpaceVector.ZERO,
                             FlightOrientation.IDENTITY).ifPresent(value -> owners.add(value.chart()));
                 }
             }
         }
         var result = new ArrayList<Address>();
-        for (EarthChart owner : owners) {
+        for (CubeStorageChart owner : owners) {
             var transform = new EarthChartTransform(source, owner);
             double minX = Double.POSITIVE_INFINITY, minY = minX, minZ = minX;
             double maxX = Double.NEGATIVE_INFINITY, maxY = maxX, maxZ = maxX;
@@ -82,9 +94,9 @@ public record EarthBoundaryPlan(EarthChart source, SpaceVector anchorFeet, Space
                     }
                 }
             }
-            double radius = EarthChart.RADIUS_METERS;
-            minX = Math.max(-radius, minX); minZ = Math.max(-radius, minZ); minY = Math.max(EarthChart.MIN_Y, minY);
-            maxX = Math.min(radius, maxX); maxZ = Math.min(radius, maxZ); maxY = Math.min(EarthChart.MIN_Y + EarthChart.HEIGHT, maxY);
+            double radius = source.radiusMeters();
+            minX = Math.max(-radius, minX); minZ = Math.max(-radius, minZ); minY = Math.max(source.minY(), minY);
+            maxX = Math.min(radius, maxX); maxZ = Math.min(radius, maxZ); maxY = Math.min(source.minY() + source.height(), maxY);
             if (maxX <= minX || maxY <= minY || maxZ <= minZ) { continue; }
             int x0 = section(minX), y0 = section(minY), z0 = section(minZ);
             int x1 = section(Math.nextDown(maxX)), y1 = section(Math.nextDown(maxY)), z1 = section(Math.nextDown(maxZ));

@@ -7,8 +7,10 @@ import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.mojang.blaze3d.vertex.Tesselator;
 import com.mojang.blaze3d.vertex.VertexFormat;
 import net.minecraft.client.renderer.ShaderInstance;
+import org.lwjgl.opengl.ARBImaging;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL13;
+import org.lwjgl.opengl.GL14;
 import org.lwjgl.opengl.GL20;
 import org.lwjgl.opengl.GL30;
 
@@ -55,6 +57,18 @@ public final class FullscreenPass implements AutoCloseable {
      * a captured FullscreenPass so the temporary ALWAYS depth function is restored afterward.
      */
     public static void draw(ShaderInstance shader, boolean writeDepth) {
+        draw(shader, writeDepth, 1);
+    }
+
+    /** Blends a finished display image into the current target without changing its source radiance or alpha metadata. */
+    public static void drawOpacity(ShaderInstance shader, float opacity) {
+        if (!Float.isFinite(opacity) || opacity < 0 || opacity > 1) {
+            throw new IllegalArgumentException("Fullscreen display opacity must be in [0,1]");
+        }
+        draw(shader, false, opacity);
+    }
+
+    private static void draw(ShaderInstance shader, boolean writeDepth, float opacity) {
         if (writeDepth) {
             RenderSystem.enableDepthTest();
             RenderSystem.depthFunc(GL11.GL_ALWAYS);
@@ -63,7 +77,34 @@ public final class FullscreenPass implements AutoCloseable {
         }
         RenderSystem.depthMask(writeDepth);
         RenderSystem.disableCull();
+        if (opacity < 1) {
+            float[] color = new float[4];
+            GL11.glGetFloatv(ARBImaging.GL_BLEND_COLOR, color);
+            int sourceRgb = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
+            int destinationRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
+            int sourceAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
+            int destinationAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+            int equationRgb = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_RGB);
+            int equationAlpha = GL11.glGetInteger(GL20.GL_BLEND_EQUATION_ALPHA);
+            try {
+                RenderSystem.enableBlend();
+                GL14.glBlendColor(0, 0, 0, opacity);
+                GL20.glBlendEquationSeparate(GL14.GL_FUNC_ADD, GL14.GL_FUNC_ADD);
+                RenderSystem.blendFuncSeparate(GL14.GL_CONSTANT_ALPHA, GL14.GL_ONE_MINUS_CONSTANT_ALPHA,
+                        GL11.GL_ONE, GL11.GL_ZERO);
+                triangle(shader);
+            } finally {
+                GL14.glBlendColor(color[0], color[1], color[2], color[3]);
+                RenderSystem.blendFuncSeparate(sourceRgb, destinationRgb, sourceAlpha, destinationAlpha);
+                GL20.glBlendEquationSeparate(equationRgb, equationAlpha);
+            }
+            return;
+        }
         RenderSystem.disableBlend();
+        triangle(shader);
+    }
+
+    private static void triangle(ShaderInstance shader) {
         RenderSystem.setShader(() -> shader);
         var buffer = Tesselator.getInstance().begin(VertexFormat.Mode.TRIANGLES, DefaultVertexFormat.POSITION);
         buffer.addVertex(-1, -1, 0);

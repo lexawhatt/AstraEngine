@@ -15,7 +15,7 @@ public final class ContinentalLandscape {
     public static final double LAST_RADIUS_METERS = 2_000_000;
     public static final double JOIN_START_METERS = 512;
     public static final double JOIN_END_METERS = 32_768;
-    private final EarthChart chart;
+    private final CubeStorageChart chart;
     private final double centerX;
     private final double centerZ;
     private final PlanetaryFrame frame;
@@ -26,7 +26,7 @@ public final class ContinentalLandscape {
     private final boolean[] liquid;
     private final int[] triangles;
 
-    private ContinentalLandscape(EarthChart chart, double centerX, double centerZ, PlanetaryFrame frame,
+    private ContinentalLandscape(CubeStorageChart chart, double centerX, double centerZ, PlanetaryFrame frame,
             float[] positions, float[] colors, float[] normals, float[] joinWeights, boolean[] liquid, int[] triangles) {
         this.chart = chart;
         this.centerX = centerX;
@@ -52,22 +52,35 @@ public final class ContinentalLandscape {
     /** Builds with a captured immutable host appearance; no worker reads textures or biome registries. */
     public static ContinentalLandscape bake(EarthChart chart, double centerX, double centerZ,
             EarthSurfacePalette palette, BooleanSupplier cancelled) {
-        if (palette == null) { throw new IllegalArgumentException("Landscape palette is required"); }
+        if (chart == null || palette == null) { throw new IllegalArgumentException("Landscape chart and palette are required"); }
+        return bake(chart, centerX, centerZ, palette, null,
+                new ContinentalTerrain(chart.terrainVersion(), ContinentalTerrain.SEED), null, cancelled);
+    }
+
+    /** Shares the same bounded geometry path with full solid-body charts and their immutable material palette. */
+    public static ContinentalLandscape bake(PlanetChart chart, double centerX, double centerZ,
+            SolidPlanetPalette palette, BooleanSupplier cancelled) {
+        if (chart == null || palette == null) { throw new IllegalArgumentException("Landscape chart and palette are required"); }
+        return bake(chart, centerX, centerZ, null, palette, null, new SolidPlanetTerrain(chart.profile()), cancelled);
+    }
+
+    private static ContinentalLandscape bake(CubeStorageChart chart, double centerX, double centerZ,
+            EarthSurfacePalette palette, SolidPlanetPalette planetPalette, ContinentalTerrain terrain,
+            SolidPlanetTerrain solidTerrain, BooleanSupplier cancelled) {
         if (chart == null || cancelled == null || !Double.isFinite(centerX) || !Double.isFinite(centerZ)
-                || Math.abs(centerX) > EarthChart.RADIUS_METERS || Math.abs(centerZ) > EarthChart.RADIUS_METERS) {
+                || Math.abs(centerX) > chart.radiusMeters() || Math.abs(centerZ) > chart.radiusMeters()) {
             throw new IllegalArgumentException("Landscape requires a chart, contained center and cancellation flag");
         }
         PlanetaryFrame frame = chart.tangentFrame(centerX, centerZ, 0);
-        ContinentalTerrain terrain = new ContinentalTerrain(chart.terrainVersion(), ContinentalTerrain.SEED);
         int count = 1 + RINGS * SECTORS;
         SpaceVector[] directions = new SpaceVector[count];
         directions[0] = frame.upAxis();
         for (int ring = 0; ring < RINGS; ring++) {
             if (cancelled.getAsBoolean()) { throw new CancellationException("Distant surface retired"); }
-            double radius = ringRadius(ring);
+            double radius = ringRadius(ring) * projectionScale(chart);
             for (int sector = 0; sector < SECTORS; sector++) {
                 double angle = sector * Math.PI * 2 / SECTORS;
-                directions[1 + ring * SECTORS + sector] = frame.upAxis().multiply(EarthChart.RADIUS_METERS)
+                directions[1 + ring * SECTORS + sector] = frame.upAxis().multiply(chart.radiusMeters())
                         .add(frame.xAxis().multiply(Math.cos(angle) * radius))
                         .add(frame.zAxis().multiply(Math.sin(angle) * radius)).normalized();
             }
@@ -89,7 +102,7 @@ public final class ContinentalLandscape {
             }
         }
         ContinentalTerrain.Sample[] observations = null;
-        if (chart.terrainVersion() >= 3) {
+        if (terrain != null && terrain.version() >= 3) {
             var refined = ShorelineRefinement.refine(directions, triangles, terrain, cancelled);
             directions = refined.directions(); triangles = refined.triangles(); observations = refined.samples();
             count = directions.length;
@@ -100,11 +113,19 @@ public final class ContinentalLandscape {
         for (int i = 0; i < count; i++) {
             if (i % SECTORS == 0 && cancelled.getAsBoolean()) { throw new CancellationException("Distant surface retired"); }
             var direction = directions[i];
-            double arc = EarthChart.RADIUS_METERS * Math.atan2(PlanetaryFrame.cross(direction, frame.upAxis()).length(),
+            double arc = chart.radiusMeters() * Math.atan2(PlanetaryFrame.cross(direction, frame.upAxis()).length(),
                     direction.dot(frame.upAxis()));
-            weights[i] = (float) joinAmount(arc);
-            var sample = observations == null ? terrain.sample(direction) : observations[i];
-            sampleVertex(i, direction, chart, centerX, centerZ, frame, sample, palette, positions, colors, liquid);
+            weights[i] = (float) joinAmount(arc / projectionScale(chart));
+            if (terrain != null) {
+                var sample = observations == null ? terrain.sample(direction) : observations[i];
+                sampleVertex(i, direction, chart, centerX, centerZ, frame, sample, palette, positions, colors, liquid);
+            } else {
+                var sample = solidTerrain.sample(direction);
+                double elevation = sample.water() ? Math.floor(sample.topMeters()) - 1.0 / 9.0 : Math.floor(sample.heightMeters());
+                put(positions, i, project(chart, centerX, centerZ, frame, direction, elevation));
+                put(colors, i, planetPalette.color(sample));
+                liquid[i] = sample.water();
+            }
         }
         for (int i = 0; i < triangles.length; i += 3) {
             int a = triangles[i], b = triangles[i + 1], c = triangles[i + 2];
@@ -125,21 +146,22 @@ public final class ContinentalLandscape {
     /**
      * Camera-relative presentation point at sea-level anchor. Inside 512 m, retain the host's flat chart;
      * outside 32.768 km, use the exact physical tangent projection. Smoothly joins the two in between.
+     * Smaller bodies scale both intervals by radius/EarthRadius; Earth keeps its historical join.
      * This affects neither stored heights nor collision. Direction must be a unit body-fixed vector.
      */
-    public static SpaceVector project(EarthChart chart, double centerX, double centerZ, PlanetaryFrame frame,
+    public static SpaceVector project(CubeStorageChart chart, double centerX, double centerZ, PlanetaryFrame frame,
             SpaceVector direction, double altitudeMeters) {
         if (chart == null || frame == null || direction == null || !Double.isFinite(centerX) || !Double.isFinite(centerZ)
                 || Math.abs(direction.length() - 1) > 1e-9
                 || !Double.isFinite(altitudeMeters)) {
             throw new IllegalArgumentException("Landscape projection requires finite geographic data");
         }
-        double radius = EarthChart.RADIUS_METERS;
+        double radius = chart.radiusMeters();
         SpaceVector point = direction.multiply(radius + altitudeMeters);
         SpaceVector physical = frame.toLocalPoint(point);
         double arc = radius * Math.atan2(PlanetaryFrame.cross(direction, frame.upAxis()).length(),
                 direction.dot(frame.upAxis()));
-        double amount = joinAmount(arc);
+        double amount = joinAmount(arc / projectionScale(chart));
         double forward = direction.dot(chart.face().outward());
         if (amount >= 1 || forward <= .1) { return physical; }
         SpaceVector flat = new SpaceVector(direction.dot(chart.face().u()) * radius / forward - centerX,
@@ -147,12 +169,20 @@ public final class ContinentalLandscape {
         return flat.multiply(1 - amount).add(physical.multiply(amount));
     }
 
+    private static double projectionScale(CubeStorageChart chart) {
+        return Math.min(1, chart.radiusMeters() / EarthChart.RADIUS_METERS);
+    }
+
     private static double joinAmount(double arc) {
-        double amount = Math.clamp((arc - JOIN_START_METERS) / (JOIN_END_METERS - JOIN_START_METERS), 0, 1);
+        // A cube-corner chart stretches radial distances by up to three. A linear-radius blend can
+        // reverse that distance inside the annulus, folding triangles and producing a false horizon.
+        // Spreading the transition in log radius bounds d(weight)/d(log radius) below 0.361.
+        double amount = Math.clamp(Math.log(Math.max(arc, JOIN_START_METERS) / JOIN_START_METERS)
+                / Math.log(JOIN_END_METERS / JOIN_START_METERS), 0, 1);
         return amount * amount * (3 - 2 * amount);
     }
 
-    private static void sampleVertex(int index, SpaceVector direction, EarthChart chart, double centerX,
+    private static void sampleVertex(int index, SpaceVector direction, CubeStorageChart chart, double centerX,
             double centerZ, PlanetaryFrame frame, ContinentalTerrain.Sample sample, EarthSurfacePalette palette,
             float[] positions, float[] colors, boolean[] liquid) {
         boolean water = sample.water();
@@ -176,7 +206,7 @@ public final class ContinentalLandscape {
     }
 
     /** Saved source geography for this derived mesh. */
-    public EarthChart chart() { return chart; }
+    public CubeStorageChart chart() { return chart; }
     /** Anchor host chart X in meters. */
     public double centerX() { return centerX; }
     /** Anchor host chart Z in meters. */

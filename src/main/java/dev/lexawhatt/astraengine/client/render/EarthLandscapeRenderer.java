@@ -10,6 +10,7 @@ import com.mojang.blaze3d.vertex.VertexFormat;
 import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.client.sky.SkyVisibility;
 import dev.lexawhatt.astraengine.client.compat.RenderCompatibility;
+import dev.lexawhatt.astraengine.client.compat.DistantFogCompatibility;
 import dev.lexawhatt.astraengine.client.sky.SkyIllumination;
 import dev.lexawhatt.astraengine.client.sky.SkyStateClient;
 import dev.lexawhatt.astraengine.client.solar.SolarStateClient;
@@ -17,6 +18,10 @@ import dev.lexawhatt.astraengine.client.surface.EarthStateClient;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.surface.ContinentalLandscape;
 import dev.lexawhatt.astraengine.surface.EarthChart;
+import dev.lexawhatt.astraengine.surface.CubeStorageChart;
+import dev.lexawhatt.astraengine.surface.PlanetChart;
+import dev.lexawhatt.astraengine.surface.SolidPlanetPalette;
+import dev.lexawhatt.astraengine.client.surface.PlanetSkyState;
 import dev.lexawhatt.astraengine.surface.EarthSurfacePalette;
 import java.io.IOException;
 import java.util.concurrent.CancellationException;
@@ -50,11 +55,15 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     private ShaderInstance compose;
     private ContinentalLandscape mesh;
     private EarthSurfacePalette palette;
+    private SolidPlanetPalette planetPalette;
+    private PlanetSkyState planetSky;
     private VertexBuffer vertices;
     private RenderTarget target;
     private Pending pending;
     private ClientLevel level;
     private Depth frameDepth;
+    private DistantFogCompatibility.Frame fogFrame;
+    private final DistantFogCompatibility distantFog = new DistantFogCompatibility(() -> fogFrame);
     private boolean failed;
     private boolean targetFailed;
     private long draws;
@@ -62,6 +71,8 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     EarthLandscapeRenderer(EarthStateClient earth, SkyStateClient seasons, SolarStateClient solar) {
         this.earth = earth; this.seasons = seasons; this.solar = solar;
     }
+
+    void setPlanetSky(PlanetSkyState state) { planetSky = state; }
 
     void registerShaders(RegisterShadersEvent event) {
         close(); terrain = null; compose = null;
@@ -77,15 +88,20 @@ final class EarthLandscapeRenderer implements AutoCloseable {
         }
     }
 
-    void clearFrame() { frameDepth = null; }
+    void clearFrame() { frameDepth = null; fogFrame = null; }
     Depth depth() { return frameDepth; }
     long draws() { return draws; }
 
-    private EarthChart chart() {
+    private CubeStorageChart chart() {
         var game = Minecraft.getInstance();
         if (game.level == null || terrain == null || compose == null
                 || RenderCompatibility.shaderPackActive() || RenderCompatibility.shadowPass()) { return null; }
-        return earth.chart(game.level.dimension().location().toString()).orElse(null);
+        return earth.cubeChart(game.level.dimension().location().toString()).orElse(null);
+    }
+
+    private static boolean sameLandscape(CubeStorageChart first, CubeStorageChart second) {
+        return first != null && second != null && first.geographyId().equals(second.geographyId())
+                && first.face() == second.face();
     }
 
     private static boolean visible() {
@@ -98,21 +114,36 @@ final class EarthLandscapeRenderer implements AutoCloseable {
 
     void render(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_SKY || RenderCompatibility.shadowPass()) { return; }
-        EarthChart chart = chart();
+        CubeStorageChart chart = chart();
         Minecraft game = Minecraft.getInstance();
         if (chart == null) { if (level != null) { close(); } return; }
-        if (level != game.level || mesh != null && !mesh.chart().equals(chart)) { close(); level = game.level; }
+        // Altitude bands observe the same immutable geographic mesh. Retain it through a prepared
+        // host level handoff instead of blanking the horizon and resampling thousands of heights.
+        if (mesh != null && !sameLandscape(mesh.chart(), chart)) { close(); }
+        level = game.level;
         var camera = event.getCamera().getPosition();
-        if (Math.abs(camera.x) > EarthChart.RADIUS_METERS || Math.abs(camera.z) > EarthChart.RADIUS_METERS) { return; }
+        if (Math.abs(camera.x) > chart.radiusMeters() || Math.abs(camera.z) > chart.radiusMeters()) { return; }
         update(chart, camera.x, camera.z);
         if (vertices == null || mesh == null || targetFailed || !visible()) { return; }
+        distantFog.bind();
         RenderTarget main = game.getMainRenderTarget();
         float partial = event.getPartialTick().getGameTimeDeltaPartialTick(false);
-        SpaceVector sun = seasons.toHostDirection(game.level, seasons.sample(game.level, partial).sunDirection());
+        var planet = chart instanceof PlanetChart && planetSky != null ? planetSky.sample(game.level, camera) : null;
+        if (chart instanceof PlanetChart && planet == null) { return; }
         var visual = solar.visual();
-        SpaceVector light = SkyIllumination.skyLight(sun.y(), game.level.getRainLevel(partial),
-                game.level.getThunderLevel(partial), visual.luminosity());
+        SpaceVector light;
         double altitude = camera.y + chart.altitudeOriginMeters();
+        double atmosphereDensity;
+        float flash;
+        if (planet != null) {
+            light = planet.lightColor(); atmosphereDensity = planet.atmosphereDensity();
+            flash = planet.chart().profile().systemId().equals("sol") ? visual.flash() : 0;
+        } else {
+            SpaceVector sun = seasons.toHostDirection(game.level, seasons.sample(game.level, partial).sunDirection());
+            light = SkyIllumination.skyLight(sun.y(), game.level.getRainLevel(partial),
+                    game.level.getThunderLevel(partial), visual.luminosity());
+            atmosphereDensity = Math.exp(-Math.max(0, altitude) / 8000); flash = visual.flash();
+        }
         var observer = chart.tangentFrame(camera.x, camera.z, altitude);
         SpaceVector offset = observer.toLocalPoint(mesh.frame().originMeters());
         var rotation = observer.toLocalOrientation(mesh.frame().orientation());
@@ -143,13 +174,14 @@ final class EarthLandscapeRenderer implements AutoCloseable {
             float[] fog = RenderSystem.getShaderFogColor();
             terrain.safeGetUniform("HazeColor").set(fog[0], fog[1], fog[2]);
             terrain.safeGetUniform("EyeAltitude").set((float) altitude);
-            terrain.safeGetUniform("Flash").set(visual.flash());
+            terrain.safeGetUniform("Flash").set(flash);
+            terrain.safeGetUniform("AtmosphereDensity").set((float) atmosphereDensity);
             terrain.safeGetUniform("NearCoverage").set(nearCoverage(game, camera));
             // DH may extend getDepthFar independently of the host section render distance.
             terrain.safeGetUniform("HostFarPlane").set(Math.min(game.gameRenderer.getDepthFar(),
                     game.options.getEffectiveRenderDistance() * 64.0f));
-            terrain.safeGetUniform("BandAltitude").set((float) (chart.altitudeOriginMeters() + EarthChart.MIN_Y),
-                    (float) (chart.altitudeOriginMeters() + EarthChart.MIN_Y + EarthChart.HEIGHT));
+            terrain.safeGetUniform("BandAltitude").set((float) (chart.altitudeOriginMeters() + chart.minY()),
+                    (float) (chart.altitudeOriginMeters() + chart.minY() + chart.height()));
             terrain.safeGetUniform("LocalTransform").set(transform);
             terrain.safeGetUniform("FlatOffset").set((float) (mesh.centerX() - camera.x), (float) -altitude,
                     (float) (mesh.centerZ() - camera.z));
@@ -163,6 +195,9 @@ final class EarthLandscapeRenderer implements AutoCloseable {
             FullscreenPass.draw(compose);
         }
         frameDepth = new Depth(target.getDepthTextureId(), new Matrix4f(projection).mul(event.getModelViewMatrix()).invert());
+        float[] fog = RenderSystem.getShaderFogColor();
+        fogFrame = new DistantFogCompatibility.Frame(game.level.dimension().location().toString(),
+                (float) (22_000 / Math.max(1e-6, atmosphereDensity)), fog[0], fog[1], fog[2]);
         draws++;
     }
 
@@ -195,16 +230,20 @@ final class EarthLandscapeRenderer implements AutoCloseable {
     void fog(ViewportEvent.RenderFog event) {
         if (chart() == null || vertices == null || targetFailed || !visible() || event.getMode() != net.minecraft.client.renderer.FogRenderer.FogMode.FOG_TERRAIN) { return; }
         event.setNearPlaneDistance(0);
-        event.setFarPlaneDistance(24_000);
+        var current = chart();
+        var planet = current instanceof PlanetChart && planetSky != null
+                ? planetSky.sample(Minecraft.getInstance().level, event.getCamera().getPosition()) : null;
+        event.setFarPlaneDistance(planet == null ? 24_000 : (float) Math.min(4_000_000,
+                24_000 / Math.max(1e-6, planet.atmosphereDensity())));
         event.setCanceled(true);
     }
 
-    private void update(EarthChart chart, double x, double z) {
+    private void update(CubeStorageChart chart, double x, double z) {
         if (pending != null && pending.future().isDone()) {
             Pending complete = pending; pending = null;
             try {
                 var result = complete.future().join();
-                if (!complete.cancelled().get() && result.chart().equals(chart)
+                if (!complete.cancelled().get() && sameLandscape(result.chart(), chart)
                         && Math.hypot(result.centerX() - x, result.centerZ() - z) <= 512) { install(result); }
             } catch (CancellationException ignored) {
                 // Retired immutable CPU requests own no resources.
@@ -214,13 +253,20 @@ final class EarthLandscapeRenderer implements AutoCloseable {
             }
         }
         if (pending == null && !failed && (mesh == null || Math.hypot(mesh.centerX() - x, mesh.centerZ() - z) > 128)) {
-            double centerX = Math.clamp(Math.rint(x / 128) * 128, -EarthChart.RADIUS_METERS, EarthChart.RADIUS_METERS);
-            double centerZ = Math.clamp(Math.rint(z / 128) * 128, -EarthChart.RADIUS_METERS, EarthChart.RADIUS_METERS);
-            if (palette == null) { palette = EarthSurfaceMaterials.capture(); }
-            var appearance = palette;
+            double centerX = Math.clamp(Math.rint(x / 128) * 128, -chart.radiusMeters(), chart.radiusMeters());
+            double centerZ = Math.clamp(Math.rint(z / 128) * 128, -chart.radiusMeters(), chart.radiusMeters());
             AtomicBoolean cancel = new AtomicBoolean();
-            pending = new Pending(cancel, CompletableFuture.supplyAsync(() ->
-                    ContinentalLandscape.bake(chart, centerX, centerZ, appearance, cancel::get), Util.backgroundExecutor()));
+            if (chart instanceof PlanetChart planetChart) {
+                if (planetPalette == null) { planetPalette = EarthSurfaceMaterials.capturePlanet(); }
+                var appearance = planetPalette;
+                pending = new Pending(cancel, CompletableFuture.supplyAsync(() ->
+                        ContinentalLandscape.bake(planetChart, centerX, centerZ, appearance, cancel::get), Util.backgroundExecutor()));
+            } else if (chart instanceof EarthChart earthChart) {
+                if (palette == null) { palette = EarthSurfaceMaterials.capture(); }
+                var appearance = palette;
+                pending = new Pending(cancel, CompletableFuture.supplyAsync(() ->
+                        ContinentalLandscape.bake(earthChart, centerX, centerZ, appearance, cancel::get), Util.backgroundExecutor()));
+            }
         }
     }
 
@@ -251,8 +297,10 @@ final class EarthLandscapeRenderer implements AutoCloseable {
 
     /** Retires all per-view work/resources; registered program lifetime belongs to Minecraft. */
     @Override public void close() {
-        palette = null;
+        palette = null; planetPalette = null;
         RenderSystem.assertOnRenderThread();
+        fogFrame = null;
+        distantFog.close();
         if (pending != null) { pending.cancelled().set(true); pending = null; }
         if (vertices != null) { vertices.close(); vertices = null; }
         if (target != null) { target.destroyBuffers(); target = null; }

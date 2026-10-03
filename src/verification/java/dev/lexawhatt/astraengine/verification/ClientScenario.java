@@ -91,10 +91,20 @@ public final class ClientScenario {
     private EarthGenerationScenario earthGenerationScenario;
     private UndergroundScenario undergroundScenario;
     private RiverScenario riverScenario;
+    private HorizonJoinScenario horizonJoinScenario;
+    private OrbitalEditsScenario orbitalEditsScenario;
+    private SolidPlanetsScenario solidPlanetsScenario;
     private EarthTravelScenario earthTravelScenario;
     private EarthAtmosphereScenario earthAtmosphereScenario;
     private EarthLandscapeScenario earthLandscapeScenario;
     private EarthBoundaryScenario earthBoundaryScenario;
+    private EarthCrossingScenario earthCrossingScenario;
+    private BoundaryInteractionScenario boundaryInteractionScenario;
+    private SpaceBoundaryScenario spaceBoundaryScenario;
+    private TwoPlayerBoundaryScenario twoPlayerBoundaryScenario;
+    private TwoPlayerSpaceScenario twoPlayerSpaceScenario;
+    private PlanetaryJourneyScenario planetaryJourneyScenario;
+    private NearSeamPlatformScenario nearSeamPlatformScenario;
     private ContinentalOrbitScenario continentalOrbitScenario;
     private EarthDistantScenario earthDistantScenario;
     private NavigationScenario navigationScenario;
@@ -133,13 +143,23 @@ public final class ClientScenario {
                 AstraEngine.LOGGER.info("ASTRA_VERIFY_ONBOARDING_CONTINUED");
                 return;
             }
+            if (phase.equals("earth-two-space-guest")) {
+                if (twoPlayerSpaceScenario == null) { twoPlayerSpaceScenario = new TwoPlayerSpaceScenario(phase); }
+                if (twoPlayerSpaceScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("earth-two-player-guest")) {
+                if (twoPlayerBoundaryScenario == null) { twoPlayerBoundaryScenario = new TwoPlayerBoundaryScenario(phase); }
+                if (twoPlayerBoundaryScenario.tick()) { finish(); }
+                return;
+            }
             if (opened && !experimentalConfirmationContinued
                     && (phase.equals("cosmos-restart") || phase.equals("solar-restart") || phase.equals("camera-restart")
                             || phase.equals("celestial-api-restart") || phase.equals("galactic-restart") || phase.equals("atlas-restart")
                             || phase.equals("seasonal-restart") || phase.equals("surface-restart") || phase.equals("surface-recover")
                             || phase.equals("surface-upgrade") || phase.equals("surface-frames-restart")
                             || phase.equals("horizon-restart") || phase.equals("continental-restart") || (phase.equals("earth-generation-restart") || phase.equals("earth-travel-restart"))
-                            || phase.equals("terrain-restart") || phase.equals("pulsar-restart"))
+                            || phase.equals("earth-journey-restart") || phase.equals("earth-two-player-host-restart") || phase.equals("earth-interactions-restart") || phase.equals("earth-orbital-edits-restart") || phase.equals("solid-planets-restart") || phase.equals("terrain-restart") || phase.equals("pulsar-restart"))
                     && minecraft.player == null && minecraft.getOverlay() == null
                     && minecraft.screen instanceof BackupConfirmScreen screen
                     && screen.getTitle().getString().equals(Component.translatable("selectWorld.backupQuestion.experimental").getString())) {
@@ -150,9 +170,12 @@ public final class ClientScenario {
                 } else {
                     String scenario = phase.equals("surface-recover") ? "surface-interrupt"
                             : phase.substring(0, phase.length() - "-restart".length());
-                    String completedPhase = phase.equals("surface-frames-restart") ? "surface-frames-create"
+                    String completedPhase = phase.equals("earth-journey-restart") ? "earth-journey-create"
+                            : phase.equals("surface-frames-restart") ? "surface-frames-create"
                             : phase.equals("horizon-restart") ? "horizon-create"
                             : phase.equals("earth-travel-restart") ? "earth-travel-create"
+                            : phase.equals("earth-orbital-edits-restart") ? "earth-orbital-edits-create"
+                            : phase.equals("solid-planets-restart") ? "solid-planets-create"
                             : phase.equals("earth-generation-restart") ? "earth-generation-create"
                             : phase.equals("continental-restart") ? "continental-create"
                             : phase.equals("surface-restart") ? "surface-create"
@@ -208,13 +231,13 @@ public final class ClientScenario {
                         || phase.equals("celestial") || phase.equals("approach") || phase.equals("celestial-api") || phase.equals("galactic") || phase.equals("atlas")
                         || phase.equals("ship-visual") || phase.equals("render-compat") || phase.equals("seasonal")
                         || phase.equals("solar-clouds") || phase.equals("volumetric") || phase.equals("celestial-polish")
-                        || phase.equals("surface-create") || phase.equals("surface-cancel") || phase.equals("surface-interrupt")
+                        || phase.equals("earth-platform-collision") || phase.equals("earth-journey-create") || phase.equals("earth-two-player-host") || phase.equals("earth-two-space-host") || phase.equals("surface-create") || phase.equals("surface-cancel") || phase.equals("surface-interrupt")
                         || phase.equals("surface-failures") || phase.equals("surface-boundaries")
                         || phase.equals("surface-frames-create") || phase.equals("terrain-create") || phase.equals("terrain-dh")
                         || phase.equals("horizon-create") || phase.equals("horizon-dh") || phase.equals("horizon-iris")
-                        || phase.startsWith("earth-boundary-") || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || (phase.equals("earth-landscape") || phase.equals("earth-landscape-pack")) || phase.equals("earth-generation-create") || phase.equals("continental-create")
-                        || phase.startsWith("dh-clouds") || phase.equals("earth-dh") || phase.equals("earth-materials") || phase.equals("earth-underground") || phase.startsWith("earth-rivers")
-                        || phase.equals("lunar-pulsar") || phase.equals("pulsar-create") || phase.equals("navigation")) {
+                        || phase.startsWith("earth-boundary-") || phase.startsWith("earth-space-") || phase.equals("earth-crossings") || phase.equals("earth-interactions") || phase.equals("earth-travel-create") || phase.equals("earth-orbit") || phase.equals("earth-atmosphere") || (phase.equals("earth-landscape") || phase.equals("earth-landscape-pack")) || phase.equals("earth-generation-create") || phase.equals("continental-create")
+                        || phase.startsWith("dh-clouds") || phase.equals("earth-dh") || phase.equals("earth-materials") || phase.equals("earth-underground") || phase.equals("earth-orbital-edits-create") || phase.startsWith("earth-horizon-join") || phase.startsWith("earth-rivers")
+                        || phase.equals("solid-planets-create") || phase.equals("lunar-pulsar") || phase.equals("pulsar-create") || phase.equals("navigation")) {
                     require(!Files.exists(minecraft.gameDirectory.toPath().resolve("saves/first-slice")),
                             "Create phase refuses to overwrite an existing fixture");
                     minecraft.createWorldOpenFlows().createFreshLevel("first-slice",
@@ -262,11 +285,11 @@ public final class ClientScenario {
             boolean galacticPhase = phase.equals("galactic") || phase.equals("galactic-restart");
             boolean celestialApiPhase = phase.equals("celestial-api") || phase.equals("celestial-api-restart");
             if (minecraft.player == null || minecraft.level == null || minecraft.getOverlay() != null
-                    || (minecraft.screen != null && !phase.equals("navigation") && !phase.equals("earth-underground") && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
+                    || (minecraft.screen != null && !phase.equals("earth-platform-collision") && !phase.startsWith("earth-journey-") && !phase.equals("earth-two-space-host") && !phase.startsWith("earth-two-player-host") && !phase.equals("navigation") && !phase.startsWith("earth-space-") && !phase.equals("earth-crossings") && !phase.equals("earth-underground") && !cameraPhase && !(editorPhase && (minecraft.screen instanceof SceneEditorScreen
                             || minecraft.screen instanceof ShaderEditorScreen))
                             && !(phase.equals("surface-failures") && minecraft.screen instanceof DeathScreen)
                             && !((cosmosPhase || solarPhase || cameraPhase || celestialPhase || celestialPolishPhase || surfacePhase
-                                    || approachPhase || celestialApiPhase || galacticPhase)
+                                    || approachPhase || celestialApiPhase || galacticPhase || phase.startsWith("earth-orbital-edits-"))
                                     && minecraft.screen instanceof CosmosMapScreen)
                             && !(atlasPhase && (minecraft.screen instanceof CosmosMapScreen
                                     || minecraft.screen instanceof UniverseAtlasScreen))
@@ -275,6 +298,41 @@ public final class ClientScenario {
                 return;
             }
             ticks++;
+            if (phase.equals("earth-platform-collision")) {
+                if (nearSeamPlatformScenario == null) { nearSeamPlatformScenario = new NearSeamPlatformScenario(); }
+                if (nearSeamPlatformScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("earth-journey-")) {
+                if (planetaryJourneyScenario == null) { planetaryJourneyScenario = new PlanetaryJourneyScenario(phase.endsWith("-restart")); }
+                if (planetaryJourneyScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.equals("earth-two-space-host")) {
+                if (twoPlayerSpaceScenario == null) { twoPlayerSpaceScenario = new TwoPlayerSpaceScenario(phase); }
+                if (twoPlayerSpaceScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("earth-two-player-host")) {
+                if (twoPlayerBoundaryScenario == null) { twoPlayerBoundaryScenario = new TwoPlayerBoundaryScenario(phase); }
+                if (twoPlayerBoundaryScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("solid-planets-")) {
+                if (solidPlanetsScenario == null) { solidPlanetsScenario = new SolidPlanetsScenario(phase); }
+                if (solidPlanetsScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("earth-orbital-edits-")) {
+                if (orbitalEditsScenario == null) { orbitalEditsScenario = new OrbitalEditsScenario(phase); }
+                if (orbitalEditsScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("earth-horizon-join")) {
+                if (horizonJoinScenario == null) { horizonJoinScenario = new HorizonJoinScenario(); }
+                if (horizonJoinScenario.tick()) { finish(); }
+                return;
+            }
             if (phase.startsWith("earth-rivers")) {
                 if (riverScenario == null) { riverScenario = new RiverScenario(!phase.endsWith("-visual")); }
                 if (riverScenario.tick()) { finish(); }
@@ -303,6 +361,21 @@ public final class ClientScenario {
             if ((phase.equals("earth-landscape") || phase.equals("earth-landscape-pack"))) {
                 if (earthLandscapeScenario == null) { earthLandscapeScenario = new EarthLandscapeScenario(); }
                 if (earthLandscapeScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("earth-interactions")) {
+                if (boundaryInteractionScenario == null) { boundaryInteractionScenario = new BoundaryInteractionScenario(phase.endsWith("-restart")); }
+                if (boundaryInteractionScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.startsWith("earth-space-")) {
+                if (spaceBoundaryScenario == null) { spaceBoundaryScenario = new SpaceBoundaryScenario(phase.endsWith("rotating")); }
+                if (spaceBoundaryScenario.tick()) { finish(); }
+                return;
+            }
+            if (phase.equals("earth-crossings")) {
+                if (earthCrossingScenario == null) { earthCrossingScenario = new EarthCrossingScenario(); }
+                if (earthCrossingScenario.tick()) { finish(); }
                 return;
             }
             if (phase.startsWith("earth-boundary-")) {

@@ -28,6 +28,15 @@
     },
     {
       "name": "ContinentalTile3"
+    },
+    {
+      "name": "PlanetAtlas"
+    },
+    {
+      "name": "PlanetTiles"
+    },
+    {
+      "name": "OrbitalEdits"
     }
   ],
   "uniforms": [
@@ -3344,6 +3353,166 @@
         0.0,
         0.0,
         0.0
+      ]
+    },
+    {
+      "name": "PlanetSlots[0]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[1]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[2]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[3]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[4]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[5]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[6]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[7]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[8]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[9]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[10]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetSlots[11]",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "PlanetDetailIndex",
+      "type": "int",
+      "count": 1,
+      "values": [
+        -1
+      ]
+    },
+    {
+      "name": "OrbitalEditsReady",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "OrbitalEditsProbes",
+      "type": "int",
+      "count": 1,
+      "values": [
+        0
+      ]
+    },
+    {
+      "name": "PlanetUp",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        1,
+        0
+      ]
+    },
+    {
+      "name": "PlanetEast",
+      "type": "float",
+      "count": 3,
+      "values": [
+        1,
+        0,
+        0
+      ]
+    },
+    {
+      "name": "PlanetSouth",
+      "type": "float",
+      "count": 3,
+      "values": [
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "name": "PlanetSpacing",
+      "type": "float",
+      "count": 3,
+      "values": [
+        8,
+        128,
+        1024
       ]
     }
   ]

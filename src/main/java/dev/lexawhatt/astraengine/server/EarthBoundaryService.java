@@ -5,9 +5,11 @@ import dev.lexawhatt.astraengine.network.EarthBoundaryPayload;
 import dev.lexawhatt.astraengine.surface.EarthBoundaryPlan;
 import dev.lexawhatt.astraengine.surface.EarthBoundarySection;
 import dev.lexawhatt.astraengine.surface.EarthBoundarySnapshot;
-import dev.lexawhatt.astraengine.surface.EarthChart;
+import dev.lexawhatt.astraengine.surface.CubeStorageChart;
+import dev.lexawhatt.astraengine.api.AstraGeography;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -56,6 +58,35 @@ public final class EarthBoundaryService implements AutoCloseable {
                 ? Optional.ofNullable(current.snapshot) : Optional.empty();
     }
 
+    /** A short network-latency window; callers must still recompute current ownership, ray and permissions. */
+    public boolean acceptsInteraction(ServerPlayer player, long requested) {
+        requirePlayer(player);
+        var current = observations.get(player.getUUID());
+        if (current == null || current.entity.get() != player || current.snapshot == null
+                || !current.snapshot.complete()) { return false; }
+        if (current.snapshot.revision() == requested) { return true; }
+        int now = server.getTickCount();
+        return current.recent.stream().anyMatch(value -> value.revision == requested && now - value.tick <= 20);
+    }
+
+    /** Records a current own-player geometry acknowledgement; never accepts a client destination or revision leap. */
+    public void ready(ServerPlayer player, long acknowledged) {
+        requirePlayer(player);
+        var current = observations.get(player.getUUID());
+        if (current != null && current.entity.get() == player && current.snapshot != null
+                && current.snapshot.revision() == acknowledged && current.snapshot.complete()) {
+            current.readyRevision = acknowledged;
+        }
+    }
+
+    /** Both real sections and this connection's matching prepared view exist. */
+    public boolean ready(ServerPlayer player) {
+        requirePlayer(player);
+        var current = observations.get(player.getUUID());
+        return current != null && current.entity.get() == player && current.snapshot != null
+                && current.snapshot.complete() && current.readyRevision == current.snapshot.revision();
+    }
+
     /** Ends one entity instance's observations/tickets on logout or respawn. A stale entity cannot retire its replacement. */
     public void forget(ServerPlayer player) {
         requirePlayer(player);
@@ -64,7 +95,7 @@ public final class EarthBoundaryService implements AutoCloseable {
     }
 
     private void observe(ServerPlayer player) {
-        var source = EarthWorlds.chart(player.serverLevel()).orElse(null);
+        var source = PlanetSurfaceWorlds.getCube(player.serverLevel()).orElse(null);
         var feet = new SpaceVector(player.getX(), player.getY(), player.getZ());
         EarthBoundaryPlan plan = source != null && source.contains(feet) && player.isAlive() && !player.isRemoved()
                 ? EarthBoundaryPlan.around(source, feet).orElse(null) : null;
@@ -83,16 +114,29 @@ public final class EarthBoundaryService implements AutoCloseable {
         for (ChunkAddress previous : current.tickets) {
             if (!requested.contains(previous)) { release(player.getUUID(), previous); }
         }
-        current.tickets = Set.copyOf(requested);
+        var acquired = new HashSet<ChunkAddress>();
+        var refused = new HashSet<CubeStorageChart>();
         for (ChunkAddress address : requested) {
+            if (refused.contains(address.chart)) { continue; }
             var level = server.getLevel(EarthWorlds.dimension(address.chart));
             // The saved preset was validated at startup. No missing world is replaced here.
-            if (level == null) { throw new IllegalStateException("Earth boundary world became unavailable: " + address.chart); }
+            if (level == null) {
+                try { level = PlanetSurfaceWorlds.ensure(server, address.chart); }
+                catch (PlanetSurfaceBindings.CapacityExceededException exhausted) {
+                    // Keep this neighborhood incomplete: traversal retains its last valid pose and can retry.
+                    // Identity conflicts and damaged historical storage remain errors, not capacity refusals.
+                    refused.add(address.chart);
+                    continue;
+                }
+            }
             level.getChunkSource().addRegionTicket(TICKET, address.chunk, 0, player.getUUID());
+            acquired.add(address);
         }
+        current.tickets = Set.copyOf(acquired);
         var sections = new ArrayList<EarthBoundarySection>();
-        boolean complete = true;
+        boolean complete = refused.isEmpty();
         for (var address : plan.sections()) {
+            if (refused.contains(address.chart())) { continue; }
             var level = server.getLevel(EarthWorlds.dimension(address.chart()));
             var section = EarthBoundaryCapture.capture(level, address.chart(), address.section());
             if (section.isPresent()) { sections.add(section.orElseThrow()); } else { complete = false; }
@@ -100,6 +144,10 @@ public final class EarthBoundaryService implements AutoCloseable {
         EarthBoundarySnapshot previous = current.snapshot;
         if (previous != null && previous.complete() == complete && previous.anchorFeet().distance(feet) < 4
                 && sameSections(previous.sections(), sections)) { return; }
+        if (previous != null && previous.complete()) {
+            current.recent.addLast(new RecentRevision(previous.revision(), server.getTickCount()));
+            while (current.recent.size() > 4) { current.recent.removeFirst(); }
+        }
         current.snapshot = new EarthBoundarySnapshot(Math.incrementExact(revision), source, feet, complete, sections);
         revision = current.snapshot.revision();
         PacketDistributor.sendToPlayer(player, new EarthBoundaryPayload(current.snapshot));
@@ -144,13 +192,16 @@ public final class EarthBoundaryService implements AutoCloseable {
         if (player == null || player.getServer() != server) { throw new IllegalArgumentException("Boundary player belongs to another server"); }
     }
 
-    private record ChunkAddress(EarthChart chart, ChunkPos chunk) {}
+    private record ChunkAddress(CubeStorageChart chart, ChunkPos chunk) {}
+    private record RecentRevision(long revision, int tick) {}
 
     private static final class Observed {
         private final WeakReference<ServerPlayer> entity;
-        private final EarthChart source;
+        private final CubeStorageChart source;
         private Set<ChunkAddress> tickets = Set.of();
         private EarthBoundarySnapshot snapshot;
-        private Observed(ServerPlayer player, EarthChart source) { this.entity = new WeakReference<>(player); this.source = source; }
+        private final ArrayDeque<RecentRevision> recent = new ArrayDeque<>();
+        private long readyRevision;
+        private Observed(ServerPlayer player, CubeStorageChart source) { this.entity = new WeakReference<>(player); this.source = source; }
     }
 }

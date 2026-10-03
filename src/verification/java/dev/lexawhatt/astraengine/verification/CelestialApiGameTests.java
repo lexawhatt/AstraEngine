@@ -53,7 +53,11 @@ public final class CelestialApiGameTests {
         legacy.getList("bodies", Tag.TAG_COMPOUND).forEach(tag -> ((CompoundTag) tag).remove("parent_id"));
         helper.assertTrue(CosmosDescriptorCodec.decode(legacy).equals(original), "Legacy custom descriptor changed during parent migration");
 
-        var detached = ExplorationCatalog.decode(ExplorationCatalog.get(server).save(new CompoundTag(), server.registryAccess()));
+        // This synthetic legacy catalog replaces its definitions below; unrelated test players may legitimately
+        // reference other custom systems in the shared server catalog, so neither belongs to this fixture.
+        CompoundTag cleanCatalog = ExplorationCatalog.get(server).save(new CompoundTag(), server.registryAccess());
+        cleanCatalog.put("custom_systems", new ListTag()); cleanCatalog.put("players", new ListTag());
+        var detached = ExplorationCatalog.decode(cleanCatalog);
         UUID id = UUID.randomUUID(); detached.player(id);
         CompoundTag oldCatalog = detached.save(new CompoundTag(), server.registryAccess());
         oldCatalog.putInt("version", 5); oldCatalog.remove("satellite_version");

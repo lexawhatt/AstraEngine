@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.lexawhatt.astraengine.mixin",
+  "plugin": "dev.lexawhatt.astraengine.compat.lithium.LithiumMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "LithiumBoundaryCollisionMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

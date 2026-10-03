@@ -1,6 +1,7 @@
 package dev.lexawhatt.astraengine.client.flight;
 
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
+import dev.lexawhatt.astraengine.surface.BodyFixedFrame;
 
 /** Connection-owned free look. Quaternion smoothing never constrains pitch or introduces a world-up axis. */
 public final class FlightCamera {
@@ -10,6 +11,14 @@ public final class FlightCamera {
 
     public FlightOrientation orientation() { return orientation; }
     public FlightOrientation target() { return target; }
+
+    /** Carries the complete smoothed view with an occupied rotating body, preserving its local look and roll. */
+    public void transport(BodyFixedFrame previous, BodyFixedFrame current) {
+        if (previous == null || current == null) { throw new IllegalArgumentException("Camera transport requires both frames"); }
+        if (previous.bodyToSystem().equals(current.bodyToSystem())) { return; }
+        orientation = current.toSystemOrientation(previous.toBodyOrientation(orientation));
+        target = current.toSystemOrientation(previous.toBodyOrientation(target));
+    }
 
     /** Relocation and reconnect apply an authoritative pose immediately, without blending from the old view. */
     public void reset(FlightOrientation value) {

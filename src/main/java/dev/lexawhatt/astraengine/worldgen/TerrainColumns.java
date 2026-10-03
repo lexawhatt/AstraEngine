@@ -10,6 +10,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.ChunkAccess;
 import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.PalettedContainer;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.RandomState;
 
@@ -29,7 +30,11 @@ final class TerrainColumns {
     }
 
     interface Sampler { Column sample(int x, int z); }
-    record Column(int firstAir, int top, BlockState surface, BlockState subsurface) {}
+    record Column(int firstAir, int top, BlockState surface, BlockState subsurface, BlockState deepMaterial) {
+        Column(int firstAir, int top, BlockState surface, BlockState subsurface) {
+            this(firstAir, top, surface, subsurface, STONE);
+        }
+    }
     private Column column(int x, int z) { return sampler.sample(x, z); }
 
     /** The same base materials as fill(), represented by at most five runs instead of a height-sized array. */
@@ -59,6 +64,8 @@ final class TerrainColumns {
         int waterFloor = minY;
         int waterCeiling = maxY;
         boolean allColumnsPresent = true;
+        BlockState deepMaterial = null;
+        boolean sameDeepMaterial = true;
         int originX = chunk.getPos().getMinBlockX();
         int originZ = chunk.getPos().getMinBlockZ();
         for (int z = 0; z < 16; z++) {
@@ -68,6 +75,8 @@ final class TerrainColumns {
                 if (column == null) {
                     allColumnsPresent = false;
                 } else {
+                    if (deepMaterial == null) { deepMaterial = column.deepMaterial(); }
+                    else if (!deepMaterial.equals(column.deepMaterial())) { sameDeepMaterial = false; }
                     highest = Math.max(highest, Math.min(maxY, column.top()));
                     solidStoneCeiling = Math.min(solidStoneCeiling, column.firstAir() - 5);
                     waterFloor = Math.max(waterFloor, column.firstAir());
@@ -83,7 +92,7 @@ final class TerrainColumns {
             LevelChunkSection section = chunk.getSection(index);
             BlockState uniform = null;
             if (allColumnsPresent && baseY >= minY && baseY + 16 <= maxY) {
-                if (baseY + 16 <= solidStoneCeiling) { uniform = STONE; }
+                if (sameDeepMaterial && baseY + 16 <= solidStoneCeiling) { uniform = deepMaterial; }
                 else if (baseY >= waterFloor && baseY + 16 <= waterCeiling) { uniform = WATER; }
             }
             if (uniform != null) {
@@ -103,6 +112,25 @@ final class TerrainColumns {
                             section.setBlockState(x, y & 15, z, block(column, y), false);
                         }
                     }
+                }
+            } finally {
+                section.release();
+            }
+        }
+
+        for (int sectionY = SectionPos.blockToSectionCoord(minY);
+                minY < maxY && sectionY <= SectionPos.blockToSectionCoord(maxY - 1); sectionY++) {
+            int baseY = SectionPos.sectionToBlockCoord(sectionY);
+            if (baseY < highest || baseY < minY || baseY + 16 > maxY) { continue; }
+            int index = chunk.getSectionIndexFromSectionY(sectionY);
+            LevelChunkSection section = chunk.getSection(index);
+            if (section.getStates().getClass() != PalettedContainer.class) { continue; }
+            section.acquire();
+            try {
+                // Only exact, untouched AIR is interchangeable. CAVE_AIR and any consumer-provided
+                // palette retain their states; BIOMES and later host mutations remain independently owned.
+                if (!section.getStates().maybeHas(state -> state != AIR)) {
+                    chunk.getSections()[index] = new LevelChunkSection(new UniformTerrainStates(AIR), section.getBiomes());
                 }
             } finally {
                 section.release();
@@ -153,7 +181,7 @@ final class TerrainColumns {
         if (y < minYBound || y >= minYBound + height) { return AIR; }
         if (y >= column.firstAir()) { return y < column.top() ? WATER : AIR; }
         int depth = column.firstAir() - 1 - y;
-        return depth == 0 ? column.surface() : depth < 5 ? column.subsurface() : STONE;
+        return depth == 0 ? column.surface() : depth < 5 ? column.subsurface() : column.deepMaterial();
     }
 
 }

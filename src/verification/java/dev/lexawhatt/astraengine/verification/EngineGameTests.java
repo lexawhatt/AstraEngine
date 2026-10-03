@@ -120,13 +120,19 @@ public final class EngineGameTests {
             FlightControlPayload.CODEC.encode(buffer, controls);
             helper.assertTrue(FlightControlPayload.CODEC.decode(buffer).equals(controls), "Flight controls changed on wire");
             buffer.clear();
+            var localControls = new FlightControlPayload(1, 0, 0, FlightOrientation.fromAngles(35, -90, 37),
+                    false, 43, 7, true);
+            FlightControlPayload.CODEC.encode(buffer, localControls);
+            helper.assertTrue(FlightControlPayload.CODEC.decode(buffer).equals(localControls) && !buffer.isReadable(),
+                    "Body-fixed ground controls lost their explicit coordinate space");
+            buffer.clear();
             var action = new FlightActionPayload(FlightActionPayload.Action.APPROACH_BODY, "earth");
             FlightActionPayload.CODEC.encode(buffer, action);
             helper.assertTrue(FlightActionPayload.CODEC.decode(buffer).equals(action), "Flight action changed on wire");
             buffer.clear();
             buffer.writeFloat(Float.NaN); buffer.writeFloat(0); buffer.writeFloat(0);
             buffer.writeDouble(0); buffer.writeDouble(0); buffer.writeDouble(0); buffer.writeDouble(1);
-            buffer.writeBoolean(false); buffer.writeLong(1); buffer.writeLong(7);
+            buffer.writeBoolean(false); buffer.writeLong(1); buffer.writeLong(7); buffer.writeBoolean(false);
             boolean rejectedInput = false;
             try { FlightControlPayload.CODEC.decode(buffer); } catch (IllegalArgumentException expected) { rejectedInput = true; }
             helper.assertTrue(rejectedInput, "Non-finite network control was accepted");

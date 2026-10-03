@@ -5,6 +5,12 @@ license="${mod_license}"
 [[mixins]]
 config="astraengine.mixins.json"
 
+[[mixins]]
+config="astraengine.distant.mixins.json"
+
+[[mixins]]
+config="astraengine.lithium.mixins.json"
+
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"

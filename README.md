@@ -4,7 +4,7 @@ A Minecraft 1.21.1 mod for NeoForge. Author: **lexawhatt**.
 
 AstraEngine manages stellar system state, persistent worlds, and shader-rendered
 space. Interplanetary flight uses a local void and shader-rendered celestial bodies.
-Builds, arrival platforms, and the first Moon/Earth surface patches use real blocks.
+Planetary surfaces, builds and arrival platforms use persistent Minecraft blocks.
 SolarTech will be a separate API consumer providing machinery, an energy economy,
 and progression.
 
@@ -23,57 +23,61 @@ reload and restart.
 
 [Java example and API contract](docs/CELESTIAL_API.md). The current limit is
 64 custom systems with 1-64 bodies each, within a 900-KiB aggregate descriptor
-synchronization budget. Parent-relative orbits support authored moons. These are astronomical descriptors;
-planetary terrain and landing require a separate world integration.
+synchronization budget. Parent-relative orbits support authored moons. Supported
+solid bodies also receive a versioned [planetary surface profile](docs/PLANET_SURFACES.md);
+gas giants remain astronomical bodies without an invented solid floor.
 
 ## Planetary surfaces
 
-Approach **Moon** or **Earth** on the map, then press **L** to land on its permanent
-surface patch. Walk and build with real blocks; **R** departs, and **B** cancels a
-guided transfer. These are bounded local worlds, with shared orbital/voxel geography,
-not whole-globe traversal. Existing Overworld is preserved.
+Choose **Astra Earth** when creating a world to bind Overworld to a closed,
+Earth-radius geography. Existing ordinary Overworld saves retain their generator.
+Geographic **F3** shows longitude, latitude and physical altitude. Persistent cube
+faces and altitude bands store the blocks; prepared neighboring observations allow
+walking or flying across their boundaries, including poles. Each block and chest
+has one canonical owner, including interactions made from an adjacent band or face.
 
-[Arrival controls, persistence and current limits](docs/SURFACE_TRAVEL.md).
+Press **R** on a bound planet to inspect it with free movement through real terrain.
+**WASD**, **Space / Shift**, mouse rotation and **Q / E** roll control the view.
+Crossing **100,000 m** transfers between the surface and space at the reached
+geographic position. The server prepares the destination and preserves the view;
+unready terrain holds movement at a valid position. There is no mandatory landing
+animation. Surface inspection is capped at 2,560 m/s and slows near storage seams.
+Press **R** again on the surface to leave inspection at the reached position.
 
-An independent [highlands prototype](docs/PLANETARY_TERRAIN.md) adds kilometer-scale
-relief in a 2048-block vertical range. Geographic **F3** coordinates are available
-on the prototype and Moon/Earth patches. This is the first terrain-development
-stage. The second stage adds [closed geographic tile addresses](docs/PLANETARY_GEOGRAPHY.md),
-polar neighbors and saved identity metadata. Continuous planetary traversal and
-unrestricted world height remain future work.
+Rocky, icy and ocean planets and moons use the same storage, traversal and
+space-boundary contracts with their own physical radii and saved profiles.
+See [Earth storage and controls](docs/EARTH_WORLD.md) and
+[solid-planet profiles, persistence and limits](docs/PLANET_SURFACES.md).
+The earlier bounded Moon/Earth patches and independent highlands/horizon prototypes
+remain separate compatibility paths; their [guided controls](docs/SURFACE_TRAVEL.md)
+do not describe the canonical planetary boundary.
 
-[Live geographic frames](docs/SURFACE_FRAMES.md) provide shared geographic references,
-read-only server pose snapshots and tile-change notifications in all six bound worlds.
-F3 shows longitude, latitude and physical altitude; operators can inspect and navigate
-within an existing window using `/astra geography here` and `/astra geography tp`.
-Position, velocity
-and full orientation can be re-expressed in adjacent local frames without changing
-their body-fixed values. F3 shows the current tile; Minecraft still owns movement,
-collisions, builds and saved player positions. Cross-world chunk/view stitching is
-the next traversal stage.
+[Live geographic frames](docs/SURFACE_FRAMES.md) expose read-only server poses and
+tile-change notifications. `/astra geography here` reports the current address;
+Minecraft continues to own canonical blocks, collision and saved player positions.
 
 Earth's close orbital view now uses its existing procedural height field for
 spherical parallax occlusion, slope lighting and progressively resolved surface
 materials. A bounded asynchronous height cache avoids resampling the full height
 function at every nearby ray step. Map approach frames ordinary planets/moons more closely while preserving
-their real radii. [Rendering and limits](docs/SURFACE_TRAVEL.md): geographic
-landing is available in the bound Astra Earth world type below; orbital player-build summaries remain unfinished.
+their real radii. Bounded summaries of actual surface edits add large builds,
+quarries and exposed nighttime emission to the orbital view. Summaries are derived
+from saved blocks; they do not transmit every block or turn the globe into full-detail geometry.
 
 The new **Astra Earth** world type provides [continental Earth storage](docs/EARTH_WORLD.md)
 in Overworld, with climate biomes, vegetation, geographic F3 and persistent blocks.
 Its versioned orbital height/climate maps share the chunk generator and add progressive close relief.
-R departs from the current geographic position; aiming at a visible location and pressing L
-prepares a collision-checked landing there. The ground calendar now drives the same Earth
+Free descent selects the geographic location being approached. The ground calendar drives the same Earth
 rotation and Sol orbital motion in flight, including frozen daylight and safe recovery
 from time commands. A bounded distant terrain mesh continues its oceans and mountain
 silhouettes beyond loaded chunks, with geographic lighting and cloud occlusion.
 Orbital and distant surfaces capture active block textures and the default Earth
 biome tints: forests use canopy colors, snow stays pale, and frozen seas use ice
 instead of liquid-ocean color and reflections. These are regional material summaries;
-individual trees and player buildings are not reconstructed from orbit.
-It layers beneath host/DH geometry and yields to active Iris packs. It remains opt-in while continuous
-storage-boundary views are integrated;
-existing worlds and the current legacy landing destinations retain their behavior.
+individual tree geometry is not reconstructed from orbit. Actual surface edits
+overlay those regional materials. The background layers beneath host/DH geometry
+and yields to active Iris packs. Existing worlds and legacy patches retain their
+saved generation versions.
 
 New **Astra Earth** worlds use terrain v3: routed rivers join ocean outlets through
 meandering valleys, with dissected mountain ranges, plateaus, old uplands, lowland
@@ -115,8 +119,9 @@ The scene/GLSL editors and astronomical free camera remain engine tools.
 
 ## Cosmos and Rocket Mode
 
-Press **R** in a world: the player stays in a bounded void while the camera
-travels through shader-rendered space. The starting system contains the Sun and
+Press **R** to enter free inspection. In an ordinary unbound world the player moves
+to a bounded void while the camera travels through shader-rendered space; on a bound
+planet inspection starts at the actual surface position. The starting system contains the Sun and
 eight planets and 21 major moons with real mean radii and orbital distances. Orbital parameters
 come from NASA tables; initial orbital phases and planetary surfaces are artistic.
 
@@ -131,7 +136,8 @@ come from NASA tables; initial orbital phases and planetary surfaces are artisti
 - **M -> Cosmic atlas** or `/astra-flight atlas`: select a galaxy and region;
   **Chart and aim** marks a public destination for its first manual trip.
 - **C**: refresh nearby systems around the current visited system.
-- Press **R** again to return to the position where you enabled the mode.
+- Press **R** again to leave inspection. Ground inspection retains the reached
+  position; void inspection returns to its saved real-world recovery position.
 
 Procedural systems contain planets and seeded moons, binary stars, rare black holes, and supernova
 remnants. The map shows nearby systems before a visit; **Aim at system** helps
@@ -143,8 +149,9 @@ point, and the next activation resumes exploration from the saved virtual positi
 Cosmic view distance is independent of chunks: the CPU computes coordinates in
 `double`, and GLSL receives directions and angular sizes. Distant planets really
 are small; navigation markers help locate them. Nebulae, star fields, atmospheres,
-rings with shadows, and accretion disks are procedural. Generated planets do not
-yet have voxel worlds; Sol's Moon and Earth have the bounded landing patches above.
+rings with shadows, and accretion disks are procedural. Supported generated solid
+planets and moons allocate persistent surface storage on demand under a bounded
+world budget. Unloading or restarting does not regenerate their identities or edits.
 
 Free flight crosses systems and can leave the Milky Way's spatial procedural
 disk. The **Cosmic atlas** adds eight procedural neighboring galaxies, with
@@ -368,21 +375,47 @@ for NBT, the network format, and pausing empty systems on the server.
 Minecraft 1.21.1's built-in GameTestServer does not include datapack dimensions
 when creating its world; a separate client scenario checks travel and block persistence.
 
-For the Moon/Earth surface scenario, create a disposable world and then reopen
-the same directory to verify retained terrain, markers, bindings and departure:
+The canonical planetary fixtures use fresh directories for `earth-crossings`
+(walking face/pole/band transitions), `earth-space-boundaries` (free ground/space
+handoffs), `earth-space-rotating` (Earth rotation during free movement), and
+`earth-space-pack` (the same geographic cases with a required active Iris pack).
+`earth-interactions` followed by `earth-interactions-restart` checks ordinary
+survival mining/placement against real neighboring blocks. `solid-planets-create`
+followed by `solid-planets-restart` checks independent Moon/Europa terrain and
+inventories. These verification sources are excluded from the distributed JAR.
+
+The connected journey fixture uses ordinary controls and public body approach
+after its initial setup: Earth seam crossing, full ascent, Moon descent and block
+placement, then ascent and return to the original Earth build. Its separate
+restart process reopens that exact saved world and checks both edits and the
+player's returned pose. Both phases have passed under the copied test modpack:
 
 ```sh
-./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-surfaces -PverifyPhase=surface-create
-./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-surfaces -PverifyPhase=surface-restart
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-journey -PverifyPhase=earth-journey-create
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-journey -PverifyPhase=earth-journey-restart
 ```
 
-Use separate fresh directories for `surface-cancel`, `surface-failures` and
-`surface-boundaries`. They exercise a real host dimension veto, obstructed return,
-death during descent, invalid source positions, an edited landing quarry, and
-the landing key's ownership over vanilla advancements. Run `surface-interrupt`
-followed by `surface-recover` in another shared directory to check interrupted
-flight recovery. `-PverifyGraphics=fabulous` selects the alternate native path;
-optional mod and shader-pack files belong only in that test directory.
+The shorter `earth-platform-collision` scenario checks a real platform just below
+an altitude seam, first during maximum-speed inspection and then ordinary gravity:
+
+```sh
+./gradlew runVerifyClient -PverifyDirectory=Workflow/verification/my-platform -PverifyPhase=earth-platform-collision
+```
+
+That scenario also passed with Lithium 0.15.4. These are functional checks:
+the connected journey's 4-GiB run reported DH memory pressure and a long forced
+checkpoint save. Passing travel without a loading screen is not a frame-time or
+save-latency guarantee. `-PverifyHeap=12G` selects a larger isolated fixture heap.
+
+The older small-patch surface fixture is retained for historical evidence. Use the
+canonical planetary phases above to verify current Moon entry and geographic
+boundaries; saved legacy patch worlds retain their independent storage.
+
+Current dedicated planetary tests exercise stale/foreign acknowledgements, actual
+changed destination blocks, brake/turn-away/disconnect cleanup and real host
+transfer/recovery vetoes. The older `surface-*` phases describe the historical
+guided patch path. `-PverifyGraphics=fabulous` selects the alternate native path;
+optional mod and shader-pack files belong only in an isolated test directory.
 
 The automated game scenario opens a separate Minecraft window. Use a fresh
 directory for a new run (the first phase refuses to overwrite an existing world):

@@ -5,9 +5,32 @@
   "compatibilityLevel": "JAVA_21",
   "mixins": [
     "EarthBiomeWeatherMixin",
-    "EarthHeightmapMixin"
+    "EarthHeightmapMixin",
+    "ServerStorageAccessor",
+    "PlanetaryLevelMixin",
+    "PlanetaryCollisionMixin",
+    "OrbitalBlockChangeMixin",
+    "PlanetaryInspectionMixin",
+    "BoundaryEntityAccessor",
+    "BoundaryGameModeAccessor",
+    "BoundaryActionPlayerMixin",
+    "BoundaryActionRemovalMixin",
+    "BoundaryActionReachMixin",
+    "BoundaryActionPacketMixin",
+    "BoundaryActionWriteMixin",
+    "BoundaryWorldgenWriteMixin",
+    "BoundaryPlacementMixin",
+    "BoundaryActionReadMixin",
+    "BoundaryContainerOpenersMixin",
+    "PlanetaryChunkUnloadMixin",
+    "UniformTerrainNbtMixin"
   ],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "client": [
+    "PlanetaryClientPacketMixin",
+    "PlanetaryMinecraftMixin",
+    "PlanetaryCameraAccessor"
+  ]
 }

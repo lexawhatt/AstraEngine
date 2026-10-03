@@ -53,9 +53,36 @@ public final class AstraEngine {
     }
 
     private void registerPayloads(RegisterPayloadHandlersEvent event) {
+        event.registrar("1").playToServer(dev.lexawhatt.astraengine.network.BoundaryInteractPayload.TYPE,
+                dev.lexawhatt.astraengine.network.BoundaryInteractPayload.CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) { runtime.boundaryInteraction(player, payload); }
+                });
+        event.registrar("2").playToClient(dev.lexawhatt.astraengine.network.SpaceBoundaryPreviewPayload.TYPE,
+                dev.lexawhatt.astraengine.network.SpaceBoundaryPreviewPayload.CODEC,
+                (payload, context) -> NeoForge.EVENT_BUS.post(new dev.lexawhatt.astraengine.network.SpaceBoundaryPreviewReceivedEvent(payload)));
+        event.registrar("1").playToClient(dev.lexawhatt.astraengine.network.SpaceBoundaryHandoffPayload.TYPE,
+                dev.lexawhatt.astraengine.network.SpaceBoundaryHandoffPayload.CODEC,
+                (payload, context) -> NeoForge.EVENT_BUS.post(new dev.lexawhatt.astraengine.network.SpaceBoundaryHandoffReceivedEvent(payload)));
+        event.registrar("1").playToServer(dev.lexawhatt.astraengine.network.SpaceBoundaryReadyPayload.TYPE,
+                dev.lexawhatt.astraengine.network.SpaceBoundaryReadyPayload.CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) { runtime.spaceBoundaryReady(player, payload.revision()); }
+                });
+        event.registrar("1").playToClient(dev.lexawhatt.astraengine.network.OrbitalSummaryPayload.TYPE,
+                dev.lexawhatt.astraengine.network.OrbitalSummaryPayload.CODEC,
+                (payload, context) -> NeoForge.EVENT_BUS.post(new dev.lexawhatt.astraengine.network.OrbitalSummaryReceivedEvent(payload)));
+        event.registrar("1").playToClient(dev.lexawhatt.astraengine.network.BoundaryHandoffPayload.TYPE,
+                dev.lexawhatt.astraengine.network.BoundaryHandoffPayload.CODEC,
+                (payload, context) -> NeoForge.EVENT_BUS.post(new dev.lexawhatt.astraengine.network.BoundaryHandoffReceivedEvent(payload)));
+        event.registrar("1").playToServer(dev.lexawhatt.astraengine.network.BoundaryReadyPayload.TYPE,
+                dev.lexawhatt.astraengine.network.BoundaryReadyPayload.CODEC, (payload, context) -> {
+                    if (context.player() instanceof ServerPlayer player) { runtime.boundaryReady(player, payload.revision()); }
+                });
+        event.registrar("1").playToClient(dev.lexawhatt.astraengine.network.PlanetContextPayload.TYPE,
+                dev.lexawhatt.astraengine.network.PlanetContextPayload.CODEC,
+                (payload, context) -> NeoForge.EVENT_BUS.post(new dev.lexawhatt.astraengine.network.PlanetContextReceivedEvent(payload)));
         event.registrar("1").playToClient(NavigationPolicyPayload.TYPE, NavigationPolicyPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new NavigationPolicyReceivedEvent(payload)));
-        event.registrar("1").playToClient(EarthBoundaryPayload.TYPE, EarthBoundaryPayload.CODEC,
+        event.registrar("3").playToClient(EarthBoundaryPayload.TYPE, EarthBoundaryPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new EarthBoundaryReceivedEvent(payload)));
         event.registrar("3").playToClient(EarthContextPayload.TYPE, EarthContextPayload.CODEC,
                 (payload, context) -> NeoForge.EVENT_BUS.post(new EarthContextReceivedEvent(payload)));
@@ -78,7 +105,7 @@ public final class AstraEngine {
         event.registrar("1").playToServer(EarthLandingPayload.TYPE, EarthLandingPayload.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) { runtime.earthLanding(player, payload); }
         });
-        event.registrar("3").playToServer(FlightControlPayload.TYPE, FlightControlPayload.CODEC, (payload, context) -> {
+        event.registrar("4").playToServer(FlightControlPayload.TYPE, FlightControlPayload.CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) { runtime.flightControl(player, payload); }
         });
         event.registrar("1").playToServer(FlightSpeedPayload.TYPE, FlightSpeedPayload.CODEC, (payload, context) -> {

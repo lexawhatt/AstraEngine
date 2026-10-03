@@ -11,6 +11,24 @@ class FlightDynamicsTest {
     private static final SpaceVector ZERO = new SpaceVector(0, 0, 0);
 
     @Test
+    void smallMovingSolidsKeepTheirEntryRegionInTheSameOrbitalReference() {
+        var body = new CelestialBody("small", "Small", CelestialBody.Kind.ROCKY, 16, 1_000_000, 1000,
+                0, 0, 0, new SpaceVector(.5, .5, .5), 0, 0, 0, 0);
+        var bodies = List.of(body);
+        var offset = new SpaceVector(0, 0, 101_000);
+        var position = body.positionAt(0).add(offset);
+        assertEquals(position, FlightDynamics.followOrbitalMotion(position, bodies, 0, 1));
+        var carried = FlightDynamics.followOrbitalMotion(position, bodies, 0, 1,
+                obstacle -> obstacle.radiusMeters() + 350_016);
+        assertEquals(0, carried.subtract(body.positionAt(1)).distance(offset), 1e-8);
+        var distant = body.positionAt(0).add(new SpaceVector(0, 0, 400_000));
+        assertEquals(distant, FlightDynamics.followOrbitalMotion(distant, bodies, 0, 1,
+                obstacle -> obstacle.radiusMeters() + 350_016));
+        assertThrows(IllegalArgumentException.class, () -> FlightDynamics.followOrbitalMotion(position, bodies, 0, 1,
+                obstacle -> Double.NaN));
+    }
+
+    @Test
     void nearbyReferencesFollowCalendarJumpsWithoutDraggingDistantObservers() {
         CosmosSystem sol = CosmosGenerator.sol();
         for (String id : List.of("earth", "moon", "mars")) {

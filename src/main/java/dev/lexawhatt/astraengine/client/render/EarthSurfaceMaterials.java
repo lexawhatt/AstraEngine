@@ -3,6 +3,7 @@ package dev.lexawhatt.astraengine.client.render;
 import com.mojang.blaze3d.systems.RenderSystem;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.surface.EarthSurfacePalette;
+import dev.lexawhatt.astraengine.surface.SolidPlanetPalette;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.ShaderInstance;
@@ -46,6 +47,15 @@ final class EarthSurfaceMaterials {
             shader.safeGetUniform("EarthSurfaceColors[" + index + "]").set(
                     (float) color.x(), (float) color.y(), (float) color.z(), index < 2 ? 1.0f : 0.0f);
         }
+    }
+
+    /** Captures actual generic-body top materials; this palette does not invent forests on barren rock or ice. */
+    static SolidPlanetPalette capturePlanet() {
+        RenderSystem.assertOnRenderThread();
+        return new SolidPlanetPalette(List.of(texture(Blocks.GRAVEL), texture(Blocks.STONE), texture(Blocks.PACKED_ICE),
+                texture(Blocks.SNOW_BLOCK), texture(Blocks.SAND),
+                multiply(atlasTexture("grass_block_top"), rgb(biome(Biomes.PLAINS).getGrassColor(0, 0))), texture(Blocks.GRAVEL)),
+                multiply(atlasTexture("water_still"), rgb(biome(Biomes.PLAINS).getWaterColor())));
     }
 
     private static SpaceVector canopy(SpaceVector leaves, SpaceVector grass, ResourceKey<Biome> key, double cover) {

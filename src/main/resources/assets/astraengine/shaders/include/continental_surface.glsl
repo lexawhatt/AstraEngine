@@ -29,13 +29,23 @@ vec4 continentalBilinear(sampler2D data, vec2 uv) {
                mix(texelFetch(data, ivec2(low.x, high.y), 0), texelFetch(data, high, 0), weight.x), weight.y);
 }
 
-vec4 continentalSample(vec3 p) {
-    if (ContinentalReady == 0) { return vec4(0.0, 12.0, 0.5, 0.0); }
+vec4 continentalClimateMaterial(vec4 climate);
+
+vec4 continentalField(sampler2D data, vec2 uv, bool material) {
+    vec4 value = continentalBilinear(data, uv);
+    return material ? continentalClimateMaterial(value) : value;
+}
+
+vec4 continentalSample(vec3 p, bool material) {
+    if (ContinentalReady == 0) {
+        vec4 fallback = vec4(0.0, 12.0, 0.5, 0.0);
+        return material ? continentalClimateMaterial(fallback) : fallback;
+    }
     vec2 globeSize = vec2(textureSize(ContinentalGlobe, 0));
     vec2 angular = vec2(atan(-p.z, p.x) / (2.0 * PI) + 0.5,
                         asin(clamp(p.y, -1.0, 1.0)) / PI + 0.5);
     // Explicit LOD keeps derivatives out of divergent relief-march loops.
-    vec4 coarse = continentalBilinear(ContinentalGlobe, (angular * (globeSize - 1.0) + 0.5) / globeSize);
+    vec4 coarse = continentalField(ContinentalGlobe, (angular * (globeSize - 1.0) + 0.5) / globeSize, material);
     float forward = dot(p, ContinentalUp);
     if (ContinentalTilesReady == 0 || forward <= 0.0) { return coarse; }
     vec2 meters = vec2(dot(p, ContinentalEast), dot(p, ContinentalSouth)) * 6371000.0 / forward;
@@ -43,18 +53,20 @@ vec4 continentalSample(vec3 p) {
     vec4 extent = ContinentalSpacing * 256.0;
     vec4 weight = vec4(1.0) - smoothstep(extent * 0.8, extent, vec4(distance));
     if (weight.w <= 0.0) { return coarse; }
-    vec4 result = continentalBilinear(ContinentalTile3, continentalUv(meters, ContinentalSpacing.w));
+    vec4 result = continentalField(ContinentalTile3, continentalUv(meters, ContinentalSpacing.w), material);
     if (weight.z > 0.0) {
-        result = mix(result, continentalBilinear(ContinentalTile2, continentalUv(meters, ContinentalSpacing.z)), weight.z);
+        result = mix(result, continentalField(ContinentalTile2, continentalUv(meters, ContinentalSpacing.z), material), weight.z);
     }
     if (weight.y > 0.0) {
-        result = mix(result, continentalBilinear(ContinentalTile1, continentalUv(meters, ContinentalSpacing.y)), weight.y);
+        result = mix(result, continentalField(ContinentalTile1, continentalUv(meters, ContinentalSpacing.y), material), weight.y);
     }
     if (weight.x > 0.0) {
-        result = mix(result, continentalBilinear(ContinentalTile0, continentalUv(meters, ContinentalSpacing.x)), weight.x);
+        result = mix(result, continentalField(ContinentalTile0, continentalUv(meters, ContinentalSpacing.x), material), weight.x);
     }
     return mix(coarse, result, weight.w);
 }
+
+vec4 continentalSample(vec3 p) { return continentalSample(p, false); }
 
 // Display colors captured from the same host block textures and biome tints as the ground.
 // Indices are the non-persistent EarthClimate presentation order.
@@ -75,4 +87,6 @@ vec4 continentalClimateMaterial(vec4 climate) {
     return EarthSurfaceColors[material];
 }
 
-vec4 continentalMaterial(vec3 p) { return continentalClimateMaterial(continentalSample(p)); }
+// Blend resolved material colors across cache resolutions. Classifying interpolated climate
+// instead turns an innocent tile fade into a hard rectangular biome boundary.
+vec4 continentalMaterial(vec3 p) { return continentalSample(p, true); }

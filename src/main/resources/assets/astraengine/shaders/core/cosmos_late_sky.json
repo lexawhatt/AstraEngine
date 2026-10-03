@@ -7,5 +7,7 @@
     { "name": "SceneDepth" },
     { "name": "SkyColor" }
   ],
-  "uniforms": []
+  "uniforms": [
+    { "name": "SkyOpacity", "type": "float", "count": 1, "values": [1.0] }
+  ]
 }

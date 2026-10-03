@@ -10,6 +10,7 @@
     }
   ],
   "uniforms": [
+    { "name": "ObserverAltitudeKm", "type": "float", "count": 1, "values": [ 0.05 ] },
     {
       "name": "InverseViewProjection",
       "type": "matrix4x4",

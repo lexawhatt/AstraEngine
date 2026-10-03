@@ -3,6 +3,7 @@ package dev.lexawhatt.astraengine.server;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import dev.lexawhatt.astraengine.AstraEngine;
+import dev.lexawhatt.astraengine.server.interaction.BoundaryInteractionService;
 import dev.lexawhatt.astraengine.api.AstraSystems;
 import dev.lexawhatt.astraengine.api.CosmosDiscoveryEvent;
 import dev.lexawhatt.astraengine.api.ExtractionResult;
@@ -43,16 +44,20 @@ public final class EngineRuntime {
     private SolarEvolutionService solar;
     private SurfaceFrameTracker surfaceFrames;
     private EarthBoundaryService boundaries;
+    private PlanetaryCrossingService crossings;
+    private BoundaryInteractionService boundaryInteractions;
+    private dev.lexawhatt.astraengine.server.orbit.OrbitalSummaryService orbitalSummaries;
 
     /** Registers common/server listeners once. */
     public EngineRuntime() {
+        NeoForge.EVENT_BUS.addListener(EarthSpawn::create);
         NeoForge.EVENT_BUS.addListener(this::onStarted);
         NeoForge.EVENT_BUS.addListener(this::onStopped);
         NeoForge.EVENT_BUS.addListener(this::onStopping);
         NeoForge.EVENT_BUS.addListener(this::onTick);
         NeoForge.EVENT_BUS.addListener(this::onLogin);
         NeoForge.EVENT_BUS.addListener(this::onLogout);
-        NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerRespawnEvent event) -> resetSurfaceFrame(event));
+        NeoForge.EVENT_BUS.addListener(this::onRespawn);
         NeoForge.EVENT_BUS.addListener((PlayerEvent.PlayerChangedDimensionEvent event) -> resetSurfaceFrame(event));
         NeoForge.EVENT_BUS.addListener(this::onCosmosDiscovery);
         NeoForge.EVENT_BUS.addListener(this::onCommands);
@@ -64,6 +69,12 @@ public final class EngineRuntime {
         NeoForge.EVENT_BUS.addListener(this::onAttack);
         NeoForge.EVENT_BUS.addListener(this::onBreak);
         NeoForge.EVENT_BUS.addListener(this::onPlace);
+        NeoForge.EVENT_BUS.addListener((dev.lexawhatt.astraengine.server.orbit.OrbitalBlockChangedEvent event) -> {
+            if (orbitalSummaries != null) { orbitalSummaries.changed(event); }
+        });
+        NeoForge.EVENT_BUS.addListener((net.neoforged.neoforge.event.level.ChunkEvent.Load event) -> {
+            if (orbitalSummaries != null) { orbitalSummaries.loaded(event); }
+        });
     }
 
     private void onStarted(ServerStartedEvent event) {
@@ -74,18 +85,25 @@ public final class EngineRuntime {
         PlanetaryTerrainWorld.validate(server);
         ContinentalWorlds.validate(server);
         EarthWorlds.validate(server);
+        PlanetSurfaceWorlds.restore(server);
         PlanetaryGeographyState.get(server);
         surfaceFrames = new SurfaceFrameTracker(server);
         SurfaceWorlds.maintainBorders(server);
         travel = new TravelService(server);
         rocket = new RocketService(server);
         boundaries = new EarthBoundaryService(server);
+        boundaryInteractions = new BoundaryInteractionService(server, boundaries);
+        crossings = new PlanetaryCrossingService(server, boundaries, rocket);
+        orbitalSummaries = new dev.lexawhatt.astraengine.server.orbit.OrbitalSummaryService(server);
         solar = new SolarEvolutionService(server, rocket);
         SkyState.get(server);
         AstraEngine.LOGGER.info("AstraEngine systems ready: alpha and beta; empty systems pause");
     }
 
     private void onStopping(ServerStoppingEvent event) {
+        if (boundaryInteractions != null) { boundaryInteractions.close(); boundaryInteractions = null; }
+        if (crossings != null) { crossings.close(); crossings = null; }
+        if (orbitalSummaries != null) { orbitalSummaries.close(); orbitalSummaries = null; }
         if (boundaries != null) { boundaries.close(); boundaries = null; }
         if (surfaceFrames != null) { surfaceFrames.close(); surfaceFrames = null; }
         if (rocket != null) { rocket.close(); }
@@ -93,12 +111,14 @@ public final class EngineRuntime {
     }
 
     private void onStopped(ServerStoppedEvent event) {
-        boundaries = null; surfaceFrames = null; solar = null; rocket = null; travel = null; server = null;
+        boundaryInteractions = null; crossings = null; orbitalSummaries = null; boundaries = null; surfaceFrames = null;
+        solar = null; rocket = null; travel = null; server = null;
     }
 
     private void onLogin(PlayerEvent.PlayerLoggedInEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
             PacketDistributor.sendToPlayer(player, new EarthContextPayload(EarthWorlds.terrainVersion(server)));
+            PlanetSurfaceWorlds.send(player);
             NavigationRules.send(player);
             if (travel != null) { travel.recover(player); }
             if (rocket != null) { rocket.recover(player); }
@@ -110,14 +130,23 @@ public final class EngineRuntime {
 
     private void onLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            if (boundaryInteractions != null) { boundaryInteractions.forget(player); }
+            if (crossings != null) { crossings.forget(player); }
             if (boundaries != null) { boundaries.forget(player); }
+            if (orbitalSummaries != null) { orbitalSummaries.forget(player); }
             if (surfaceFrames != null) { surfaceFrames.forget(player); }
             if (travel != null) { travel.disconnect(player); }
             if (rocket != null) { rocket.disconnect(player); }
         }
     }
 
+    private void onRespawn(PlayerEvent.PlayerRespawnEvent event) {
+        if (rocket != null && event.getEntity() instanceof ServerPlayer player) { rocket.respawn(player); }
+        resetSurfaceFrame(event);
+    }
+
     private void resetSurfaceFrame(PlayerEvent event) {
+        if (boundaryInteractions != null && event.getEntity() instanceof ServerPlayer player) { boundaryInteractions.forget(player); }
         if (boundaries != null && event.getEntity() instanceof ServerPlayer player) { boundaries.forget(player); }
         if (surfaceFrames != null && event.getEntity() instanceof ServerPlayer player) {
             surfaceFrames.forget(player);
@@ -134,7 +163,10 @@ public final class EngineRuntime {
         if (travel == null) { return; }
         travel.tick();
         if (rocket != null) { rocket.tick(); }
+        if (boundaryInteractions != null) { boundaryInteractions.tick(); }
+        if (crossings != null) { crossings.tick(); }
         if (boundaries != null) { boundaries.tick(); }
+        if (orbitalSummaries != null) { orbitalSummaries.tick(); }
         if (solar != null) { solar.tick(); }
         if (surfaceFrames != null) { surfaceFrames.tick(); }
         SystemCatalog catalog = SystemCatalog.get(event.getServer());
@@ -238,6 +270,26 @@ public final class EngineRuntime {
     public void flightSpeed(ServerPlayer player, FlightSpeedPayload payload) {
         if (rocket != null && server != null && player.getServer() == server && server.isSameThread()) {
             rocket.speed(player, payload);
+        }
+    }
+
+    /** Own-connection acknowledgement of an already server-selected geographic observation. */
+    /** Own-connection acknowledgement of a server-selected real surface preview. */
+    public void boundaryInteraction(ServerPlayer player, dev.lexawhatt.astraengine.network.BoundaryInteractPayload payload) {
+        if (boundaryInteractions != null && server != null && server.isSameThread() && player.getServer() == server
+                && (rocket == null || !rocket.active(player))) { boundaryInteractions.request(player, payload); }
+    }
+
+    /** Own-connection readiness observation of prepared real surface geometry. */
+    public void spaceBoundaryReady(ServerPlayer player, long revision) {
+        if (rocket != null && server != null && server.isSameThread() && player.getServer() == server) {
+            rocket.spaceBoundaryReady(player, revision);
+        }
+    }
+
+    public void boundaryReady(ServerPlayer player, long revision) {
+        if (boundaries != null && server != null && player.getServer() == server && server.isSameThread()) {
+            boundaries.ready(player, revision);
         }
     }
 

@@ -143,9 +143,13 @@ neoForge {
             loadedMods = [mods.astraengine, mods.astraengine_verify]
             gameDirectory = project.file(providers.gradleProperty('verifyDirectory')
                     .getOrElse('Workflow/verification/first-slice-client'))
-            jvmArguments.addAll '-Xms1G', '-Xmx4G'
+            // Fixture-only heap override for a recorded launcher profile; ordinary clients keep their default.
+            jvmArguments.addAll '-Xms1G', '-Xmx' + providers.gradleProperty('verifyHeap').getOrElse('4G')
             systemProperty 'astraengine.verify.phase', providers.gradleProperty('verifyPhase').getOrElse('create')
             systemProperty 'astraengine.verify.graphics', providers.gradleProperty('verifyGraphics').getOrElse('fancy')
+            if (providers.gradleProperty('verifyUsername').isPresent()) {
+                programArguments.addAll '--username', providers.gradleProperty('verifyUsername').get()
+            }
         }
         verifyServer {
             type = 'gameTestServer'

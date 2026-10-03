@@ -130,6 +130,10 @@ public final class RocketController {
     private String targetBody = "earth";
     private Matrix4f viewProjection;
     private View renderedView;
+    private BodyFixedFrame previousGroundFrame;
+    private String previousGroundGeography = "";
+    private net.minecraft.resources.ResourceLocation handoffTarget;
+    private long handoffExpiresAt;
 
     /** Shares visual quality controls with the existing renderer, keeping independent flight ownership. */
     public RocketController(RenderOptions options, SolarStateClient solar, EarthStateClient earth) {
@@ -140,6 +144,11 @@ public final class RocketController {
 
     private static KeyMapping key(String name, int code) {
         return new KeyMapping("key.astraengine.flight." + name, code, "key.categories.astraengine");
+    }
+
+    /** Shares immutable connection observations with the orbital material renderer; owns no server edit state. */
+    public void setOrbitalSummaries(dev.lexawhatt.astraengine.client.surface.orbit.OrbitalSummaryClient summaries) {
+        renderer.setOrbitalSummaries(summaries);
     }
 
     public void registerKeys(RegisterKeyMappingsEvent event) {
@@ -153,6 +162,15 @@ public final class RocketController {
 
     /** Receives authoritative handoff progress; it never transfers the local player. */
     public void receiveSurface(SurfaceReceivedEvent event) { surface.receive(event); }
+
+    /** A prepared physical boundary advances input ownership without resetting the live camera heading. */
+    public void receiveBoundary(dev.lexawhatt.astraengine.network.SpaceBoundaryHandoffReceivedEvent event) {
+        var payload = event.payload();
+        if (payload.cancelled()) { handoffTarget = null; return; }
+        if (minecraft.level == null || !minecraft.level.dimension().location().equals(payload.source()) || !active()) { return; }
+        handoffTarget = payload.target();
+        handoffExpiresAt = System.nanoTime() + 5_000_000_000L;
+    }
 
     public void registerShaders(RegisterShadersEvent event) {
         pendingYawDegrees = 0; pendingPitchDegrees = 0;
@@ -184,8 +202,13 @@ public final class RocketController {
                 && snapshot.systemId().equals(incoming.systemId()) && (wasApproaching || incoming.approaching());
         boolean calendarRebase = snapshot != null && (snapshot.calendarEpoch() != incoming.calendarEpoch()
                 || snapshot.calendarEarth() != incoming.calendarEarth());
+        boolean physicalHandoff = snapshot != null && snapshot.active() && incoming.active()
+                && snapshot.systemId().equals(incoming.systemId()) && handoffTarget != null
+                && minecraft.level != null && minecraft.level.dimension().location().equals(handoffTarget)
+                && System.nanoTime() < handoffExpiresAt;
+        if (physicalHandoff || System.nanoTime() >= handoffExpiresAt) { handoffTarget = null; }
         boolean relocated = calendarRebase || snapshot == null || !snapshot.active() || !snapshot.systemId().equals(incoming.systemId())
-                || (snapshot.navigationEpoch() != incoming.navigationEpoch() && !guidedChange)
+                || (snapshot.navigationEpoch() != incoming.navigationEpoch() && !guidedChange && !physicalHandoff)
                 || (snapshot.interstellarJump() && incoming.jumpTicks() == 0);
         View currentView = view();
         previousPosition = manualRebase ? currentSystem().galaxyPosition().subtract(system(incoming.systemId()).galaxyPosition())
@@ -210,6 +233,7 @@ public final class RocketController {
         }
         if (resetView && incoming.active() && minecraft.player != null) {
             flightCamera.reset(incoming.orientation());
+            previousGroundFrame = null; previousGroundGeography = "";
             pendingYawDegrees = 0; pendingPitchDegrees = 0;
             minecraft.player.setYRot(incoming.yaw());
             minecraft.player.setXRot(incoming.pitch());
@@ -337,7 +361,8 @@ public final class RocketController {
 
     public boolean active() {
         return snapshot != null && snapshot.active() && minecraft.level != null
-                && minecraft.level.dimension().equals(RocketService.FLIGHT);
+                && (minecraft.level.dimension().equals(RocketService.FLIGHT)
+                    || earth.cubeChart(minecraft.level.dimension().location().toString()).isPresent());
     }
 
     public CosmosSystem currentSystem() {
@@ -509,9 +534,7 @@ public final class RocketController {
         if (!pendingAtlasTarget.isEmpty() && --pendingAtlasTicks <= 0) { pendingAtlasTarget = ""; }
         while (toggle.consumeClick()) {
             if (minecraft.screen == null) {
-                action(surface.definition(minecraft.level) != null || minecraft.level != null
-                        && earth.chart(minecraft.level.dimension().location().toString()).isPresent()
-                        ? FlightActionPayload.Action.TAKE_OFF : FlightActionPayload.Action.TOGGLE, "");
+                action(FlightActionPayload.Action.TOGGLE, "");
             }
         }
         while (land.consumeClick()) {
@@ -549,12 +572,22 @@ public final class RocketController {
                 speedActionTicks = 0;
             }
             boolean manual = controls && !guided;
+            var chart = groundChart();
+            var inputOrientation = guided ? snapshot.orientation() : orientation();
+            if (chart != null) {
+                var inputFrame = previousGroundFrame != null && previousGroundGeography.equals(chart.geographyId())
+                        ? previousGroundFrame : groundFrame(chart, view());
+                inputOrientation = inputFrame.toBodyOrientation(inputOrientation);
+            }
             PacketDistributor.sendToServer(new FlightControlPayload(manual ? forward : 0, manual ? strafe : 0,
-                    manual ? vertical : 0, guided ? snapshot.orientation() : orientation(),
+                    manual ? vertical : 0, inputOrientation,
                     guided ? controls && brake.isDown() : !controls || brake.isDown(),
-                    ++sequence, snapshot.navigationEpoch()));
+                    ++sequence, snapshot.navigationEpoch(), chart != null));
         } else if (wasActive) { restoreCamera(); }
         wasActive = active();
+        if (minecraft.player instanceof dev.lexawhatt.astraengine.surface.PlanetaryInspectionAccess controlled) {
+            controlled.astra$inspectionMovement(active() && groundChart() != null);
+        }
     }
 
     /** Captures movement intent before clearing vanilla walking/jumping in the bounded flight room. */
@@ -595,6 +628,14 @@ public final class RocketController {
     /** The virtual camera owns its unrestricted orientation; the walking player's pitch clamp is irrelevant. */
     public void camera(ViewportEvent.ComputeCameraAngles event) {
         if (!active() || minecraft.player == null) { return; }
+        var chart = groundChart();
+        var display = view();
+        BodyFixedFrame frame = chart == null ? null : groundFrame(chart, display);
+        if (frame != null && previousGroundFrame != null && previousGroundGeography.equals(chart.geographyId())) {
+            flightCamera.transport(previousGroundFrame, frame);
+        }
+        previousGroundFrame = frame;
+        previousGroundGeography = chart == null ? "" : chart.geographyId();
         long now = System.nanoTime();
         double dt = Math.clamp((now - previousCameraTime) / 1_000_000_000.0, 0, 0.1);
         previousCameraTime = now;
@@ -611,7 +652,32 @@ public final class RocketController {
             flightCamera.update(captured ? pendingYawDegrees : 0, captured ? pendingPitchDegrees : 0, roll, dt, smoothing);
         }
         pendingYawDegrees = 0; pendingPitchDegrees = 0;
-        event.setYaw(yaw()); event.setPitch(pitch()); event.setRoll(roll());
+        if (chart == null) {
+            event.setYaw(yaw()); event.setPitch(pitch()); event.setRoll(roll());
+        } else {
+            var bodyEye = frame.toBodyPoint(display.position());
+            double denominator = bodyEye.dot(chart.face().outward());
+            if (denominator > 0) {
+                double x = bodyEye.dot(chart.face().u()) * chart.radiusMeters() / denominator;
+                double z = bodyEye.dot(chart.face().v()) * chart.radiusMeters() / denominator;
+                double altitude = bodyEye.length() - chart.radiusMeters();
+                var tangent = chart.tangentFrame(x, z, altitude);
+                var local = tangent.toLocalOrientation(frame.toBodyOrientation(orientation()));
+                event.setYaw(local.yaw()); event.setPitch(local.pitch()); event.setRoll(local.roll());
+                ((dev.lexawhatt.astraengine.mixin.PlanetaryCameraAccessor) event.getCamera()).astra$position(
+                        new net.minecraft.world.phys.Vec3(x, altitude - chart.altitudeOriginMeters(), z));
+            }
+        }
+    }
+
+    private dev.lexawhatt.astraengine.surface.CubeStorageChart groundChart() {
+        return minecraft.level == null ? null : earth.cubeChart(minecraft.level.dimension().location().toString()).orElse(null);
+    }
+
+    private BodyFixedFrame groundFrame(dev.lexawhatt.astraengine.surface.CubeStorageChart chart, View view) {
+        return chart instanceof dev.lexawhatt.astraengine.surface.PlanetChart planet
+                ? planet.profile().frame(system(planet.profile().systemId()), view.orbitalSeconds())
+                : view.surfaceFrame(system("sol"), SurfaceDefinition.byBody("earth"));
     }
 
     /** Flight bindings own Q/E and L without dropping items, opening inventory or opening advancements. */
@@ -647,11 +713,63 @@ public final class RocketController {
     public void hand(RenderHandEvent event) { if (active()) { event.setCanceled(true); } }
 
     /** Co-located pilots in the physical staging room are not objects in the virtual cosmos. */
-    public void player(RenderPlayerEvent.Pre event) { if (active()) { event.setCanceled(true); } }
-    public void living(RenderLivingEvent.Pre<?, ?> event) { if (active()) { event.setCanceled(true); } }
+    public void player(RenderPlayerEvent.Pre event) {
+        if (active() && (groundChart() == null || event.getEntity() == minecraft.player)) { event.setCanceled(true); }
+    }
+    public void living(RenderLivingEvent.Pre<?, ?> event) {
+        if (active() && (groundChart() == null || event.getEntity() == minecraft.player)) { event.setCanceled(true); }
+    }
 
     /** Flight sky uses its own physical-scale scene and does not depend on the chunk far plane. */
     public void render(RenderLevelStageEvent event) {
+        if (groundChart() instanceof dev.lexawhatt.astraengine.surface.EarthChart chart) {
+            if (RenderCompatibility.shadowPass()) { return; }
+            boolean late = RenderCompatibility.lateWorldPasses();
+            // The pack retains the Overworld. Upper planetary storage is a separate dimension,
+            // where the same depth-preserving late sky contract as other planets applies.
+            if (late && minecraft.level.dimension().equals(net.minecraft.world.level.Level.OVERWORLD)) { return; }
+            var earthStage = late ? RenderLevelStageEvent.Stage.AFTER_LEVEL : RenderLevelStageEvent.Stage.AFTER_SKY;
+            if (event.getStage() != earthStage) { return; }
+            var camera = event.getCamera().getPosition();
+            double altitude = camera.y + chart.altitudeOriginMeters();
+            float blend = (float) Math.clamp((altitude - 16_000) / 32_000, 0, 1);
+            blend = blend * blend * (3 - 2 * blend);
+            if (blend == 0) { return; }
+            var system = system("sol");
+            if (system == null) { return; }
+            View display = active() ? view() : null;
+            double seconds = display == null ? surface.orbitalSeconds() : display.orbitalSeconds();
+            double animation = display == null ? surface.clockTicks() / 20 : display.timeSeconds();
+            FlightOrientation rotation = display == null ? surface.earthOrientation() : display.earthOrientation();
+            var definition = SurfaceDefinition.byBody("earth");
+            var frame = rotation == null ? definition.frame(system, seconds, animation * 20)
+                    : definition.calendarFrame(system, seconds, rotation);
+            var tangent = chart.tangentFrame(camera.x, camera.z, altitude);
+            renderer.setContinentalEarth(earth.terrainVersion());
+            renderer.setQuality(options.quality().ordinal());
+            renderer.setGalaxySeed(snapshot == null ? 0 : snapshot.galaxySeed());
+            renderer.setSolarVisual(solar.visual());
+            renderer.renderSurface(event, system, frame.toSystemPoint(tangent.originMeters()), animation,
+                    seconds, rotation, exposure(),
+                    frame.toSystemOrientation(tangent.orientation()), blend);
+            return;
+        }
+        if (groundChart() instanceof dev.lexawhatt.astraengine.surface.PlanetChart planet) {
+            if (RenderCompatibility.shadowPass()) { return; }
+            var planetStage = RenderCompatibility.lateWorldPasses()
+                    ? RenderLevelStageEvent.Stage.AFTER_LEVEL : RenderLevelStageEvent.Stage.AFTER_SKY;
+            if (event.getStage() != planetStage) { return; }
+            var system = system(planet.profile().systemId());
+            if (system == null) { return; }
+            renderer.setContinentalEarth(earth.terrainVersion());
+            renderer.setQuality(options.quality().ordinal());
+            renderer.setGalaxySeed(snapshot == null ? 0 : snapshot.galaxySeed());
+            renderer.setSolarVisual(solar.visual());
+            SurfaceSkyRenderer.render(event, renderer, system, planet, surface.clockTicks(), surface.orbitalSeconds(),
+                    surface.earthOrientation(), exposure());
+            return;
+        }
+        if (groundChart() != null) { return; }
         var ground = surface.definition(minecraft.level);
         if ((!active() && ground == null) || RenderCompatibility.shadowPass()) { return; }
         var stage = RenderCompatibility.lateWorldPasses()
@@ -812,6 +930,7 @@ public final class RocketController {
         forward = 0; strafe = 0; vertical = 0; sequence = 0; wasActive = false; mapRequested = false;
         flightCamera.reset(FlightOrientation.IDENTITY); pendingYawDegrees = 0; pendingPitchDegrees = 0; pendingSpeedSteps = 0;
         previousOrientation = FlightOrientation.IDENTITY; finishingGuidance = false;
+        previousGroundFrame = null; previousGroundGeography = ""; handoffTarget = null;
         if (RenderSystem.isOnRenderThread()) { renderer.close(); }
         else { RenderSystem.recordRenderCall(renderer::close); }
         viewProjection = null;

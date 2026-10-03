@@ -11,10 +11,12 @@ import net.minecraft.resources.ResourceLocation;
 /**
  * Client-to-server own-flight input. The epoch echoes the last server navigation snapshot,
  * including approach start/end, so delayed input cannot replace an authoritative view.
- * During approach only an explicit brake cancels guidance. RocketService enforces authority and rate limits.
+ * During approach only an explicit brake cancels guidance. Ground inspection sends body-fixed orientation
+ * so network delay cannot turn a local heading as the planet rotates. RocketService validates that coordinate
+ * space against the actual session, and enforces authority and rate limits.
  */
 public record FlightControlPayload(float forward, float strafe, float vertical, FlightOrientation orientation,
-        boolean brake, long sequence, long navigationEpoch) implements CustomPacketPayload {
+        boolean brake, long sequence, long navigationEpoch, boolean bodyFixed) implements CustomPacketPayload {
     public static final Type<FlightControlPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(
             AstraEngine.MOD_ID, "flight_control"));
     public static final StreamCodec<RegistryFriendlyByteBuf, FlightControlPayload> CODEC = StreamCodec.ofMember(
@@ -26,7 +28,12 @@ public record FlightControlPayload(float forward, float strafe, float vertical, 
             throw new IllegalArgumentException("Flight input sequence and navigation epoch must be nonnegative");
         }
     }
-    /** Compatibility adapter for old fixtures; version-three semantics retain the quaternion wire layout. */
+    /** System-space input for existing callers; the current wire includes an explicit coordinate-space flag. */
+    public FlightControlPayload(float forward, float strafe, float vertical, FlightOrientation orientation,
+            boolean brake, long sequence, long navigationEpoch) {
+        this(forward, strafe, vertical, orientation, brake, sequence, navigationEpoch, false);
+    }
+    /** Compatibility adapter for old system-space fixtures. */
     public FlightControlPayload(float forward, float strafe, float vertical, float yaw, float pitch,
             boolean brake, long sequence, long navigationEpoch) {
         this(forward, strafe, vertical, FlightDynamics.legacyOrientation(yaw, pitch), brake, sequence, navigationEpoch);
@@ -39,12 +46,12 @@ public record FlightControlPayload(float forward, float strafe, float vertical, 
         buffer.writeDouble(orientation.x()); buffer.writeDouble(orientation.y());
         buffer.writeDouble(orientation.z()); buffer.writeDouble(orientation.w());
         buffer.writeBoolean(brake); buffer.writeLong(sequence);
-        buffer.writeLong(navigationEpoch);
+        buffer.writeLong(navigationEpoch); buffer.writeBoolean(bodyFixed);
     }
     private static FlightControlPayload read(RegistryFriendlyByteBuf buffer) {
         return new FlightControlPayload(buffer.readFloat(), buffer.readFloat(), buffer.readFloat(),
                 new FlightOrientation(buffer.readDouble(), buffer.readDouble(), buffer.readDouble(), buffer.readDouble()),
-                buffer.readBoolean(), buffer.readLong(), buffer.readLong());
+                buffer.readBoolean(), buffer.readLong(), buffer.readLong(), buffer.readBoolean());
     }
     @Override
     public Type<FlightControlPayload> type() { return TYPE; }

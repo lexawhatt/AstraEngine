@@ -143,7 +143,7 @@ public final class EarthChunkGenerator extends ChunkGenerator {
     }
 
     private TerrainColumns.Column column(int x, int z) {
-        if (Math.abs(x + .5) > EarthChart.RADIUS_METERS || Math.abs(z + .5) > EarthChart.RADIUS_METERS) { return null; }
+        if (chart.band() > 3 || Math.abs(x + .5) > EarthChart.RADIUS_METERS || Math.abs(z + .5) > EarthChart.RADIUS_METERS) { return null; }
         var sample = terrain.sample(chart.normal(x + .5, z + .5));
         int firstAir = (int) Math.floor(sample.heightMeters()) - chart.altitudeOriginMeters();
         BlockState surface;
@@ -162,12 +162,13 @@ public final class EarthChunkGenerator extends ChunkGenerator {
     @Override public int getGenDepth() { return EarthChart.HEIGHT; }
     @Override public int getSeaLevel() { return -chart.altitudeOriginMeters(); }
     @Override public int getSpawnHeight(LevelHeightAccessor level) {
-        return Math.clamp(column(0, 0).top(), level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
+        var column = column(0, 0);
+        return column == null ? 0 : Math.clamp(column.top(), level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
     }
     @Override public void buildSurface(WorldGenRegion level, StructureManager structures, RandomState random, ChunkAccess chunk) {}
     @Override public void applyCarvers(WorldGenRegion level, long seed, RandomState random, BiomeManager biomes,
             StructureManager structures, ChunkAccess chunk, GenerationStep.Carving step) {
-        if (step == GenerationStep.Carving.AIR) { EarthCaveCarver.carve(chunk, chart, terrain, caves); }
+        if (chart.band() <= 3 && step == GenerationStep.Carving.AIR) { EarthCaveCarver.carve(chunk, chart, terrain, caves); }
     }
     @Override public void spawnOriginalMobs(WorldGenRegion level) {}
 

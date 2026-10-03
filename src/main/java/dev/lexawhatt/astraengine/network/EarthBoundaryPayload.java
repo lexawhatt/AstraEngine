@@ -4,7 +4,7 @@ import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.surface.CubeFace;
 import dev.lexawhatt.astraengine.surface.EarthBoundarySection;
 import dev.lexawhatt.astraengine.surface.EarthBoundarySnapshot;
-import dev.lexawhatt.astraengine.surface.EarthChart;
+import dev.lexawhatt.astraengine.surface.CubeStorageChart;
 import java.util.ArrayList;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.Registries;
@@ -16,7 +16,7 @@ import net.minecraft.world.level.block.Block;
 
 /** Bounded server-to-client read-only neighboring block observations. Never accepts a client-selected world. */
 public record EarthBoundaryPayload(EarthBoundarySnapshot snapshot) implements CustomPacketPayload {
-    public static final int MAX_BYTES = 540 * 1024;
+    public static final int MAX_BYTES = 560 * 1024;
     public static final Type<EarthBoundaryPayload> TYPE = new Type<>(ResourceLocation.parse("astraengine:earth_boundary"));
     public static final StreamCodec<RegistryFriendlyByteBuf, EarthBoundaryPayload> CODEC = StreamCodec.ofMember(
             EarthBoundaryPayload::write, EarthBoundaryPayload::read);
@@ -36,13 +36,14 @@ public record EarthBoundaryPayload(EarthBoundarySnapshot snapshot) implements Cu
             for (int i = 0; i < EarthBoundarySection.CELL_COUNT; i++) { buffer.writeVarInt(section.state(i)); }
             for (int i = 0; i < EarthBoundarySection.CELL_COUNT; i++) { buffer.writeByte(section.light(i)); }
             for (int i = 0; i < EarthBoundarySection.BIOME_COUNT; i++) { buffer.writeVarInt(section.biome(i)); }
+            for (int i = 0; i < EarthBoundarySection.VISUAL_WORD_COUNT; i++) { buffer.writeLong(section.visualWord(i)); }
         }
         if (buffer.writerIndex() - start > MAX_BYTES) { throw new IllegalArgumentException("Earth boundary payload exceeds its wire budget"); }
     }
 
     private static EarthBoundaryPayload read(RegistryFriendlyByteBuf buffer) {
         if (buffer.readableBytes() > MAX_BYTES) { throw new IllegalArgumentException("Earth boundary payload exceeds its wire budget"); }
-        long revision = buffer.readLong(); EarthChart source = readChart(buffer);
+        long revision = buffer.readLong(); CubeStorageChart source = readChart(buffer);
         var anchor = new SpaceVector(buffer.readDouble(), buffer.readDouble(), buffer.readDouble());
         boolean complete = buffer.readBoolean(); int count = buffer.readVarInt();
         if (count < 0 || count > EarthBoundarySnapshot.MAX_SECTIONS || revision < 1 || !source.contains(anchor)) {
@@ -51,7 +52,7 @@ public record EarthBoundaryPayload(EarthBoundarySnapshot snapshot) implements Cu
         var biomes = buffer.registryAccess().registryOrThrow(Registries.BIOME);
         var sections = new ArrayList<EarthBoundarySection>(count);
         for (int sectionIndex = 0; sectionIndex < count; sectionIndex++) {
-            EarthChart chart = readChart(buffer); var position = SectionPos.of(buffer.readLong());
+            CubeStorageChart chart = readChart(buffer); var position = SectionPos.of(buffer.readLong());
             int[] states = new int[EarthBoundarySection.CELL_COUNT]; byte[] light = new byte[states.length];
             int[] biomeIds = new int[EarthBoundarySection.BIOME_COUNT];
             for (int i = 0; i < states.length; i++) {
@@ -63,7 +64,9 @@ public record EarthBoundaryPayload(EarthBoundarySnapshot snapshot) implements Cu
                 biomeIds[i] = readId(buffer);
                 if (biomes.byId(biomeIds[i]) == null) { throw new IllegalArgumentException("Unknown boundary biome"); }
             }
-            sections.add(new EarthBoundarySection(chart, position, states, light, biomeIds));
+            long[] visual = new long[EarthBoundarySection.VISUAL_WORD_COUNT];
+            for (int i = 0; i < visual.length; i++) { visual[i] = buffer.readLong(); }
+            sections.add(new EarthBoundarySection(chart, position, states, light, biomeIds, visual));
         }
         return new EarthBoundaryPayload(new EarthBoundarySnapshot(revision, source, anchor, complete, sections));
     }
@@ -74,12 +77,12 @@ public record EarthBoundaryPayload(EarthBoundarySnapshot snapshot) implements Cu
         return id;
     }
 
-    private static void writeChart(RegistryFriendlyByteBuf buffer, EarthChart chart) {
-        buffer.writeUtf(chart.face().id(), 2); buffer.writeByte(chart.band()); buffer.writeVarInt(chart.terrainVersion());
+    private static void writeChart(RegistryFriendlyByteBuf buffer, CubeStorageChart chart) {
+        CubeStorageCharts.write(buffer, chart);
     }
 
-    private static EarthChart readChart(RegistryFriendlyByteBuf buffer) {
-        return new EarthChart(CubeFace.fromId(buffer.readUtf(2)), buffer.readByte(), buffer.readVarInt());
+    private static CubeStorageChart readChart(RegistryFriendlyByteBuf buffer) {
+        return CubeStorageCharts.read(buffer);
     }
 
     @Override public Type<EarthBoundaryPayload> type() { return TYPE; }

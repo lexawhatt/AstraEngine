@@ -1,0 +1,14 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.lexawhatt.astraengine.mixin",
+  "plugin": "dev.lexawhatt.astraengine.compat.distant.DistantMixinPlugin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "DistantChunkBiomeMixin",
+    "DistantUniformRunMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

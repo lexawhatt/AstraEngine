@@ -87,10 +87,12 @@ final class DistantTerrainProbe implements AutoCloseable {
         set(renderer, enabled ? EDhApiRendererMode.DEFAULT : EDhApiRendererMode.DISABLED, "renderer mode");
     }
 
-    /** Restricts the native test to the two deliberately bounded radii, in Minecraft chunks. */
+    /** Restricts native tests to explicit regression or recorded user-profile radii, in Minecraft chunks. */
     void radiusChunks(int chunks) {
         requireConfigured();
-        if (chunks != 32 && chunks != 64) { throw new IllegalArgumentException("Probe radius must be 32 or 64 chunks"); }
+        if (chunks != 32 && chunks != 64 && chunks != 256) {
+            throw new IllegalArgumentException("Probe radius must be 32, 64 or 256 chunks");
+        }
         set(radius, chunks, "chunk radius");
     }
 

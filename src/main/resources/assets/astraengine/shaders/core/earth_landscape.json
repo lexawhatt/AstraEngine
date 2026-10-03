@@ -157,6 +157,14 @@
         -2032,
         2032
       ]
+    },
+    {
+      "name": "AtmosphereDensity",
+      "type": "float",
+      "count": 1,
+      "values": [
+        1
+      ]
     }
   ]
 }

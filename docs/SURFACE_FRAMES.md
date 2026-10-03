@@ -1,10 +1,11 @@
 # Live geographic frames
 
-Geographic references connect all six bound planetary worlds to actual server-owned player
-poses. They supply correct motion conversion, immutable frame snapshots and
-notifications when an observed tile changes. Ordinary walking still uses the
-existing permanent Minecraft world. This does not stitch different worlds or
-transfer blocks across a globe.
+Geographic references connect canonical Earth and solid-body charts, as well as
+legacy bounded surface worlds, to actual server-owned player poses. They supply
+motion conversion, immutable frame snapshots and notifications when an observed
+tile changes. This read-only API does not move players or transfer blocks. Separate
+[canonical traversal](EARTH_WORLD.md) and [solid-planet storage](PLANET_SURFACES.md)
+own prepared world crossings while Minecraft retains the original blocks.
 
 ## Observe from a consumer
 
@@ -25,23 +26,28 @@ Imports are `dev.lexawhatt.astraengine.api.AstraGeography` and
 explicit Java imports). The sample does not authorize mutation, load chunks,
 create worlds or grant discoveries. A null player or wrong-thread access throws;
 dead/removed players, unsupported dimensions and out-of-bounds columns
-return `Optional.empty()`. Bindings cover Moon, Earth, highlands, continental coast,
-alpine and abyss worlds. A loaded level must have the corresponding pinned generator.
+return `Optional.empty()`. Bindings cover the saved Astra Earth preset, allocated
+solid-planet charts, and legacy Moon, Earth, highlands, continental coast, alpine
+and abyss windows. A loaded level must have the corresponding pinned generator.
 Trusted server code may also sample an unconnected host player; a successful query
 does not assert network membership. The automatic tracker observes connected players.
 Existing Moon/Earth arrival world identities remain unchanged.
 
-`AstraGeography.reference(level)` returns the immutable `SurfaceReference` on the
-owning server thread. Its `geographic(hostFeet)` reads exact physical altitude
+`AstraGeography.planetaryReference(level)` returns the immutable `GeographicReference`
+for any supported projection on the owning server thread. The older
+`AstraGeography.reference(level)` retains its patch-only `SurfaceReference` return
+type and behavior. A reference's `geographic(hostFeet)` reads physical altitude
 directly from host Y and the stored altitude origin. `resolve(geographic)` performs
 the inverse without clipping or substituting the patch center. The server wrapper
 `AstraGeography.resolve(level, geographic)` also checks build height and the world
 border. None of these operations loads chunks, allocates worlds or moves a player.
 
-`SurfaceReferences` supplies the same fixed references to client presentation.
-Different Earth-sized prototypes have different geography IDs. The three continental
-windows share `astraengine:continental/v1`; ordinary Overworld has no binding.
-This API does not make those independent terrain realizations one planet.
+`SurfaceReferences` supplies the fixed legacy references to client presentation.
+Canonical chart references instead follow the saved Earth context and authorized
+solid-body contexts. Different Earth-sized prototypes have different geography IDs.
+The three legacy continental windows share `astraengine:continental/v1`; a vanilla
+Overworld retains no geographic binding, while an Astra Earth Overworld does.
+Sampling does not merge the independent prototype terrain realizations.
 
 `SurfaceFrameSnapshot` contains a geography ID, dimension ID, pinned topology and
 body-fixed pose. It retains no mutable player/world references. These values can
@@ -135,6 +141,8 @@ live geographic observation during ordinary movement, not proof of a completed
 cross-world seam renderer or multiplayer network latency handling.
 
 See [tile identities](PLANETARY_GEOGRAPHY.md), [highlands terrain](PLANETARY_TERRAIN.md)
-and [bounded orbital arrival](SURFACE_TRAVEL.md). Block ownership across new local
-world frames, collision/view stitching and recoverable world migration remain the
-next stage; existing chunk storage, limits and borders are unchanged.
+and [bounded orbital arrival](SURFACE_TRAVEL.md) for those legacy fixtures.
+Current canonical face/band storage, neighboring collision and interaction, and
+free surface/space transitions are documented in [Earth worlds](EARTH_WORLD.md)
+and [solid-planet surfaces](PLANET_SURFACES.md). Their dedicated native scenarios
+provide separate evidence; the legacy `surface-frames` fixture does not qualify them.

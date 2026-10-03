@@ -17,6 +17,7 @@ uniform vec3 SkyEast;
 uniform vec3 SkyPole;
 // Aerosol, cloud coverage, light pollution and annual orbital phase.
 uniform vec4 AtmosphereParams;
+uniform float ObserverAltitudeKm;
 uniform vec2 CloudOffset;
 uniform vec2 CloudWind;
 uniform vec4 Evolution;
@@ -156,23 +157,24 @@ void main() {
     float clear = (1.0 - Weather.x * 0.72) * (1.0 - Weather.y * 0.70);
     float coverage = AtmosphereParams.y <= 0.001 ? 0.0
                    : clamp(AtmosphereParams.y, 0.0, 1.0);
-    vec3 color = atmosphericSky(ray, SunDirection, aerosol) * incidentRadiance;
+    float airDensity = exp(-max(0.0, ObserverAltitudeKm) / 8.0);
+    vec3 color = atmosphericSky(ray, SunDirection, aerosol, ObserverAltitudeKm) * incidentRadiance;
     // A very small host contribution keeps biome sky tint while scattering owns
     // the day/night gradient. Night has no unconditional blue daytime sky floor.
-    color += pow(clamp(SkyColor, vec3(0.0), vec3(1.0)), vec3(2.2)) * 0.008 * day * incidentRadiance;
-    float night = 1.0 - smoothstep(-0.19, -0.055, SunDirection.y) * min(incidentRadiance, 1.0);
+    color += pow(clamp(SkyColor, vec3(0.0), vec3(1.0)), vec3(2.2)) * 0.008 * day * incidentRadiance * airDensity;
+    float night = 1.0 - smoothstep(-0.19, -0.055, SunDirection.y) * min(incidentRadiance, 1.0) * airDensity;
     float upperSky = smoothstep(-0.025, 0.12, ray.y);
     vec3 inertial = normalize(vec3(dot(ray, SkyEast), dot(ray, SkyPole), dot(ray, SkyNorth)));
     color += vec3(0.00024, 0.00045, 0.0010) * night;
     if (night > 0.001) {
         color += nightSky(inertial, pollution) * night * clear * upperSky;
-        color += vec3(0.024, 0.012, 0.0045) * pollution * night
+        color += vec3(0.024, 0.012, 0.0045) * pollution * night * airDensity
                * exp(-max(ray.y, 0.0) * 3.0) * (1.0 + coverage * 0.65);
     }
     color = moon(color, ray, pixelAngle, clear * upperSky * (0.05 + night * 0.95), incidentRadiance);
     // Extinction affects the solar spectrum before HDR bloom; the displayed disc
     // scale is explicit presentation input and never changes the Sol descriptor.
-    vec3 transmission = atmosphereTransmission(max(SunDirection.y, 0.0), 0.05, aerosol);
+    vec3 transmission = atmosphereTransmission(max(SunDirection.y, 0.0), max(0.002, ObserverAltitudeKm), aerosol);
     float discHorizon = smoothstep(-SunRadius, SunRadius, ray.y + 0.004);
     vec3 solar = evolvingSolarRadiance(vec3(0.0), ray, SunDirection, SunRadius,
                                       vec3(1.0, 0.96, 0.90), 588.0, pixelAngle);
@@ -201,7 +203,8 @@ void main() {
         vec4 transport = filteredCloudTransport(clipPosition * 0.5 + 0.5);
         color = color * transport.a + transport.rgb;
     } else {
-        color = cloudLayer(color, ray, coverage, aerosol, incidentRadiance, moonlight);
+        color = cloudLayer(color, ray, coverage * (1.0 - smoothstep(2.0, 4.0, ObserverAltitudeKm)),
+                aerosol, incidentRadiance, moonlight);
     }
     // Rain dims and desaturates the atmosphere while cloud geometry retains its
     // illuminated edges. Land/depth still belongs to Minecraft's later passes.

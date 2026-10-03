@@ -1,6 +1,8 @@
 package dev.lexawhatt.astraengine.client.surface;
 
 import dev.lexawhatt.astraengine.network.EarthContextReceivedEvent;
+import dev.lexawhatt.astraengine.network.PlanetContextReceivedEvent;
+import dev.lexawhatt.astraengine.surface.CubeStorageChart;
 import dev.lexawhatt.astraengine.surface.EarthChart;
 import dev.lexawhatt.astraengine.surface.GeographicReference;
 import dev.lexawhatt.astraengine.surface.SurfaceReferences;
@@ -10,6 +12,18 @@ import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 /** Client-main-thread connection owner. Resource reload retains geography; disconnect discards it. */
 public final class EarthStateClient {
     private int terrainVersion;
+    private final PlanetStateClient planets = new PlanetStateClient();
+
+    /** Receives the bounded server-owned registry of opened solid-body charts. */
+    public void receivePlanets(PlanetContextReceivedEvent event) { planets.receive(event); }
+
+    public PlanetStateClient planets() { return planets; }
+
+    /** Shared current connection cube-storage lookup, including generic bodies and upper Earth air bands. */
+    public Optional<CubeStorageChart> cubeChart(String dimensionId) {
+        var earth = chart(dimensionId);
+        return earth.isPresent() ? earth.map(value -> value) : planets.chart(dimensionId).map(value -> value);
+    }
 
     /** Receives validated server context. Client presentation never infers Earth from a dimension name alone. */
     public void receive(EarthContextReceivedEvent event) { terrainVersion = event.payload().version(); }
@@ -22,17 +36,17 @@ public final class EarthStateClient {
 
     /** Current connection's permanent Earth chart, excluding legacy diagnostic surfaces. */
     public Optional<EarthChart> chart(String dimensionId) {
-        return active() ? EarthChart.all(terrainVersion).stream().filter(value -> value.dimensionId().equals(dimensionId)).findFirst()
+        return active() ? EarthChart.forDimension(dimensionId, terrainVersion)
                 : Optional.empty();
     }
 
     /** Immutable projection for the current connection, or absence for an unsupported world. */
     public Optional<GeographicReference> reference(String dimensionId) {
-        var chart = chart(dimensionId);
+        var chart = cubeChart(dimensionId);
         if (chart.isPresent()) { return chart.map(value -> value); }
         return SurfaceReferences.forDimension(dimensionId).map(value -> value);
     }
 
     /** Drops server context, including when the next connection uses a vanilla or legacy Overworld. */
-    public void logout(ClientPlayerNetworkEvent.LoggingOut event) { terrainVersion = 0; }
+    public void logout(ClientPlayerNetworkEvent.LoggingOut event) { terrainVersion = 0; planets.clear(); }
 }

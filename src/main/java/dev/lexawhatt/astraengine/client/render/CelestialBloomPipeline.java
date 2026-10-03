@@ -69,6 +69,11 @@ public final class CelestialBloomPipeline implements AutoCloseable {
 
     /** Renders while preserving the specified1..12 sampler units used by the celestial source. */
     public boolean render(ShaderInstance celestial, RenderOptions options, float exposure, int samplerCount) {
+        return render(celestial, options, exposure, samplerCount, 1);
+    }
+
+    /** Applies opacity only to the final display composition; HDR radiance and bloom extraction stay unchanged. */
+    public boolean render(ShaderInstance celestial, RenderOptions options, float exposure, int samplerCount, float opacity) {
         if (options == null || allocationFailed || downsample == null || upsample == null || composite == null) {
             return false;
         }
@@ -121,7 +126,7 @@ public final class CelestialBloomPipeline implements AutoCloseable {
             composite.setSampler("BloomColor", bloom ? up[0].texture() : scene.texture());
             composite.safeGetUniform("BloomStrength").set(bloom ? options.bloomStrength() : 0);
             composite.safeGetUniform("Exposure").set(Math.clamp(exposure, 0.1f, 4));
-            FullscreenPass.draw(composite);
+            FullscreenPass.drawOpacity(composite, opacity);
             return true;
         }
     }

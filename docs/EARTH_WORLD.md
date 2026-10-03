@@ -1,28 +1,29 @@
 # Continental Earth world preset
 
 The **Astra Earth** world type creates an Overworld backed by the shared spherical
-continental field. It is an opt-in integration build while planetary travel and
-storage-boundary presentation are being connected. Existing Overworlds, saved
-legacy landing patches and continental inspection worlds keep their generators.
-On a bound Earth world, **R** departs from the player's actual geographic location.
-In Sol flight, aim at a visible location on Earth and press **L**. The server
-retains that body-fixed geographic point, validates its current visibility against
-the saved continental field and prepares the corresponding storage chart. Planetary
-rotation during packet delay does not move the selected latitude/longitude. The
-request includes the current navigation epoch; stale requests cannot start a route. A miss is rejected; it does not redirect to a fixed patch or pole.
-Ordinary Overworlds retain the legacy Moon/Earth landing-patch behavior.
+continental field. Existing ordinary Overworlds, legacy inspection patches and
+saved terrain versions retain their generators. Create a new Astra Earth world
+for the continental geographic integration; replacing coordinate labels does not
+convert an older vanilla world.
 
-Landing polls a bounded neighborhood around the selected column, then checks
-actual saved blocks and a clear standing volume with an open departure corridor.
-Forest canopies and snow-layer tops are included. No building is cleared or
-flattened. Ocean arrivals stop at the water surface; normal swimming still belongs
-to Minecraft. A bound Earth permits departure and recovery while the standing eye
-remains above water. Submerged heads and non-water fluids remain excluded.
-Obstructed destinations can fail safely; flight remains recoverable. **B** cancels the guided route and **R** returns to its saved real
-source. Minecraft still owns dimension transfer and chunk loading. Preparation allows up to
-45 seconds of server ticks for distant tall charts; it shows a loading message
-instead of a fictional route countdown. Guided ascent/descent then show their actual
-remaining server ticks.
+On a bound planet, **R** enables free inspection at the player's actual position.
+It stays in the real block world below the space boundary. Move with the usual
+flight controls; **R** again leaves inspection at the reached location. Crossing
+100,000 meters of radial feet altitude enters space. Flying inward through that
+same physical shell prepares and enters the corresponding geographic chart;
+there is no mandatory landing animation or automatic descent to the ground.
+**L** explains this free crossing on canonical planets. Vehicle propulsion and
+autolanding remain consumer responsibilities.
+
+The server prepares actual neighboring chunks and the client acknowledges their
+bounded block/light/biome view before a host handoff. Only that prepared transfer
+suppresses Minecraft's intermediary waiting screen. Slow or unavailable terrain
+retains the reached valid pose. Stop or turn away to cancel space-entry preparation;
+a veto cannot move the player into an unaccepted destination. Real builds are not
+cleared, and neither procedural height fields nor client acknowledgements create
+collision authority. Ground inspection uses normal block collision, a maximum
+2,560 m/s physical speed and bounded steps near storage seams. Space has its separate
+astronomical speed range. Legacy local patches retain their separate guided route.
 
 The bound Earth uses the Overworld's saved calendar for Sol orbital motion and
 its complete axial/spin orientation. The default 365 game days span one canonical
@@ -32,7 +33,7 @@ that same frame. Free inspection within six radii follows the nearest body's
 orbital translation while preserving the camera's heading. Stopping daylight
 also stops this orbital motion. A time or season-policy discontinuity safely
 cancels guidance and preserves a nearby free observer's relative position.
-Changing time during an ascent restores its real surface source. Shader animation
+A discontinuous calendar change rebinds the current geographic view safely. Shader animation
 and stellar evolution keep their existing independent ownership and rates.
 
 New **Astra Earth** worlds save `cave_version: 2` independently of the surface
@@ -50,8 +51,7 @@ Missing `cave_version` decodes as zero, preserving old solid underground generat
 Saved version one retains its original broad chambers and 2,400-meter depth envelope.
 Already saved chunks are never recarved. Changing a saved generator by hand is not
 a migration and can introduce chunk borders. The cave field uses physical altitude
-across face/band representations, but automatic traversal of those storage seams
-still has the limits described below. Direct DH background data uses the cheap
+across face/band representations, including the automatic storage handoffs described below. Direct DH background data uses the cheap
 uncarved exterior column; actual lit chunks replace it with observed geometry.
 
 With Astra's automatic sky/lighting active, enclosed unlit cells lose the host's
@@ -66,8 +66,8 @@ mesh from the same saved height/climate field. Oceans and mountain silhouettes
 use the physical Earth radius. Near the player, the mesh preserves the host's flat
 chart appearance; a smooth presentation transition ends at 32.768 km in the physical
 tangent view. This does not reproject host/DH blocks or change collision. Current
-chunks and DH LODs render over the background. The derived mesh contains procedural
-terrain, not saved building summaries or voxel interaction targets.
+chunks and DH LODs render over the background. The derived mesh contains procedural terrain with bounded observed edit summaries.
+Only real nearby block observations are voxel interaction targets.
 Beach/desert materials use the same climate classification as the block generator;
 water follows the source-water surface datum. Derivative-filtered material detail
 reduces distant texture shimmer. This mesh does not generate distant voxel chunks.
@@ -86,8 +86,9 @@ and is canceled on context retirement. Active Iris packs keep their sky/terrain
 ownership; the native far background yields while a pack is active.
 
 The preset uses the real 6,371,000-meter reference radius. Six versioned cube faces
-cover the globe, including both poles. Each face has six persistent, disjoint
-4064-meter altitude bands. Band zero of positive X is `minecraft:overworld`; the
+cover the globe, including both poles. Each face retains its six original persistent
+4064-meter altitude bands; higher air bands are allocated on demand through the
+[permanent planetary binding manifest](PLANET_SURFACES.md). Band zero of positive X is `minecraft:overworld`; the
 remaining charts have permanent `astraengine:earth/<face>/<band>` dimension IDs.
 Only visited/generated chunks consume voxel storage. Newly generated uniform rock
 and water sections save directly as the standard singleton palette, avoiding a
@@ -101,14 +102,15 @@ altitude band. The whole globe is not
 generated at full block detail during creation.
 
 Host Y ranges from -2032 through 2031. Physical altitude is
-`hostY + band * 4064`, covering [-10160, 14224) meters. The generator does not
+`hostY + band * 4064`. Bands -2 through25 cover [-10160, 103632) meters,
+including the100000m space boundary. The original preset still owns bands -2 through3. The generator does not
 compress mountains or insert bedrock, new sea surfaces or summit caps at band
 boundaries. Horizontal storage uses a gnomonic projection, so chart block distances
 are not a globally uniform metric on the sphere.
 
 Within48 chart meters of a storage edge, the server prepares a bounded neighborhood
 using expiring FULL-status chunk tickets. It sends at most32 real sections, including
-saved block states, light and biomes, under a540-KiB packet budget. Capture never
+saved block states, light, biomes and chest openness, under a560-KiB packet budget. Capture never
 requests synchronous generation. The immutable observations cannot edit blocks or
 authorize travel. They expire on departure, player replacement or disconnect;
 canonical chunks remain in their original permanent worlds.
@@ -118,9 +120,13 @@ owned GPU buffers. Geometry retains section-local floats; double-derived project
 coefficients map adjacent charts relative to the camera. Native views share terrain
 depth; with an Iris pack these neutral observations compose after finalization and
 are not pack shadow/reflection inputs. Resource reload rebuilds GPU data while
-retaining the connection's numeric observation. Block-entity renderers and automatic
-walking/collision handoff are still being integrated. Observed neighboring blocks
-are not yet interaction targets in the current chart.
+retaining the connection's numeric observation. Ordinary movement crosses prepared
+faces, poles and altitude bands automatically. Collision reads canonical neighboring
+blocks; oblique faces use a conservative1/64m raster with a maximum2.21cm shape
+extension. Band translation is exact. Mining and placement recompute the server
+ray and permissions; container access forwards the original inventory. A copied
+observation never becomes another writable chunk. Block-entity presentation has
+its own bounded support and does not duplicate server inventories.
 
 Terrain version, exact 64-bit seed, chart version, face and band are saved in the
 generator codec. Unknown versions, mismatched biome faces, incomplete palettes and
@@ -207,8 +213,10 @@ select ocean reflections. Resource reload and logout invalidate the captured pal
 The orbital HDR path shades host display colors before decoding its display transform.
 This avoids brightening green canopies twice and amplifying white materials at night.
 Atmospheric scattering, sunlight and exposure still change their visible appearance.
-These are base regional summaries: custom consumer biome-palette synchronization,
-observed buildings, snow removal and other player edits are not yet represented here.
+These are base regional summaries. A separate bounded layer of observed surface
+edits adds buildings, excavation, changed surface materials and exposed emission
+to nearby orbital and distant views; see [persistent surface summaries](PLANET_SURFACES.md).
+Custom consumer biome-palette synchronization remains outside the base palette.
 The optional DH base-column override remains undecorated until actual chunk data arrives.
 
 The server announces the Earth binding at login. The client retains it across

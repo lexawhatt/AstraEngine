@@ -6,16 +6,16 @@ import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 public record EarthRelativeProjection(SpaceVector xNumerator, SpaceVector zNumerator,
         SpaceVector denominator, double yOffset) {
     /** Source mesh origin and target observer use their respective chart meters. Both charts must share geography. */
-    public static EarthRelativeProjection between(EarthChart source, SpaceVector origin, EarthChart target, SpaceVector camera) {
+    public static EarthRelativeProjection between(CubeStorageChart source, SpaceVector origin, CubeStorageChart target, SpaceVector camera) {
         if (camera == null) { throw new IllegalArgumentException("Relative projection requires a target observer"); }
         var transform = new EarthChartTransform(source, target);
         SpaceVector mapped = transform.position(origin);
-        SpaceVector plane = source.face().outward().multiply(EarthChart.RADIUS_METERS)
+        SpaceVector plane = source.face().outward().multiply(source.radiusMeters())
                 .add(source.face().u().multiply(origin.x())).add(source.face().v().multiply(origin.z()));
         double distance = plane.dot(target.face().outward());
         double dx = source.face().u().dot(target.face().outward()) / distance;
         double dz = source.face().v().dot(target.face().outward()) / distance;
-        double scale = EarthChart.RADIUS_METERS / distance;
+        double scale = source.radiusMeters() / distance;
         return new EarthRelativeProjection(new SpaceVector(mapped.x() - camera.x(),
                 scale * source.face().u().dot(target.face().u()) - camera.x() * dx,
                 scale * source.face().v().dot(target.face().u()) - camera.x() * dz),

@@ -270,5 +270,7 @@
   "gamerule.astraTravelSeconds.description": "0 keeps normal timing. 1-3600 sets body approach and system jump duration in game seconds (20 ticks). Ground loading and guided surface travel are unchanged.",
   "astraengine.flight.surface_descending": "Descending / %s s / %s cancel",
   "astraengine.flight.surface_ascending": "Ascending / %s s / %s cancel",
-  "astraengine.flight.surface_loading": "Preparing the surface / %s cancel"
+  "astraengine.flight.surface_loading": "Preparing the surface / %s cancel",
+  "astraengine.rocket.boundary_preparing": "Preparing the surface ahead. You can stop or turn away.",
+  "astraengine.rocket.free_surface": "Fly toward the surface: the space boundary is at 100 km altitude. R toggles free inspection."
 }

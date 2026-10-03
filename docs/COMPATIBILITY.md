@@ -18,6 +18,7 @@ combinations or shader packs.
 | Bound continental Earth distant terrain | Shared geographic background, rendered before host/DH terrain | Native background disabled; pack and DH retain terrain ownership |
 | Rocket cosmos and selected resource-profile skies | Ordinary celestial stage | Composited after the pack in non-Overworld dimensions, only into clear-depth sky pixels |
 | Bound Moon/Earth surface skies | Shared orbital frame, atmosphere and visual skylight correction | Late celestial sky composition; pack retains terrain lighting and fog |
+| Upper Earth chart atmosphere,16..48km | Gradual surface-to-orbit display blend | The same gradual blend into clear-depth pixels after pack finalization in non-Overworld charts |
 | Consumer ship visuals and eligible local editor shapes | Analytic depth before Astra opaque lighting | Depth-aware overlays after pack composition |
 | Ship GUI preview and picking | Engine preview and conservative picking | Engine preview and conservative picking |
 | User-compiled GLSL editor effect | Explicitly enabled final effect | Explicitly enabled final effect, after pack composition |
@@ -64,6 +65,26 @@ depth conventions and non-default output color spaces can affect composition.
 Default sRGB is the initial verification scope. A specific passing pack is not
 a guarantee for every pack or every graphics setting.
 
+## Lithium and planetary collision
+
+Lithium `0.15.4+mc1.21.1` uses its own block sweep for movement and intersection
+queries, bypassing Minecraft's ordinary block-collision iterator. Astra supplies
+the same loaded canonical neighbor shapes to that sweep at planetary face and
+altitude seams. Lithium still solves local blocks, entities and step heights.
+Missing neighboring data remains a solid boundary; no procedural background is
+used as collision and no user setting is changed.
+
+This optional adapter is restricted to the inspected version. Other Lithium
+versions require their own collision verification; installing an arbitrary
+version does not establish seamless planetary collision support. Without Lithium,
+the ordinary Minecraft collision hook provides the same neighboring geometry.
+
+The copied usual pack passes an actual platform crossing under inspection and
+ordinary gravity, and a complete Earth-to-Moon-to-Earth journey with a separate
+saved-world restart. The platform lies three blocks below an altitude-chart edge;
+both movement paths stop on its canonical blocks. This is a collision and
+persistence result, not a performance guarantee for the pack.
+
 ## Diagnostics
 
 Run this read-only client command in a world:
@@ -72,7 +93,7 @@ Run this read-only client command in a world:
 /astra-render compatibility
 ```
 
-It reports loaded Sodium, Iris, Sodium Extra, Reese's Sodium Options, Chloride and Distant Horizons
+It reports loaded Sodium, Iris, Sodium Extra, Reese's Sodium Options, Chloride, Distant Horizons and Lithium
 versions, Iris public API revision, actual active-pack state and shadow-pass
 state at the time of the query. Installed versions come from mod metadata, not
 the JAR filename. For example, the official Iris 1.8.12 artifact reports an
@@ -89,7 +110,7 @@ changed automatically.
 All rows use Minecraft 1.21.1, NeoForge 21.1.252 and original upstream artifacts.
 The active-pack target is Complementary Reimagined **r5.9.3**. Versions in each
 row form a distinct stack; the stable Iris pair does not use the newer standalone
-Sodium generation. Status is recorded as of 2026-09-30.
+Sodium generation. These renderer baseline results are from 2026-09-30.
 
 | Stack | Sodium | Iris | Sodium Extra | Reese's Options | Chloride | Current evidence |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -98,6 +119,22 @@ Sodium generation. Status is recorded as of 2026-09-30.
 | Standalone Sodium with add-ons | 0.8.13 | Absent | 0.9.4 | 2.2.4 | 1.8.1 | Final native `ship-visual` and `volumetric` passed; 12 and 23 captures |
 | Stable Iris with add-ons | 0.6.13 | 1.8.12 | 0.6.0 | 1.8.3 | 1.7.8 | Final native `render-compat` passed; 19 captures |
 | Experimental Iris beta with add-ons | 0.8.13 | 1.8.14-beta.1 | 0.9.4 | 2.2.4 | 1.8.1 | Final native `render-compat` passed; 19 captures; beta remains experimental |
+
+The 2026-10-03 planetary boundary check repeats the stable Iris/add-on stack with
+DH 3.3.3 and Complementary r5.9.3. Seven geographic cases pass fourteen physical
+surface/space handoffs, including full ascents from lowland, a 9.39-km mountain
+and the coast. The actual Iris API must report an active pack throughout. There
+are no receiving-level screen frames, and geographic position plus the camera's
+forward/up orientation remain continuous. This functional check uses 1280x720
+and an 8-GiB heap; it does not qualify the separate 1080p performance workload or
+the experimental beta for these new planetary transitions.
+
+A separate plain NeoForge run passes four surface/space handoffs while Earth's
+calendar advances, including a full lowland ascent. It verifies the actual Fabulous
+option and shader-transparency pipeline at runtime, with no optional mod JARs,
+1280x720 and an 8-GiB heap. Geographic position and forward/up orientation checks
+pass without receiving-level screen frames. This is also a functional check;
+the final save takes about 34 seconds and does not establish a save-latency target.
 
 The two baseline runs checked preview/picking, reload, resize, opaque depth and
 free-camera flight through the consumer visual fixture. They were performed
@@ -261,6 +298,11 @@ that upstream label does not identify the override's actual workload. This is
 demand-driven LOD generation around requested views, not whole-planet pregeneration.
 Database writes, propagation, mesh creation and drawing still have costs.
 
+The adapter's read-only diagnostics separate cumulative worker time from waiting
+on DH's supplied executor, and report current/peak waiting and running requests.
+These counters describe this adapter's calls, not DH's complete database, meshing
+or renderer queues. No additional executor or persistent request cache is owned.
+
 This is an undecorated base-surface approximation. Trees, caves, structures and
 player lighting enter through DH's real chunk observations. Completed approximate
 columns use DH's FEATURES priority to avoid repeated SURFACE refinement requests;
@@ -316,9 +358,27 @@ water and exact empty-flight air through DH's real data-source validator.
 
 Native ON/OFF captures show the new river valleys, alpine ranges and dry uplands.
 The direct far surface remains undecorated until real chunk observations arrive.
-One overhead river capture also showed a transient pale DH polygon that disappeared
-with its renderer disabled; complete DH/background composition is still being
-qualified. These bounded checks do not establish a finished planetary alpha.
+The overhead river's pale polygon was reproduced with DH's original fog: its
+radial falloff saturated at a 32-chunk radius even though the geographic view
+continued below a camera 800 m above the water. A frame-scoped API 7.2 fog callback
+now uses the native background's physical haze length without changing user
+configuration. In a same-pose original/fixed/off comparison, a shared 1400-pixel
+interior water region's mean RGB error against the no-DH view fell from 90.67 to
+3.59 on an 8-bit scale. A subtle textured water join remains; this is not pixel-identical coverage
+or a general spherical-DH geometry integration. Reload and viewport resize retain
+the callback. These bounded checks do not establish a finished planetary alpha.
+
+A subsequent copied-pack run used an RTX 3050 Laptop GPU / NVIDIA 615.71.09,
+Java 21.0.12.1 with a 12 GiB heap, 1920x1080, 12 native/simulation chunks and a
+256-chunk DH radius. The verification harness used a 60 FPS cap, VSync off and
+60 Hz headless presentation, not the launcher's 120 FPS/VSync-on mode. A repeated
+240 m forest route measured 1444 frame intervals: p50 18.287 ms, p95 39.495 ms,
+p99 75.469 ms. Its 606 server ticks measured p50 11.013 ms, p95 52.324 ms and
+p99 74.980 ms. The initial 50 ms p95 frame target passes; the same server target
+does not. DH paused its supplied generator executor while its chunk-builder
+backlog grew beyond 1000 jobs; the provider remained bounded at five waiting
+requests. Substantial allocation and tail stalls still require work. This is a
+measured profile, not a universal frame-rate guarantee or a before/after speedup.
 
 ## Distant Horizons cloud ownership
 

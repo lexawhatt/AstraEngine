@@ -51,6 +51,33 @@ final class ContinentalLandscapeTest {
     }
 
     @Test
+    void cornerJoinCannotFoldBackIntoAnInteriorHorizon() {
+        for (CubeFace face : CubeFace.values()) {
+            for (int corner = 0; corner < 4; corner++) {
+                var chart = new EarthChart(face, 0, 3);
+                double x = Math.copySign(EarthChart.RADIUS_METERS - 4, (corner & 1) == 0 ? -1 : 1);
+                double z = Math.copySign(EarthChart.RADIUS_METERS - 4, (corner & 2) == 0 ? -1 : 1);
+                var frame = chart.tangentFrame(x, z, 0);
+                for (int bearing = 0; bearing < 64; bearing++) {
+                    double angle = bearing * Math.PI / 32;
+                    var outward = frame.xAxis().multiply(Math.cos(angle)).add(frame.zAxis().multiply(Math.sin(angle)));
+                    double previous = 0;
+                    for (int step = 0; step <= 256; step++) {
+                        double distance = 256 * Math.pow(256, step / 256.0);
+                        var direction = frame.upAxis().multiply(EarthChart.RADIUS_METERS)
+                                .add(outward.multiply(distance)).normalized();
+                        var projected = ContinentalLandscape.project(chart, x, z, frame, direction, 0);
+                        double radial = projected.x() * Math.cos(angle) + projected.z() * Math.sin(angle);
+                        assertTrue(radial > previous, "Folded radial strip at face=" + face + " corner=" + corner
+                                + " bearing=" + bearing + " distance=" + distance);
+                        previous = radial;
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     void bakedMeshIsFiniteBoundedAndManifoldAwayFromTheOuterBoundary() {
         var mesh = ContinentalLandscape.bake(new EarthChart(CubeFace.POSITIVE_X, 0, 2), 0, 0, () -> false);
         assertEquals(1 + ContinentalLandscape.RINGS * ContinentalLandscape.SECTORS, mesh.vertexCount());
@@ -86,6 +113,6 @@ final class ContinentalLandscapeTest {
         }
         var terrain = new ContinentalTerrain(2, ContinentalTerrain.SEED);
         assertEquals(Math.floor(terrain.sample(new SpaceVector(1, 0, 0)).heightMeters()), mesh.position(0).y());
-        assertThrows(CancellationException.class, () -> ContinentalLandscape.bake(mesh.chart(), 0, 0, () -> true));
+        assertThrows(CancellationException.class, () -> ContinentalLandscape.bake((EarthChart) mesh.chart(), 0, 0, () -> true));
     }
 }

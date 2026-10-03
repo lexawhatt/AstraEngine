@@ -65,8 +65,19 @@ public final class FlightDynamics {
      * a supernova primary sixty and a pulsar eighty. No body size or orbital distance is changed for this framing.
      */
     public static Observation observation(CosmosSystem system, CelestialBody body, double seconds) {
+        return observation(system, body, seconds, 0);
+    }
+
+    /**
+     * Applies an additional minimum center distance in meters, for a caller-owned physical entry envelope.
+     * This pure framing request never changes body radii or movement authority. Nonfinite, negative or
+     * out-of-bounds minimum distances throw; ordinary framing remains unchanged when it is farther away.
+     */
+    public static Observation observation(CosmosSystem system, CelestialBody body, double seconds,
+            double minimumCenterDistanceMeters) {
         if (system == null || body == null || !system.bodies().contains(body)
-                || !Double.isFinite(seconds)) {
+                || !Double.isFinite(seconds) || !Double.isFinite(minimumCenterDistanceMeters)
+                || minimumCenterDistanceMeters < 0 || minimumCenterDistanceMeters > MAX_POSITION) {
             throw new IllegalArgumentException("Invalid body observation request");
         }
         boolean primary = body.id().equals(system.bodies().getFirst().id());
@@ -88,7 +99,8 @@ public final class FlightDynamics {
                 observerDirection = towardSource.normalized().add(new SpaceVector(0, elevation, 0)).normalized();
             }
         }
-        SpaceVector position = center.add(observerDirection.multiply(Math.max(body.radiusMeters() * radii, 100_000)));
+        SpaceVector position = center.add(observerDirection.multiply(
+                Math.max(Math.max(body.radiusMeters() * radii, 100_000), minimumCenterDistanceMeters)));
         SpaceVector facing = observerDirection.multiply(-1);
         float yaw = (float) Math.toDegrees(Math.atan2(-facing.x(), facing.z()));
         float pitch = (float) -Math.toDegrees(Math.asin(Math.clamp(facing.y(), -1, 1)));
@@ -133,24 +145,32 @@ public final class FlightDynamics {
     /** Advances at most 0.1 seconds; released input/brake immediately yields zero velocity, without inertia. */
     public static State step(State state, Input input, double speedMetersPerSecond, double seconds,
             List<CelestialBody> bodies, double clockSeconds) {
+        return step(state, input, speedMetersPerSecond, seconds, bodies, clockSeconds, FlightDynamics::safeRadius);
+    }
+
+    /**
+     * Server boundary adapter with explicit body collision radii in meters. A prepared solid-surface owner can
+     * stop at its physical space boundary; stars and unsupported bodies retain their ordinary envelopes.
+     * The synchronous resolver must return a finite radius at least as large as the canonical body radius.
+     */
+    public static State step(State state, Input input, double speedMetersPerSecond, double seconds,
+            List<CelestialBody> bodies, double clockSeconds, java.util.function.ToDoubleFunction<CelestialBody> envelope) {
+        if (envelope == null) { throw new IllegalArgumentException("A collision envelope resolver is required"); }
         if (state == null || input == null || bodies == null || bodies.size() > CosmosSystem.MAX_BODIES
                 || !Double.isFinite(seconds) || seconds < 0 || seconds > 0.1
                 || !Double.isFinite(clockSeconds)) {
             throw new IllegalArgumentException("Invalid free-camera simulation step");
         }
-        double maximumSpeed = validateSpeed(speedMetersPerSecond);
+        validateSpeed(speedMetersPerSecond);
         if (seconds == 0) { return state; }
-        FlightOrientation orientation = input.orientation();
-        SpaceVector desired = orientation.forward().multiply(input.forward())
-                .add(orientation.left().multiply(input.strafe())).add(orientation.up().multiply(input.vertical()));
-        SpaceVector velocity = !input.brake() && desired.length() > 0.00001
-                ? desired.normalized().multiply(maximumSpeed) : ZERO;
+        SpaceVector velocity = desiredVelocity(input, speedMetersPerSecond);
         SpaceVector start = state.position();
         // Orbit motion can overtake an idle observer. Resolve penetration before the sweep.
         for (CelestialBody body : bodies) {
             SpaceVector center = CelestialOrbits.positionAt(bodies, body, clockSeconds);
             SpaceVector offset = start.subtract(center);
-            double radius = safeRadius(body);
+            double radius = envelope.applyAsDouble(body);
+            validateEnvelope(body, radius);
             if (offset.length() < radius) {
                 SpaceVector normal = offset.length() < 1 ? new SpaceVector(0, 0, -1) : offset.normalized();
                 start = center.add(normal.multiply(radius + 1));
@@ -165,7 +185,8 @@ public final class FlightDynamics {
             for (CelestialBody body : bodies) {
                 SpaceVector relative = CelestialOrbits.positionAt(bodies, body, clockSeconds).subtract(start);
                 double projection = dot(relative, direction);
-                double radius = safeRadius(body);
+                double radius = envelope.applyAsDouble(body);
+                validateEnvelope(body, radius);
                 SpaceVector perpendicular = relative.subtract(direction.multiply(projection));
                 double perpendicularSquared = dot(perpendicular, perpendicular);
                 if (projection < 0 || perpendicularSquared > radius * radius) { continue; }
@@ -182,6 +203,22 @@ public final class FlightDynamics {
         return new State(position, velocity);
     }
 
+    /** Requested free-camera physical velocity before collision; released controls have no inertia. */
+    public static SpaceVector desiredVelocity(Input input, double speedMetersPerSecond) {
+        if (input == null) { throw new IllegalArgumentException("Flight input is required"); }
+        validateSpeed(speedMetersPerSecond);
+        var view = input.orientation();
+        SpaceVector desired = view.forward().multiply(input.forward()).add(view.left().multiply(input.strafe()))
+                .add(view.up().multiply(input.vertical()));
+        return !input.brake() && desired.length() > .00001 ? desired.normalized().multiply(speedMetersPerSecond) : ZERO;
+    }
+
+    private static void validateEnvelope(CelestialBody body, double radius) {
+        if (!Double.isFinite(radius) || radius < body.radiusMeters() || radius > MAX_POSITION) {
+            throw new IllegalArgumentException("Collision envelope must contain its physical body");
+        }
+    }
+
     /** Collision envelope in system-local meters, shared by free flight and the local approach planner. */
     public static double safeRadius(CelestialBody body) {
         if (body == null) { throw new IllegalArgumentException("A collision body is required"); }
@@ -195,15 +232,27 @@ public final class FlightDynamics {
      */
     public static SpaceVector followOrbitalMotion(SpaceVector position, List<CelestialBody> bodies,
             double previousSeconds, double currentSeconds) {
+        return followOrbitalMotion(position, bodies, previousSeconds, currentSeconds, body -> body.radiusMeters() * 6);
+    }
+
+    /**
+     * Updates the nearest local orbital reference within caller-supplied center distances in meters.
+     * The resolver is used only during this pure call; finite ranges must enclose their physical bodies.
+     * It allows a small solid body's surface-entry preparation region to remain in that body's reference.
+     */
+    public static SpaceVector followOrbitalMotion(SpaceVector position, List<CelestialBody> bodies,
+            double previousSeconds, double currentSeconds, java.util.function.ToDoubleFunction<CelestialBody> range) {
         if (position == null || bodies == null || bodies.size() > CosmosSystem.MAX_BODIES
-                || !Double.isFinite(previousSeconds) || !Double.isFinite(currentSeconds)) {
+                || !Double.isFinite(previousSeconds) || !Double.isFinite(currentSeconds) || range == null) {
             throw new IllegalArgumentException("Invalid orbital reference update");
         }
         CelestialBody nearest = null;
         double nearestDistance = Double.POSITIVE_INFINITY;
         for (CelestialBody body : bodies) {
             double distance = position.distance(CelestialOrbits.positionAt(bodies, body, previousSeconds));
-            if (distance <= body.radiusMeters() * 6 && distance < nearestDistance) {
+            double radius = range.applyAsDouble(body);
+            validateEnvelope(body, radius);
+            if (distance <= radius && distance < nearestDistance) {
                 nearest = body; nearestDistance = distance;
             }
         }
@@ -223,7 +272,7 @@ public final class FlightDynamics {
 
     static boolean clearSegment(SpaceVector start, SpaceVector end, List<CelestialBody> bodies,
             double startSeconds, double endSeconds, double curveAllowance) {
-        return clearSegment(start, end, bodies, startSeconds, endSeconds, curveAllowance, null);
+        return clearSegment(start, end, bodies, startSeconds, endSeconds, curveAllowance, null, FlightDynamics::safeRadius);
     }
 
     /**
@@ -236,12 +285,20 @@ public final class FlightDynamics {
                 || bodies.stream().noneMatch(body -> body.id().equals(landingBodyId))) {
             throw new IllegalArgumentException("Landing collision exclusion requires a member body");
         }
-        return clearSegment(start, end, bodies, startSeconds, endSeconds, 0, landingBodyId);
+        return clearSegment(start, end, bodies, startSeconds, endSeconds, 0, landingBodyId, FlightDynamics::safeRadius);
+    }
+
+    /** Tests moving bodies against explicit validated radii; no body is excluded from collision. */
+    static boolean clearSegment(SpaceVector start, SpaceVector end, List<CelestialBody> bodies,
+            double startSeconds, double endSeconds, double curveAllowance,
+            java.util.function.ToDoubleFunction<CelestialBody> envelope) {
+        return clearSegment(start, end, bodies, startSeconds, endSeconds, curveAllowance, null, envelope);
     }
 
     private static boolean clearSegment(SpaceVector start, SpaceVector end, List<CelestialBody> bodies,
-            double startSeconds, double endSeconds, double curveAllowance, String landingBodyId) {
-        if (start == null || end == null || bodies == null || bodies.size() > CosmosSystem.MAX_BODIES
+            double startSeconds, double endSeconds, double curveAllowance, String landingBodyId,
+            java.util.function.ToDoubleFunction<CelestialBody> envelope) {
+        if (start == null || end == null || bodies == null || envelope == null || bodies.size() > CosmosSystem.MAX_BODIES
                 || !Double.isFinite(startSeconds) || !Double.isFinite(endSeconds)
                 || !Double.isFinite(curveAllowance) || curveAllowance < 0
                 || endSeconds < startSeconds
@@ -258,7 +315,9 @@ public final class FlightDynamics {
             double fraction = squareLength > 0
                     ? Math.clamp(-relativeStart.dot(relativeMotion) / squareLength, 0, 1) : 0;
             double allowance = CelestialOrbits.curvatureBound(bodies, body, seconds);
-            if (relativeStart.add(relativeMotion.multiply(fraction)).length() <= safeRadius(body) + allowance + curveAllowance) {
+            double radius = envelope.applyAsDouble(body);
+            validateEnvelope(body, radius);
+            if (relativeStart.add(relativeMotion.multiply(fraction)).length() <= radius + allowance + curveAllowance) {
                 return false;
             }
         }

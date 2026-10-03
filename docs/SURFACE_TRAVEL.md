@@ -1,21 +1,29 @@
 # Planetary surface travel
 
-The [Astra Earth preset](EARTH_WORLD.md) binds its Overworld and continental
-charts to the orbital Earth. **R** departs from the current chart position, and
-**L** aims at the visible geographic location before preparing a safe landing.
-It uses the saved terrain version, actual blocks and permanent host chunk storage.
-The remaining sections describe the retained legacy patch path.
+The [Astra Earth preset](EARTH_WORLD.md) binds its Overworld and planetary charts
+to the orbital Earth. **R** enables free inspection at the actual player position;
+flying through 100,000 m altitude enters space, and crossing inward at a chosen
+location enters its prepared real chart. **L** explains this free-entry behavior;
+it does not start an automatic descent. The same boundary applies to other
+[supported solid planets and moons](PLANET_SURFACES.md), including the whole Moon.
+AstraEngine owns preparation and geographic continuity; consumer mods own vehicle
+propulsion and autolanding. See [current controls](COSMOS.md) and
+[geographic model and API](SURFACE_MODEL.md).
 
-For ordinary Overworld saves, AstraEngine has two permanent, bounded surface patches: Sol Moon and Sol Earth.
+The remaining sections describe the retained legacy patch implementation, not
+the whole-body flight path. Historical saves can contain two permanent, bounded surface patches: Sol Moon and Sol Earth.
 They use separate `astraengine:surface_moon` and `astraengine:surface_earth`
 worlds. Existing Overworld terrain is not replaced or bound to the orbital Earth.
-This is the first surface integration, not a complete traversable spherical world.
+These older fixed patches remain bounded. New Moon entry uses its whole-body profile;
+the old Moon directory and any builds remain intact, and existing occupants can depart.
+The guided Earth patch remains available when the save has no Astra Earth binding.
 
 ## Controls
 
-1. Enter free flight with **R**, open **M**, select **Moon** or **Earth**, and use
-   **Approach body**. Landing requires being within six body radii.
-2. Press **L**, or use `/astra-flight land moon` / `/astra-flight land earth`.
+1. For the retained Earth patch in an unbound ordinary save, enter free flight
+   with **R**, open **M**, select **Earth**, and use **Approach body**. This legacy
+   landing requires being within six body radii.
+2. Press **L**, or use `/astra-flight land earth`.
    The server prepares a safe destination and guides the camera to its patch.
 3. Walk and build using normal Minecraft blocks. Press **R**, or use
    `/astra-flight takeoff`, to depart from an unobstructed position above ground.
@@ -134,5 +142,6 @@ reduced-debug mode retains its privacy. A separate
 [highlands prototype](PLANETARY_TERRAIN.md) explores kilometer relief and expanded
 height without modifying these version-one worlds. The
 [closed geography model](PLANETARY_GEOGRAPHY.md) defines polar tile neighbors and
-saved identity metadata. Continuous planetary traversal and production distant-terrain
-integration remain subsequent work.
+saved identity metadata. These historical patch worlds do not gain whole-body chart traversal; the current
+[Astra Earth](EARTH_WORLD.md) and [solid-planet profiles](PLANET_SURFACES.md) use
+separate persistent bindings and their shared direct distant-terrain path.

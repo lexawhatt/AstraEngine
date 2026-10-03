@@ -7,20 +7,43 @@ import dev.lexawhatt.astraengine.surface.ContinentalTerrain;
 import dev.lexawhatt.astraengine.surface.EarthChart;
 import dev.lexawhatt.astraengine.worldgen.EarthChunkGenerator;
 import dev.lexawhatt.astraengine.worldgen.EarthWeather;
+import dev.lexawhatt.astraengine.worldgen.UniformTerrainNbt;
+import dev.lexawhatt.astraengine.worldgen.UniformTerrainStates;
+import dev.lexawhatt.astraengine.worldgen.UniformBiomeNbt;
+import dev.lexawhatt.astraengine.server.PlanetSurfaceWorlds;
+import dev.lexawhatt.astraengine.server.ExplorationCatalog;
+import dev.lexawhatt.astraengine.surface.PlanetChart;
+import dev.lexawhatt.astraengine.surface.SolidPlanetProfile;
 import dev.lexawhatt.astraengine.surface.CubeFace;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtOps;
+import net.minecraft.nbt.Tag;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.LevelHeightAccessor;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraft.world.level.chunk.LevelChunkSection;
+import net.minecraft.world.level.chunk.PalettedContainer;
+import net.minecraft.world.level.chunk.PalettedContainerRO;
 import net.minecraft.world.level.chunk.ProtoChunk;
 import net.minecraft.world.level.chunk.UpgradeData;
+import net.minecraft.world.level.chunk.status.ChunkStatus;
+import net.minecraft.world.level.chunk.storage.ChunkSerializer;
+import net.minecraft.world.level.chunk.storage.RegionStorageInfo;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.blending.Blender;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -28,6 +51,165 @@ import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
 /** Exercises the real registered Earth preset codecs and generated host storage independently of player worlds. */
 @PrefixGameTestTemplate(false)
 public final class EarthGenerationGameTests {
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty")
+    public static void uniformBiomeEncodingIsLocalExactAndRejectsMixedPalettes(GameTestHelper helper) {
+        var registry = helper.getLevel().registryAccess().registryOrThrow(Registries.BIOME);
+        var plains = registry.getHolderOrThrow(Biomes.PLAINS);
+        var forest = registry.getHolderOrThrow(Biomes.FOREST);
+        var codec = PalettedContainer.codecRO(registry.asHolderIdMap(), registry.holderByNameCodec(),
+                PalettedContainer.Strategy.SECTION_BIOMES, plains);
+        var first = new PalettedContainer<>(registry.asHolderIdMap(), forest, PalettedContainer.Strategy.SECTION_BIOMES);
+        var second = new PalettedContainer<>(registry.asHolderIdMap(), forest, PalettedContainer.Strategy.SECTION_BIOMES);
+        var templates = new UniformBiomeNbt(registry);
+        var encodes = new AtomicInteger();
+        Function<PalettedContainerRO<Holder<Biome>>, Tag> encode = palette -> {
+            encodes.incrementAndGet(); return codec.encodeStart(NbtOps.INSTANCE, palette).getOrThrow();
+        };
+        var expected = codec.encodeStart(NbtOps.INSTANCE, first).getOrThrow();
+        var actual = templates.encode(first, encode);
+        helper.assertTrue(expected.equals(actual), "Uniform biome encoding changed the original host format");
+        ((CompoundTag) actual).remove("palette");
+        helper.assertTrue(expected.equals(templates.encode(second, encode)) && encodes.get() == 1,
+                "Repeated uniform sections did not reuse an independent exact template");
+        second.getAndSet(2, 1, 3, plains);
+        helper.assertTrue(templates.encode(second, encode) == null, "A mixed biome palette lost its changed cell");
+        helper.assertTrue(expected.equals(templates.encode(first, encode)), "Changing one palette affected another section");
+        helper.assertTrue(expected.equals(new UniformBiomeNbt(registry).encode(first, encode)) && encodes.get() == 2,
+                "A biome template leaked beyond one write invocation");
+        var bounded = new UniformBiomeNbt(registry);
+        var holders = registry.holders().limit(17).toList();
+        helper.assertTrue(holders.size() == 17, "Biome budget fixture needs seventeen distinct registered holders");
+        for (int index = 0; index < holders.size(); index++) {
+            var palette = new PalettedContainer<>(registry.asHolderIdMap(), holders.get(index),
+                    PalettedContainer.Strategy.SECTION_BIOMES);
+            helper.assertTrue((bounded.encode(palette, encode) != null) == (index < 16),
+                    "Invocation-local biome template budget is not bounded at sixteen");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty", timeoutTicks = 400)
+    public static void tallChunkResavePreservesDeserializedPalettesAndBiomeEdits(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var system = ExplorationCatalog.get(server).system("sol");
+        var moon = system.bodies().stream().filter(body -> body.id().equals("moon")).findFirst().orElseThrow();
+        var profile = SolidPlanetProfile.create(system, moon).orElseThrow();
+        var level = PlanetSurfaceWorlds.ensure(server, new PlanetChart(profile, CubeFace.POSITIVE_X, 6));
+        var registry = level.registryAccess().registryOrThrow(Registries.BIOME);
+        var plains = registry.getHolderOrThrow(Biomes.PLAINS);
+        var forest = registry.getHolderOrThrow(Biomes.FOREST);
+        var chunk = new ProtoChunk(new ChunkPos(7, -9), UpgradeData.EMPTY, level, registry, null);
+        chunk.setPersistedStatus(ChunkStatus.BIOMES);
+        for (int index = 0; index < chunk.getSectionsCount(); index++) {
+            chunk.getSections()[index] = new LevelChunkSection(new PalettedContainer<>(Block.BLOCK_STATE_REGISTRY,
+                    Blocks.AIR.defaultBlockState(), PalettedContainer.Strategy.SECTION_STATES),
+                    new PalettedContainer<>(registry.asHolderIdMap(), forest, PalettedContainer.Strategy.SECTION_BIOMES));
+        }
+        var blockCodec = PalettedContainer.codecRW(Block.BLOCK_STATE_REGISTRY, BlockState.CODEC,
+                PalettedContainer.Strategy.SECTION_STATES, Blocks.AIR.defaultBlockState());
+        var biomeCodec = PalettedContainer.codecRO(registry.asHolderIdMap(), registry.holderByNameCodec(),
+                PalettedContainer.Strategy.SECTION_BIOMES, plains);
+        var first = ChunkSerializer.write(level, chunk);
+        var tags = first.getList("sections", 10);
+        helper.assertTrue(tags.size() == chunk.getSectionsCount(), "Tall save omitted owned section palettes");
+        for (int index = 0; index < tags.size(); index++) {
+            var section = chunk.getSection(index);
+            helper.assertTrue(tags.getCompound(index).get("block_states").equals(
+                    blockCodec.encodeStart(NbtOps.INSTANCE, section.getStates()).getOrThrow())
+                    && tags.getCompound(index).get("biomes").equals(
+                    biomeCodec.encodeStart(NbtOps.INSTANCE, section.getBiomes()).getOrThrow()),
+                    "Tall fast save differs from the original block/biome codecs");
+        }
+        var info = new RegionStorageInfo("astra-tall-palette-test", level.dimension(), "chunk");
+        var restored = ChunkSerializer.read(level, level.getPoiManager(), info, chunk.getPos(), first);
+        helper.assertTrue(restored.getSection(1).getStates().getClass() == PalettedContainer.class,
+                "Reload fixture did not exercise ordinary deserialized host palettes");
+        var plain = restored.getSection(1).getStates();
+        helper.assertTrue(UniformTerrainNbt.encodeHostPalette(plain,
+                palette -> blockCodec.encodeStart(NbtOps.INSTANCE, palette).getOrThrow()) != null,
+                "Exact singleton host palette did not enter the bounded save path");
+        plain.getAndSet(4, 5, 6, Blocks.GOLD_BLOCK.defaultBlockState());
+        var changedBiomes = restored.getSection(1).getBiomes().recreate();
+        for (int y = 0; y < 4; y++) {
+            for (int z = 0; z < 4; z++) {
+                for (int x = 0; x < 4; x++) { changedBiomes.getAndSet(x, y, z, forest); }
+            }
+        }
+        changedBiomes.getAndSet(1, 2, 3, plains);
+        restored.getSections()[1] = new LevelChunkSection(plain, changedBiomes);
+        helper.assertTrue(UniformTerrainNbt.encodeHostPalette(plain,
+                palette -> blockCodec.encodeStart(NbtOps.INSTANCE, palette).getOrThrow()) == null,
+                "A deserialized palette's later block edit reused an obsolete template");
+        var second = ChunkSerializer.write(level, restored);
+        var reloaded = ChunkSerializer.read(level, level.getPoiManager(), info, chunk.getPos(), second);
+        helper.assertTrue(reloaded.getSection(1).getBlockState(4, 5, 6).is(Blocks.GOLD_BLOCK)
+                && reloaded.getSection(1).getBlockState(3, 5, 6).isAir()
+                && reloaded.getSection(1).getNoiseBiome(1, 2, 3).equals(plains)
+                && reloaded.getSection(1).getNoiseBiome(0, 2, 3).equals(forest),
+                "Save/read lost a later block or biome edit after deserialization");
+        tags.getCompound(0).getCompound("biomes").remove("palette");
+        helper.assertTrue(second.getList("sections", 10).getCompound(0).getCompound("biomes").contains("palette"),
+                "Two saves share mutable biome NBT");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty")
+    public static void uniformPaletteSaveIsExactIndependentAndPreservesLaterEdits(GameTestHelper helper) {
+        var level = helper.getLevel();
+        var chunk = new ProtoChunk(new ChunkPos(0, 0), UpgradeData.EMPTY, level,
+                level.registryAccess().registryOrThrow(Registries.BIOME), null);
+        chunk.setPersistedStatus(ChunkStatus.BIOMES);
+        var states = new UniformTerrainStates(Blocks.STONE.defaultBlockState());
+        chunk.getSections()[0] = new LevelChunkSection(states, chunk.getSection(0).getBiomes());
+        var codec = PalettedContainer.codecRW(Block.BLOCK_STATE_REGISTRY, BlockState.CODEC,
+                PalettedContainer.Strategy.SECTION_STATES, Blocks.AIR.defaultBlockState());
+        var plain = new PalettedContainer<>(Block.BLOCK_STATE_REGISTRY, Blocks.STONE.defaultBlockState(),
+                PalettedContainer.Strategy.SECTION_STATES);
+        var expected = codec.encodeStart(NbtOps.INSTANCE, plain).getOrThrow();
+        var first = ChunkSerializer.write(level, chunk);
+        var firstPalette = first.getList("sections", 10).stream().map(CompoundTag.class::cast)
+                .filter(section -> section.getByte("Y") == chunk.getMinSection()).findFirst().orElseThrow()
+                .getCompound("block_states");
+        helper.assertTrue(firstPalette.equals(expected), "Uniform fast save changed the original host palette format");
+        firstPalette.remove("palette");
+        var second = ChunkSerializer.write(level, chunk);
+        var secondPalette = second.getList("sections", 10).stream().map(CompoundTag.class::cast)
+                .filter(section -> section.getByte("Y") == chunk.getMinSection()).findFirst().orElseThrow()
+                .getCompound("block_states");
+        helper.assertTrue(secondPalette.equals(expected), "Returned NBT mutated the shared uniform encoding");
+        states.getAndSet(3, 4, 5, Blocks.GOLD_BLOCK.defaultBlockState());
+        helper.assertTrue(UniformTerrainNbt.encode(states, palette -> codec.encodeStart(NbtOps.INSTANCE, palette)
+                .getOrThrow()) == null, "Edited palette retained the uniform fast path");
+        var edited = ChunkSerializer.write(level, chunk);
+        var restored = ChunkSerializer.read(level, level.getPoiManager(),
+                new RegionStorageInfo("astra-uniform-test", level.dimension(), "chunk"), chunk.getPos(), edited);
+        helper.assertTrue(restored.getBlockState(new BlockPos(3, level.getMinBuildHeight() + 4, 5)).is(Blocks.GOLD_BLOCK)
+                && restored.getBlockState(new BlockPos(2, level.getMinBuildHeight() + 4, 5)).is(Blocks.STONE),
+                "Actual host save/read lost a later edit or neighboring generated material");
+        states.getAndSet(3, 4, 5, Blocks.STONE.defaultBlockState());
+        helper.assertTrue(UniformTerrainNbt.encode(states, palette -> codec.encodeStart(NbtOps.INSTANCE, palette)
+                .getOrThrow()) == null, "A previously changed palette incorrectly reused its initial snapshot");
+        var foreign = new UniformTerrainStates(Blocks.DIAMOND_BLOCK.defaultBlockState());
+        helper.assertTrue(UniformTerrainNbt.encode(foreign, palette -> { throw new AssertionError("Unexpected encoding"); })
+                == null, "Unlisted material entered the bounded cache");
+        helper.succeed();
+    }
+
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty")
+    public static void regionalWeatherUsesTheSameTemperatureAsItsForestMaterial(GameTestHelper helper) {
+        var terrain = new ContinentalTerrain(3, ContinentalTerrain.SEED);
+        var address = new dev.lexawhatt.astraengine.surface.GeographicPosition(.7661117545732665, 2.783804210211678, 265);
+        var chart = EarthChart.owner(address, 3).orElseThrow();
+        var feet = chart.resolve(address).orElseThrow();
+        var sample = terrain.sample(address.normal());
+        helper.assertTrue(sample.temperature() > 10, "Forest temperature fixture changed");
+        helper.assertTrue(EarthWeather.warmEnough(chart, terrain, (int) feet.x(), (int) feet.y(), (int) feet.z()),
+                "A warm v3 forest canopy received snow from the legacy latitude formula");
+        helper.assertTrue(!EarthWeather.warmEnough(chart, terrain, (int) feet.x(), (int) feet.y() + 4000, (int) feet.z()),
+                "Temperature above the same forest lost its physical altitude lapse");
+        helper.succeed();
+    }
+
     @GameTest(templateNamespace = "astraengine_verify", template = "empty")
     public static void physicalWeatherIgnoresStorageBandAndDoesNotFreezeTropicalHighlands(GameTestHelper helper) {
         var terrain = new ContinentalTerrain(ContinentalTerrain.VERSION, ContinentalTerrain.SEED);

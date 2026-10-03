@@ -49,7 +49,8 @@ public final class RenderCompatibility {
         boolean available = current.state() == IrisState.AVAILABLE;
         return new Diagnostics(List.of(installed("sodium", "Sodium"), installed("iris", "Iris"),
                 installed("sodium_extra", "Sodium Extra"), installed("reeses_sodium_options", "Reese's Sodium Options"),
-                installed("chloride", "Chloride"), installed("distanthorizons", "Distant Horizons")), current.state(),
+                installed("chloride", "Chloride"), installed("distanthorizons", "Distant Horizons"),
+                installed("lithium", "Lithium")), current.state(),
                 available ? OptionalInt.of(current.minorRevision()) : OptionalInt.empty(),
                 available ? Optional.of(current.packActive()) : Optional.empty(),
                 available ? Optional.of(current.shadowPass()) : Optional.empty(), current.failure());

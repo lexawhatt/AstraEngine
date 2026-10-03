@@ -60,10 +60,20 @@ public final class LateSkyRenderer implements AutoCloseable {
      * @param skyDraw non-null render-thread callback producing the full sky image
      */
     public boolean render(Runnable skyDraw) {
+        return render(skyDraw, 1);
+    }
+
+    /**
+     * Blends a complete sky into clear-depth host pixels with finite opacity in [0,1]. Opacity applies
+     * after the callback's HDR/exposure pipeline, against the actual finalized host scene, never black.
+     * All lifecycle, thread and foreground-preservation rules of {@link #render(Runnable)} still apply.
+     */
+    public boolean render(Runnable skyDraw, float opacity) {
         RenderSystem.assertOnRenderThread();
-        if (skyDraw == null) {
-            throw new IllegalArgumentException("Late sky draw callback must not be null");
+        if (skyDraw == null || !Float.isFinite(opacity) || opacity < 0 || opacity > 1) {
+            throw new IllegalArgumentException("Late sky requires a callback and finite opacity in [0,1]");
         }
+        if (opacity == 0) { return false; }
         if (compose == null || allocationFailed) { return false; }
         RenderTarget main = Minecraft.getInstance().getMainRenderTarget();
         if (main.width <= 0 || main.height <= 0) { return false; }
@@ -93,6 +103,7 @@ public final class LateSkyRenderer implements AutoCloseable {
                 compose.setSampler("SceneColor", scene.getColorTextureId());
                 compose.setSampler("SceneDepth", scene.getDepthTextureId());
                 compose.setSampler("SkyColor", sky.getColorTextureId());
+                compose.safeGetUniform("SkyOpacity").set(opacity);
                 FullscreenPass.draw(compose);
                 return true;
             } finally {

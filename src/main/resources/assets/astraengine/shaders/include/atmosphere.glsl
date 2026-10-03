@@ -26,9 +26,11 @@ vec3 atmosphereTransmission(float sunHeight, float height, float aerosol) {
                - vec3(0.00065, 0.00185, 0.00009) * ozone);
 }
 
-vec3 atmosphericSky(vec3 ray, vec3 sun, float aerosol) {
+vec3 atmosphericSky(vec3 ray, vec3 sun, float aerosol, float observerHeight) {
     vec3 view = normalize(vec3(ray.x, max(ray.y, 0.001), ray.z));
-    vec3 origin = vec3(0.0, ATMOSPHERE_RADIUS + 0.05, 0.0);
+    float heightKm = max(0.002, observerHeight);
+    if (heightKm >= ATMOSPHERE_HEIGHT) { return vec3(0.0); }
+    vec3 origin = vec3(0.0, ATMOSPHERE_RADIUS + heightKm, 0.0);
     float radial = dot(origin, view);
     float outer = ATMOSPHERE_RADIUS + ATMOSPHERE_HEIGHT;
     float lengthKm = sqrt(radial * radial + outer * outer - dot(origin, origin)) - radial;
@@ -71,7 +73,7 @@ vec3 atmosphericSky(vec3 ray, vec3 sun, float aerosol) {
               * twilight * horizon;
     multiple += vec3(0.006, 0.014, 0.110) * twilight * (0.25 + zenith * 1.5);
     float solarExposure = mix(11.0, 20.0, smoothstep(0.0, 0.42, sun.y));
-    return scattering * solarExposure + multiple;
+    return scattering * solarExposure + multiple * exp(-heightKm / 8.0);
 }
 
 float cloudHash(vec2 p) {

@@ -155,6 +155,21 @@ owns registered programs. Missing shaders or failed HDR allocation fall back to
 the direct celestial shader. Strong optical bloom may scatter accretion-disc light
 into a black hole silhouette. It is not a mask preserving every black pixel.
 
+In canonical Earth charts without an active Iris pack, the surface sky blends into
+that same physical cosmos view between16km and48km of physical altitude. The blend
+acts on the final display image, after each celestial pass has completed exposure
+and bloom; it does not attenuate scene radiance or repurpose the HDR alpha metadata.
+Above48km the hidden low-altitude cloud pass is skipped. The background terrain
+mesh remains valid across altitude-band transfers on the same cube face. The
+camera and observer position use the chart offset and the synchronized Earth
+rotation, including during inspection flight. Planetary opacity does not change
+physical body radii. An active pack retains ownership of the Overworld sky.
+In separate upper Earth chart dimensions, the same16-to48km blend runs after pack
+finalization. It mixes complete display colors only where host depth is clear;
+pack terrain and other written depth remain untouched. Partial opacity is applied
+against the captured host image, so it cannot darken the transition by blending
+the orbital sky against an empty black target.
+
 This HDR path is specific to celestial rendering. The separate profile-based
 opaque-world lighting/editor pipeline below still consumes Minecraft's LDR color;
 it does not gain deferred materials, transparent relighting or GI from this change.
@@ -385,6 +400,13 @@ through moving-origin rebases. A 128 m movement threshold requests a replacement
 old valid geometry remains visible while it is built. No new terrain identity or
 world generation authority is introduced.
 
+The flat-to-tangent join runs from 512 m to 32.768 km with a smooth weight in
+logarithmic radius. At a cube corner the storage chart can stretch radial distances
+by three; a smoothstep in linear radius can fold triangles while removing that
+stretch. The logarithmic transition keeps the radial strips ordered and prevents
+an artificial interior horizon. This is a presentation join, not a change to saved
+terrain heights, block ownership or collision.
+
 `EarthLandscapeRenderer` draws that mesh into a private color/depth target at the
 main viewport size, using its own 4,000 km far plane. Only covered pixels compose at
 AFTER_SKY. Host opaque terrain and optional DH draw afterward. The host depth buffer
@@ -403,3 +425,11 @@ background; these checks never request chunk generation. DH can extend the host
 projection far plane, so that value is additionally capped by native render distance.
 Background water remains beneath translucent host fluids. Looking down from an
 upper band retains the geographic ground below that band.
+
+When the native background is actually drawn, an optional DH API 7.2 fog callback
+uses the same 22 km altitude-dependent exponential length and fog color for DH's
+terrain pass. The parameters belong to that pass; no user setting is written.
+This prevents a short configured LOD radius from turning terrain directly below
+a high observer into an opaque sky-colored polygon. The callback is dimension
+and frame scoped, yields to active packs and suppressed/failed native rendering,
+and is removed on reload or world retirement.

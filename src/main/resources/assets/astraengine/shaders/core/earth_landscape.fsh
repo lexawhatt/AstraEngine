@@ -2,6 +2,7 @@
 uniform vec3 LightColor;
 uniform vec3 HazeColor;
 uniform float EyeAltitude;
+uniform float AtmosphereDensity;
 uniform float Flash;
 uniform float NearCoverage;
 uniform float HostFarPlane;
@@ -49,6 +50,6 @@ void main() {
     color = mix(color, mix(color, HazeColor * 0.8, 0.04 + fresnel * 0.15), 1.0 - land);
     color += materialColor * Flash * 0.25;
     float distance = length(localPosition);
-    float haze = 1.0 - exp(-distance / (22000.0 * exp(max(0.0, EyeAltitude) / 8000.0)));
+    float haze = 1.0 - exp(-distance * AtmosphereDensity / 22000.0);
     fragColor = vec4(mix(color, HazeColor, haze), 1.0);
 }

@@ -145,6 +145,11 @@ The legacy Overworld owns one procedural cloud slab from **Y=360 to Y=860**,
 using one block as one meter for this visual. Astra Earth uses **1800 to 3200 meters
 above sea level**; camera altitude includes the current storage band offset. Clouds
 therefore remain at the same physical altitude when the host Y coordinate rebases.
+Atmospheric scattering also starts at that physical observer altitude, rather
+than always sampling from sea level. Air density and the multiple-scattering
+approximation decrease with altitude. Canonical Earth uses the shared orbital
+renderer at high altitude, as described in[RENDERING.md](RENDERING.md); an active
+Iris pack keeps its own Overworld atmosphere.
 The same atmosphere effects operate on every server-bound Earth chart. Cloud/air integration is bounded
 at **16 km**. Horizontal density repeats continuously every **64 km**; wrapping
 camera coordinates before float conversion preserves detail far from spawn.

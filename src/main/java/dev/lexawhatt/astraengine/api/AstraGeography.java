@@ -77,7 +77,7 @@ public final class AstraGeography {
      * {@link #reference(ServerLevel)} API retains its original return type and behavior.
      */
     public static Optional<GeographicReference> planetaryReference(ServerLevel level) {
-        var earth = EarthWorlds.chart(level);
+        var earth = dev.lexawhatt.astraengine.server.PlanetSurfaceWorlds.getCube(level);
         return earth.<GeographicReference>map(chart -> chart).or(() -> reference(level).map(chart -> chart));
     }
 

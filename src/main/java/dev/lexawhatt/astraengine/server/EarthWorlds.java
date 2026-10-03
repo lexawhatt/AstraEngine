@@ -28,7 +28,7 @@ public final class EarthWorlds {
     }
 
     /** Exact permanent dimension key; null fails. This lookup performs no loading or mutation. */
-    public static ResourceKey<Level> dimension(EarthChart chart) {
+    public static ResourceKey<Level> dimension(dev.lexawhatt.astraengine.surface.CubeStorageChart chart) {
         if (chart == null) { throw new IllegalArgumentException("An Earth chart is required"); }
         return ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(chart.dimensionId()));
     }

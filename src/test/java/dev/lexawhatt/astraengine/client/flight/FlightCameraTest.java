@@ -1,6 +1,8 @@
 package dev.lexawhatt.astraengine.client.flight;
 
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
+import dev.lexawhatt.astraengine.cosmos.SpaceVector;
+import dev.lexawhatt.astraengine.surface.BodyFixedFrame;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -8,6 +10,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Frame cadence must not set the camera's smoothing speed or impose the walking pitch limit. */
 class FlightCameraTest {
+    @Test
+    void rotatingGroundPreservesBothLiveLookAndPendingSmoothedTarget() {
+        var camera = new FlightCamera();
+        var before = new BodyFixedFrame(SpaceVector.ZERO, FlightOrientation.fromAngles(30, 23.4, 0), 6_371_000);
+        var after = new BodyFixedFrame(new SpaceVector(10000, 0, 30000),
+                FlightOrientation.fromAngles(31, 23.4, 0), 6_371_000);
+        camera.reset(before.toSystemOrientation(FlightOrientation.fromAngles(15, 130, 72)));
+        camera.update(5, -4, 2, .016, .7f);
+        var local = before.toBodyOrientation(camera.orientation());
+        var target = before.toBodyOrientation(camera.target());
+        camera.transport(before, after);
+        assertTrue(local.forward().dot(after.toBodyOrientation(camera.orientation()).forward()) > 1 - 1e-12);
+        assertTrue(local.up().dot(after.toBodyOrientation(camera.orientation()).up()) > 1 - 1e-12);
+        assertTrue(target.forward().dot(after.toBodyOrientation(camera.target()).forward()) > 1 - 1e-12);
+        assertTrue(target.up().dot(after.toBodyOrientation(camera.target()).up()) > 1 - 1e-12);
+    }
+
     @Test
     void batchedGuidanceCannotForceFastCatchUpAndSettlesBeforeManualHandoff() {
         FlightCamera camera = new FlightCamera();

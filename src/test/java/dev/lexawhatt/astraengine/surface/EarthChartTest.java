@@ -12,6 +12,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EarthChartTest {
     @Test
+    void dimensionLookupPreservesVersionsAndExactSavedIdentities() {
+        for (int version = 1; version <= 3; version++) {
+            for (var face : CubeFace.values()) {
+                for (int band = EarthChart.MIN_BAND; band <= EarthChart.MAX_BAND; band++) {
+                    var chart = new EarthChart(face, band, version);
+                    assertEquals(chart, EarthChart.forDimension(chart.dimensionId(), version).orElseThrow());
+                }
+            }
+        }
+        assertTrue(EarthChart.forDimension("astraengine:earth/px/above_00", 3).isEmpty());
+        assertTrue(EarthChart.forDimension("astraengine:earth/px/above_0", 3).isEmpty());
+        assertTrue(EarthChart.forDimension("astraengine:earth/py/above_26", 3).isEmpty());
+        assertTrue(EarthChart.forDimension("other:earth/py/above_1", 3).isEmpty());
+    }
+
+    @Test
     void everyPhysicalAddressHasOnePersistentStorageOwner() {
         assertEquals(36, EarthChart.ALL.size());
         assertEquals(36, EarthChart.ALL.stream().map(EarthChart::dimensionId).distinct().count());
@@ -29,7 +45,9 @@ class EarthChartTest {
             assertEquals(1, EarthChart.ALL.stream().filter(chart -> chart.resolve(geographic).isPresent()).count());
         }
         assertTrue(EarthChart.owner(new GeographicPosition(0, 0, -10160.01)).isEmpty());
-        assertTrue(EarthChart.owner(new GeographicPosition(0, 0, 14224)).isEmpty());
+        assertEquals(4, EarthChart.owner(new GeographicPosition(0, 0, 14224)).orElseThrow().band());
+        assertEquals(25, EarthChart.owner(new GeographicPosition(0, 0, 100000)).orElseThrow().band());
+        assertTrue(EarthChart.owner(new GeographicPosition(0, 0, 103632)).isEmpty());
     }
 
     @Test
@@ -78,7 +96,7 @@ class EarthChartTest {
             }
         }
         assertThrows(IllegalArgumentException.class, () -> new EarthChart(null, 0));
-        assertThrows(IllegalArgumentException.class, () -> new EarthChart(CubeFace.POSITIVE_X, 4));
+        assertThrows(IllegalArgumentException.class, () -> new EarthChart(CubeFace.POSITIVE_X, 26));
         assertThrows(IllegalArgumentException.class, () -> EarthChart.owner(null));
         var chart = new EarthChart(CubeFace.POSITIVE_X, 0);
         assertFalse(chart.contains(new SpaceVector(7e6, 10, 0)));

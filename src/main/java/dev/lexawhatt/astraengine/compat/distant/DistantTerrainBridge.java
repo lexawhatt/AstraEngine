@@ -6,6 +6,7 @@ import com.seibel.distanthorizons.api.methods.events.abstractEvents.DhApiLevelLo
 import com.seibel.distanthorizons.api.methods.events.sharedParameterObjects.DhApiEventParam;
 import dev.lexawhatt.astraengine.AstraEngine;
 import dev.lexawhatt.astraengine.worldgen.EarthChunkGenerator;
+import dev.lexawhatt.astraengine.worldgen.PlanetChunkGenerator;
 import net.minecraft.server.level.ServerLevel;
 
 /** Optional DH symbols are isolated here. The process-lifetime listener retains no levels or generators. */
@@ -29,6 +30,8 @@ public final class DistantTerrainBridge {
             IDhApiWorldGenerator generator;
             if (level.getChunkSource().getGenerator() instanceof EarthChunkGenerator earth) {
                 generator = new EarthLodGenerator(wrapper, earth);
+            } else if (level.getChunkSource().getGenerator() instanceof PlanetChunkGenerator planet) {
+                generator = new PlanetLodGenerator(wrapper, planet);
             } else if (EmptyFlightLodGenerator.supports(level)) {
                 generator = new EmptyFlightLodGenerator(wrapper);
             } else { return; }

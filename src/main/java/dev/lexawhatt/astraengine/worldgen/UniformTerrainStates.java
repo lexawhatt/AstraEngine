@@ -2,6 +2,7 @@ package dev.lexawhatt.astraengine.worldgen;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import net.minecraft.core.IdMap;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockState;
@@ -43,6 +44,20 @@ public final class UniformTerrainStates extends PalettedContainer<BlockState> {
         }
         return super.pack(registry, strategy);
     }
+
+    /**
+     * Reads the generated material only while this palette has never gained another value. The callback
+     * executes under the host read guard and must not acquire or mutate this container. Null means fallback.
+     */
+    public <T> T readUnchanged(Supplier<T> read) {
+        if (read == null) { throw new IllegalArgumentException("An unchanged-palette reader is required"); }
+        acquire();
+        try { return maybeHas(value -> value != initial) ? null : read.get(); }
+        finally { release(); }
+    }
+
+    /** Original immutable block state, without asserting that this mutable palette still contains only it. */
+    public BlockState initialState() { return initial; }
 
     private static BlockState requireState(BlockState value) {
         if (value == null) { throw new IllegalArgumentException("Uniform terrain requires an initial block state"); }

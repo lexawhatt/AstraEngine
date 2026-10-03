@@ -37,6 +37,7 @@ public final class OverworldSkyRenderer implements AutoCloseable {
     private final SolarStateClient state;
     private final RenderOptions options;
     private final SkyStateClient seasons;
+    private final EarthStateClient earth;
     private final EarthLandscapeRenderer landscape;
     private ShaderInstance shader;
     private boolean yieldedToShaderPack;
@@ -49,8 +50,12 @@ public final class OverworldSkyRenderer implements AutoCloseable {
         this.state = state;
         this.options = options;
         this.seasons = seasons;
+        this.earth = earth;
         this.landscape = new EarthLandscapeRenderer(earth, seasons, state);
     }
+
+    /** Shares connection-owned generic planetary light with the existing distant geometry owner. */
+    public void setPlanetSky(dev.lexawhatt.astraengine.client.surface.PlanetSkyState state) { landscape.setPlanetSky(state); }
 
     /** Shader reload/disposal belongs to Minecraft; a load failure restores the vanilla sky path. */
     public void registerShaders(RegisterShadersEvent event) {
@@ -95,6 +100,10 @@ public final class OverworldSkyRenderer implements AutoCloseable {
             try (var saved = new FullscreenPass()) { volumes.close(); }
             return;
         }
+        if (orbitalSky(level, Minecraft.getInstance().gameRenderer.getMainCamera())) {
+            try (var saved = new FullscreenPass()) { volumes.close(); }
+            return;
+        }
         volumes.world(landscape.depth());
     }
 
@@ -121,6 +130,9 @@ public final class OverworldSkyRenderer implements AutoCloseable {
             return false;
         }
         setupFog.run();
+        // The shared orbital renderer is fully opaque here. Avoid allocating/composing a second
+        // sea-level sky and cloud volume underneath it on every upper-atmosphere frame.
+        if (orbitalSky(level, camera)) { return true; }
         FogType fluid = camera.getFluidInCamera();
         if (foggy || fluid == FogType.LAVA || fluid == FogType.POWDER_SNOW
                 || SkyVisibility.underground(level, camera)
@@ -155,6 +167,8 @@ public final class OverworldSkyRenderer implements AutoCloseable {
                 : options.cloudCover(0.38f + (1 - warmth) * 0.09f + level.getRainLevel(partialTick) * 0.48f);
         shader.safeGetUniform("AtmosphereParams").set(aerosol, cloudCover,
                 seasons.pollution(), (float) sample.seasonPhase());
+        shader.safeGetUniform("ObserverAltitudeKm").set((float) Math.max(0,
+                seasons.altitudeMeters(level, camera.getPosition().y) / 1000));
         shader.safeGetUniform("CloudOffset").set((float) (camera.getPosition().x / 1800),
                 (float) (camera.getPosition().z / 1800));
         // Periodic drift is continuous at the bounded phase wrap, unlike wrapping translated noise coordinates.
@@ -198,6 +212,11 @@ public final class OverworldSkyRenderer implements AutoCloseable {
 
     private void vector(String name, SpaceVector value) {
         shader.safeGetUniform(name).set((float) value.x(), (float) value.y(), (float) value.z());
+    }
+
+    private boolean orbitalSky(ClientLevel level, Camera camera) {
+        return earth.chart(level.dimension().location().toString()).isPresent()
+                && seasons.altitudeMeters(level, camera.getPosition().y) >= 48_000;
     }
 
     private void yieldToShaderPack() {

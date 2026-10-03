@@ -227,6 +227,64 @@ class BodyApproachTest {
         assertTrue(previous.forward().dot(target) > 0.999999999999);
     }
 
+    @Test
+    void physicalSurfaceDepartureUsesOneCapturedEnvelopeForPlanningAndExecution() {
+        var system = CosmosGenerator.sol();
+        var earth = body(system, "earth");
+        var moon = body(system, "moon");
+        for (boolean advancing : new boolean[] {false, true}) {
+            for (int fixedTicks : new int[] {0, 20}) {
+                var timeline = OrbitalTimeline.calendar(PlanetarySkyProfile.EARTH, 6000, advancing);
+                double seconds = timeline.secondsAt(0);
+                var center = system.positionAt(earth, seconds);
+                var direction = FlightDynamics.observation(system, earth, seconds).position().subtract(center).normalized();
+                var start = center.add(direction.multiply(earth.radiusMeters() + 100_100));
+                var state = new FlightDynamics.State(start, SpaceVector.ZERO);
+                assertTrue(BodyApproach.plan(system, moon, state, FlightOrientation.IDENTITY, timeline, fixedTicks).isEmpty(),
+                        "Legacy clearance still protects ordinary unbound worlds");
+                var calls = new java.util.concurrent.atomic.AtomicInteger();
+                var route = BodyApproach.plan(system, moon, state, FlightOrientation.IDENTITY, timeline, fixedTicks, obstacle -> {
+                    calls.incrementAndGet();
+                    return obstacle.id().equals("earth") || obstacle.id().equals("moon")
+                            ? obstacle.radiusMeters() + 100_001.62 : FlightDynamics.safeRadius(obstacle);
+                }).orElseThrow();
+                assertEquals(system.bodies().size(), calls.get(), "Capture each radius once without retaining its resolver");
+                for (int tick = 1; tick <= route.durationTicks(); tick++) {
+                    assertTrue(route.clearSegment(route.frame(tick - 1).state().position(), route.frame(tick).state().position(),
+                            timeline.secondsAt(tick - 1), timeline.secondsAt(tick)),
+                            "Actual route must use its captured surface clearance");
+                }
+                assertTrue(!route.clearSegment(start, center, seconds, seconds),
+                        "A supported surface is not a collision exclusion");
+                assertEquals(system.bodies().size(), calls.get());
+                assertThrows(IllegalArgumentException.class, () -> BodyApproach.plan(system, moon, state,
+                        FlightOrientation.IDENTITY, timeline, fixedTicks, obstacle -> obstacle.radiusMeters() - 1));
+                assertThrows(IllegalArgumentException.class, () -> BodyApproach.plan(system, moon, state,
+                        FlightOrientation.IDENTITY, timeline, fixedTicks, obstacle -> Double.NaN));
+            }
+        }
+    }
+
+    @Test
+    void tinySolidApproachEndsOutsideItsPhysicalSurfaceEntryWithoutInflatingTheBody() {
+        var body = new CelestialBody("small", "Small", CelestialBody.Kind.ROCKY, 16, 0, 0, 0, 0, 0,
+                new SpaceVector(.5, .5, .5), 0, 0, 0, 0);
+        var system = new CosmosSystem("tiny", "Tiny", 81, CosmosSystem.Kind.SINGLE, SpaceVector.ZERO, List.of(body));
+        var timeline = OrbitalTimeline.elapsed(0);
+        double envelope = body.radiusMeters() + 100_001.62;
+        var source = new FlightDynamics.State(new SpaceVector(0, 0, -200_000), SpaceVector.ZERO);
+        var route = BodyApproach.plan(system, body, source, FlightOrientation.IDENTITY, timeline, 20,
+                obstacle -> envelope).orElseThrow();
+        assertEquals(envelope + 1000, route.frame(20).state().position().length(), 1e-8);
+        assertEquals(16, body.radiusMeters());
+        for (int tick = 1; tick <= route.durationTicks(); tick++) {
+            assertTrue(route.clearSegment(route.frame(tick - 1).state().position(), route.frame(tick).state().position(),
+                    timeline.secondsAt(tick - 1), timeline.secondsAt(tick)));
+        }
+        assertThrows(IllegalArgumentException.class, () -> FlightDynamics.observation(system, body, 0, Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> FlightDynamics.observation(system, body, 0, -1));
+    }
+
     private static double angleDegrees(FlightOrientation from, FlightOrientation to) {
         double dot = Math.abs(from.x() * to.x() + from.y() * to.y() + from.z() * to.z() + from.w() * to.w());
         return Math.toDegrees(2 * Math.acos(Math.clamp(dot, 0, 1)));

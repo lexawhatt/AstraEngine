@@ -1,16 +1,19 @@
 # Cosmos, map, and Rocket mode
 
 AstraEngine renders astronomical bodies with shaders around a virtual camera.
-In Rocket mode, the player occupies the small empty `astraengine:flight` world,
-while the virtual camera's position within a system is stored separately in
-meters. The initial system is our Sun, eight planets, and 21 major moons, with
+In space, the player occupies the small empty `astraengine:flight` world,
+while the virtual camera's position within a system is stored separately in meters.
+On a canonical planetary surface, inspection instead moves the real player through
+owned blocks until crossing the100000m space boundary. The initial system is our Sun, eight planets, and 21 major moons, with
 physical radii and orbits at 1:1 scale. Other systems are reproduced from a seed and sector
 coordinates.
 
 ## First flight
 
-1. In a loaded world, press **R**. Once the empty world is ready, the camera
-   appears near Earth if this is the player's first flight.
+1. In a loaded world, press **R**. On a bound planetary surface this enables
+   inspection at the current geographic position; fly upward to100km to enter
+   space. In an ordinary unbound world it prepares the empty flight stage and
+   begins near Earth on the first visit.
 2. Use the mouse to look around without a pitch limit, and **Q / E** to roll.
    **WASD** and **Space / Shift** move along the camera's local axes; **B** stops.
    The mouse wheel adjusts the selected speed.
@@ -21,13 +24,15 @@ coordinates.
    destinations have fast travel disabled. Select one and **Aim at system**, use
    `/astra-flight speed interstellar`, then hold **W** to fly there manually.
    Entry records the visit, reveals its neighbors, and unlocks **Jump to system**.
-5. **R** or **Leave Rocket mode** returns to the original location in the real world.
+5. On a planetary surface, **R** leaves inspection at the reached location.
+   In space, **R** or **Leave Rocket mode** recovers to the saved real departure.
 
 These controls are available to ordinary players on an AstraEngine server.
-**Approach body** selects an observation point in shader space. Sol Moon and
-Earth additionally support **L** to enter their permanent bounded
-[surface patches](SURFACE_TRAVEL.md). Other procedural planets do not yet have
-walkable block worlds.
+**Approach body** selects an observation point in space. Supported solid planets
+and moons use [persistent geographic surfaces](PLANET_SURFACES.md); enter them by
+flying through their100km boundary at the desired location. Gas giants and stars
+retain a protective flight envelope. Ordinary old worlds retain their saved
+[legacy inspection patches](SURFACE_TRAVEL.md).
 
 ## Controls
 
@@ -67,16 +72,21 @@ per four client ticks. Map approach provides a convenient way to reach objects
 across interplanetary distances.
 
 **Approach body** frames ordinary unringed planets and moons at two physical radii
-from their center (one radius above the surface), subject to the existing minimum
-distance. Earth therefore occupies about 60 degrees of the view. Stars, rings,
+from their center (one radius above the surface), subject to a minimum observation
+distance. For a supported solid surface, approach and explicit travel arrive at least
+1 km outside its physical entry envelope, including the player eye height; a tiny moon
+therefore does not place the camera inside its 100 km boundary. Earth therefore occupies about 60 degrees of the view. Stars, rings,
 black holes, supernova remnants and pulsars retain their separate viewing clearances.
 This changes camera framing, not canonical body size or orbit scale.
 
 The virtual flight envelope extends **one million light-years** from the current
 system origin. The physical player stays in the same small void. Swept movement
 checks stop the camera before a body even at high
-speed. The protection radius is `1.03 * body radius + 10 km`; this is a navigation
-barrier, not a collision with a voxel surface.
+speed. For supported solid bodies, the surface boundary is100km above the reference
+radius and requires a prepared real destination. Approach planning captures this same
+per-body clearance and checks actual advancement against it; leaving Earth at 100 km
+does not require climbing to an unrelated larger approach envelope. Other bodies retain the protection
+radius `1.03 * body radius + 10 km`; it is a navigation clearance.
 
 Client commands provide the main actions and precise settings:
 
@@ -109,6 +119,21 @@ inspection-camera speeds, not a physical spacecraft simulation. Requests are
 validated by the server and only affect the sender's active free-flight session.
 Automatic local approach retains its previous speed envelope; raising manual
 speed does not turn approach into an interstellar autopilot.
+
+## Multiple players
+
+The server owns a separate flight session, speed, input epoch, discovery set and
+saved virtual pose for each player. Controls, approach cancellation and disconnect
+recovery affect only their sender. Private custom-system descriptors are sent only
+to players authorized to observe them. One pilot leaving inspection does not stop
+another pilot's movement.
+
+The physical staging room is shared infrastructure. Its colocated player entities
+are hidden in the cosmos view because their host positions are not their virtual
+positions. Remote pilot avatars or ships are not yet projected into virtual space;
+independent multiplayer flight does not currently provide mutual visual presence.
+On the surface, ordinary entity visibility follows host dimension tracking; see
+[chart-boundary scope](PLANET_SURFACES.md#host-integration).
 
 ## Map and discoveries
 
@@ -350,7 +375,7 @@ speed. Existing v4-v6 visits remain exact. For v1-v3, only charted Sol and the c
 system are inferred as visited on migration:
 an old scan is not proof of physical travel. Old neighbors stay on the map, and
 the current neighborhood is refreshed on login. Malformed data is rejected.
-Navigation snapshots use protocol v8, actions v6, controls v3, numeric speed v1, and custom
+Navigation snapshots use protocol v9, actions v6, controls v4, numeric speed v1, and custom
 definition synchronization v3, so client and server need matching mod versions. Only a player's
 discovered custom definitions are sent, before navigation refers to them; client
 resource reload retains them and logout clears them. The aggregate custom
@@ -369,13 +394,15 @@ mode or an implemented surface world. It pauses when none are present. Legacy wo
 and generated/custom systems sample orbits from this clock. On the bound Astra Earth
 preset, Sol instead derives its orbital epoch and full Earth rotation from the saved
 Overworld calendar/profile (365 game days per Earth revolution by default). Navigation
-v8 and surface-context v2 carry the matching signed orbital epoch, Earth quaternion
+v9 and surface-context v2 carry the matching signed orbital epoch, Earth quaternion
 and discontinuity epoch with each camera snapshot. Rendering interpolates them together;
 it never substitutes an independently predicted client date. Material animation remains
 on the occupied clock. This does not modify the separate stellar resource-evolution clock.
 
-Nearby free inspection follows the nearest body's orbital translation within six
-physical radii, without rotating the camera or adding inertial drift. Guided approaches
+With the bound Earth calendar, nearby free inspection follows the nearest body's orbital translation within six
+physical radii, extended to the 100 km boundary and its 250 km preparation region
+for smaller supported solids. This follows translation without rotating the camera
+or adding inertial drift. Guided approaches
 predict the same calendar, including frozen daylight. Calendar or orbital-profile jumps
 cancel guidance safely rather than sweeping the camera through a discontinuous orbit.
 The client resets interpolation at that discontinuity; ordinary input ownership and
@@ -389,8 +416,8 @@ navigation clock without advancing the solar supernova.
 
 A procedural descriptor does not allocate a new dimension. The persistent
 `alpha` and `beta` building worlds belong to the first slice; binding an arbitrary
-discovered planet to a persistent world for landing and construction is not
-implemented. Celestial overlap is approximately sorted by center distance, not
+discovered solid planet to a persistent geographic world now uses the versioned
+surface profile and permanent binding manifest. Celestial overlap is approximately sorted by center distance, not
 handled by a general intersecting-object tracer. Compatibility with third-party
 shader packs and performance on other hardware need separate verification.
 
@@ -402,7 +429,8 @@ Related tools: [Overworld Sun and supernova](SOLAR_SKY.md),
 
 Sol Moon and Earth now have permanent bounded local patches, a shared geographic
 model and prepared landing/departure. See [surface travel](SURFACE_TRAVEL.md).
-The opt-in [Astra Earth world type](EARTH_WORLD.md) instead binds continental
-Earth/Overworld storage to the same orbital height field and supports selected
-geographic landing and departure. Other celestial descriptors still do not create
-block worlds. Continuous chart/band traversal remains a separate integration.
+The opt-in [Astra Earth world type](EARTH_WORLD.md) binds continental Earth/Overworld
+storage to the same orbital height field, with automatic chart/band traversal and
+a prepared100km space boundary. [Generic solid profiles](PLANET_SURFACES.md) extend
+these contracts to supported generated planets and moons. Definitions alone do not
+allocate voxel terrain; only requested neighborhoods use ordinary host chunks.

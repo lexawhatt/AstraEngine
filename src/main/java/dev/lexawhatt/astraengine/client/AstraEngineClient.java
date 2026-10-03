@@ -88,9 +88,13 @@ public final class AstraEngineClient {
         SolarStateClient solar = new SolarStateClient();
         EarthStateClient earth = new EarthStateClient();
         NeoForge.EVENT_BUS.addListener(earth::receive);
+        NeoForge.EVENT_BUS.addListener(earth::receivePlanets);
         NeoForge.EVENT_BUS.addListener(earth::logout);
         EarthBoundaryClient boundaries = new EarthBoundaryClient(earth);
         NeoForge.EVENT_BUS.addListener(boundaries::receive);
+        NeoForge.EVENT_BUS.addListener(boundaries::handoff);
+        NeoForge.EVENT_BUS.addListener(boundaries::preview);
+        NeoForge.EVENT_BUS.addListener(boundaries::spaceHandoff);
         NeoForge.EVENT_BUS.addListener(boundaries::tick);
         NeoForge.EVENT_BUS.addListener(boundaries::logout);
         EarthBoundaryRenderer boundaryRenderer = new EarthBoundaryRenderer(earth, boundaries);
@@ -126,9 +130,27 @@ public final class AstraEngineClient {
         NeoForge.EVENT_BUS.addListener(options::registerCommands);
         NeoForge.EVENT_BUS.addListener(RenderCompatibility::registerCommands);
         RocketController rocket = new RocketController(options, solar, earth);
+        var boundaryInteraction = new dev.lexawhatt.astraengine.client.surface.BoundaryInteractionClient(earth, boundaries, rocket::active);
+        NeoForge.EVENT_BUS.addListener(boundaryInteraction::interaction);
+        NeoForge.EVENT_BUS.addListener(boundaryInteraction::tick);
+        NeoForge.EVENT_BUS.addListener(boundaryInteraction::highlight);
+        NeoForge.EVENT_BUS.addListener(boundaryInteraction::render);
+        NeoForge.EVENT_BUS.addListener(boundaryInteraction::logout);
+        var orbitalSummaries = new dev.lexawhatt.astraengine.client.surface.orbit.OrbitalSummaryClient();
+        NeoForge.EVENT_BUS.addListener(orbitalSummaries::receive);
+        NeoForge.EVENT_BUS.addListener(orbitalSummaries::logout);
+        rocket.setOrbitalSummaries(orbitalSummaries);
+        var planetSky = new dev.lexawhatt.astraengine.client.surface.PlanetSkyState(
+                earth.planets(), rocket.surfaceState(), solar, rocket::system);
+        var planetEffects = new dev.lexawhatt.astraengine.client.surface.PlanetEffects(planetSky);
+        sky.setPlanetSky(planetSky);
+        NeoForge.EVENT_BUS.addListener(planetEffects::fogColor);
+        modEventBus.addListener((RegisterDimensionSpecialEffectsEvent event) -> event.register(
+                ResourceLocation.fromNamespaceAndPath(AstraEngine.MOD_ID, "planet_surface"), planetEffects));
         SurfaceDebugOverlay surfaceDebug = new SurfaceDebugOverlay(earth);
         NeoForge.EVENT_BUS.addListener(surfaceDebug::debugText);
         NeoForge.EVENT_BUS.addListener(rocket::receiveSurface);
+        NeoForge.EVENT_BUS.addListener(rocket::receiveBoundary);
         SurfaceEffects lunarEffects = new SurfaceEffects(rocket.surfaceState(), solar, false);
         SurfaceEffects earthEffects = new SurfaceEffects(rocket.surfaceState(), solar, true);
         NeoForge.EVENT_BUS.addListener(earthEffects::fogColor);

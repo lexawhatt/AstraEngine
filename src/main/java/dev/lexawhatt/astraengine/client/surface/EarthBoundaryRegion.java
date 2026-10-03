@@ -4,7 +4,7 @@ import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.surface.CubeFace;
 import dev.lexawhatt.astraengine.surface.EarthBoundarySection;
 import dev.lexawhatt.astraengine.surface.EarthBoundarySnapshot;
-import dev.lexawhatt.astraengine.surface.EarthChart;
+import dev.lexawhatt.astraengine.surface.CubeStorageChart;
 import dev.lexawhatt.astraengine.surface.EarthChartTransform;
 import java.util.HashMap;
 import java.util.Map;
@@ -24,13 +24,13 @@ import net.minecraft.world.level.material.FluidState;
 
 /** Immutable neighboring model input. Workers read copied cells and immutable biome values, never a live level. */
 final class EarthBoundaryRegion implements BlockAndTintGetter {
-    private final EarthChart chart;
+    private final CubeStorageChart chart;
     private final Map<Key, EarthBoundarySection> sections;
     private final Map<Integer, Biome> biomes;
     private final float[] shades;
     private final LevelLightEngine light;
 
-    EarthBoundaryRegion(EarthChart chart, EarthBoundarySnapshot snapshot, Map<Integer, Biome> biomes, float[] shades) {
+    EarthBoundaryRegion(CubeStorageChart chart, EarthBoundarySnapshot snapshot, Map<Integer, Biome> biomes, float[] shades) {
         this.chart = chart; this.biomes = Map.copyOf(biomes); this.shades = shades.clone();
         var values = new HashMap<Key, EarthBoundarySection>();
         for (var section : snapshot.sections()) { values.put(new Key(section.chart(), section.section().asLong()), section); }
@@ -39,13 +39,13 @@ final class EarthBoundaryRegion implements BlockAndTintGetter {
     }
 
     private Cell cell(BlockPos position) {
-        EarthChart owner = chart;
+        CubeStorageChart owner = chart;
         BlockPos point = position;
         var center = new SpaceVector(position.getX() + .5, position.getY() + .5, position.getZ() + .5);
         if (!chart.contains(center)) {
-            int band = chart.band() + Math.floorDiv(position.getY() - EarthChart.MIN_Y, EarthChart.HEIGHT);
-            if (band < EarthChart.MIN_BAND || band > EarthChart.MAX_BAND) { return null; }
-            owner = new EarthChart(CubeFace.containing(chart.normal(center.x(), center.z())), band, chart.terrainVersion());
+            int band = chart.band() + Math.floorDiv(position.getY() - chart.minY(), chart.height());
+            owner = chart.chart(CubeFace.containing(chart.normal(center.x(), center.z())), band).orElse(null);
+            if (owner == null) { return null; }
             var mapped = new EarthChartTransform(chart, owner).position(center);
             point = BlockPos.containing(mapped.x(), mapped.y(), mapped.z());
         }
@@ -59,8 +59,8 @@ final class EarthBoundaryRegion implements BlockAndTintGetter {
     }
     @Override public FluidState getFluidState(BlockPos pos) { return getBlockState(pos).getFluidState(); }
     @Override public BlockEntity getBlockEntity(BlockPos pos) { return null; }
-    @Override public int getHeight() { return EarthChart.HEIGHT; }
-    @Override public int getMinBuildHeight() { return EarthChart.MIN_Y; }
+    @Override public int getHeight() { return chart.height(); }
+    @Override public int getMinBuildHeight() { return chart.minY(); }
     @Override public float getShade(Direction direction, boolean shade) { return shade ? shades[direction.ordinal()] : 1; }
     @Override public int getBrightness(LightLayer layer, BlockPos pos) {
         var cell = cell(pos);
@@ -118,7 +118,7 @@ final class EarthBoundaryRegion implements BlockAndTintGetter {
         @Override public void propagateLightSources(net.minecraft.world.level.ChunkPos position) { }
     }
 
-    private record Key(EarthChart chart, long section) {}
+    private record Key(CubeStorageChart chart, long section) {}
     private record Cell(EarthBoundarySection section, int x, int y, int z) {
         int index() { return (y * 16 + z) * 16 + x; }
     }

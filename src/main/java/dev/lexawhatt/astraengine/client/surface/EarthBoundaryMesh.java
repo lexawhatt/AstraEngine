@@ -17,9 +17,13 @@ import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.function.BooleanSupplier;
 import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.Sheets;
 import net.minecraft.client.renderer.block.BlockRenderDispatcher;
+import net.minecraft.client.renderer.texture.TextureAtlas;
 import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.RandomSource;
 import net.minecraft.world.level.biome.Biome;
 import net.minecraft.world.level.block.RenderShape;
@@ -35,7 +39,7 @@ final class EarthBoundaryMesh implements AutoCloseable {
 
     private EarthBoundaryMesh(EarthBoundarySnapshot snapshot) { this.snapshot = snapshot; }
 
-    static EarthBoundaryMesh bake(EarthBoundarySnapshot snapshot, BlockRenderDispatcher models,
+    static EarthBoundaryMesh bake(EarthBoundarySnapshot snapshot, BlockRenderDispatcher models, BoundaryChestModels chests,
             Map<Integer, Biome> biomes, float[] shades, BooleanSupplier cancelled) {
         var result = new EarthBoundaryMesh(snapshot);
         try {
@@ -43,6 +47,7 @@ final class EarthBoundaryMesh implements AutoCloseable {
                 if (cancelled.getAsBoolean()) { throw new CancellationException("Retired Earth boundary mesh"); }
                 var region = new EarthBoundaryRegion(section.chart(), snapshot, biomes, shades);
                 var builders = new LinkedHashMap<RenderType, Layer>();
+                var chestBuilders = new LinkedHashMap<RenderType, Layer>();
                 var pose = new PoseStack(); var random = RandomSource.create(0); var block = new BlockPos.MutableBlockPos();
                 var origin = section.section().origin();
                 for (int y = 0; y < 16; y++) {
@@ -55,6 +60,13 @@ final class EarthBoundaryMesh implements AutoCloseable {
                             if (!state.getFluidState().isEmpty()) {
                                 var layer = ItemBlockRenderTypes.getRenderLayer(state.getFluidState());
                                 models.renderLiquid(block, region, result.builder(builders, layer), state, state.getFluidState());
+                            }
+                            if (BoundaryChestModels.supported(state)) {
+                                pose.pushPose(); pose.translate(x, y, z);
+                                chests.render(state, section.containerOpen((y * 16 + z) * 16 + x), pose,
+                                        result.builder(chestBuilders, RenderType.solid()),
+                                        LevelRenderer.getLightColor(region, state, block));
+                                pose.popPose();
                             }
                             if (state.getRenderShape() != RenderShape.MODEL) { continue; }
                             var model = models.getBlockModel(state);
@@ -71,8 +83,12 @@ final class EarthBoundaryMesh implements AutoCloseable {
                 for (var layer : builders.entrySet()) {
                     MeshData data = layer.getValue().builder.build();
                     if (data != null) {
-                        result.parts.add(new Part(section, layer.getKey() == RenderType.translucent(), data));
+                        result.parts.add(new Part(section, layer.getKey() == RenderType.translucent(), TextureAtlas.LOCATION_BLOCKS, data));
                     }
+                }
+                for (var layer : chestBuilders.values()) {
+                    MeshData data = layer.builder.build();
+                    if (data != null) { result.parts.add(new Part(section, false, Sheets.CHEST_SHEET, data)); }
                 }
             }
             return result;
@@ -108,5 +124,5 @@ final class EarthBoundaryMesh implements AutoCloseable {
         for (var bytes : storage) { bytes.close(); }
         parts.clear(); storage.clear();
     }
-    record Part(EarthBoundarySection section, boolean translucent, MeshData data) {}
+    record Part(EarthBoundarySection section, boolean translucent, ResourceLocation atlas, MeshData data) {}
 }

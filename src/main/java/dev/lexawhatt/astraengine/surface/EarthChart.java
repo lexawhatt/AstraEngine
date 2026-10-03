@@ -3,32 +3,42 @@ package dev.lexawhatt.astraengine.surface;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import java.util.stream.Collectors;
 
 /**
  * Version-one permanent storage chart of the continental Earth. Six cube faces each contain disjoint altitude
  * bands; host Y is translated, never scaled. Horizontal coordinates are gnomonic chart meters, not an equal-area
  * or globally unit-metric block grid. This immutable value owns no worlds, chunks, clocks or transfer state.
  */
-public record EarthChart(CubeFace face, int band, int terrainVersion) implements GeographicReference {
+public record EarthChart(CubeFace face, int band, int terrainVersion) implements CubeStorageChart {
     public static final int VERSION = 1;
     public static final int MIN_Y = -2032;
     public static final int HEIGHT = 4064;
     public static final int MIN_BAND = -2;
-    public static final int MAX_BAND = 3;
+    public static final int MAX_BAND = 25;
+    /** Original preset worlds remain mandatory; upper empty-air bands are allocated only when requested. */
+    public static final int PRESET_MAX_BAND = 3;
     public static final double RADIUS_METERS = ContinentalTerrain.RADIUS_METERS;
     public static final String GEOGRAPHY_ID = "astraengine:sol/earth/continental_v1";
     private static final PlanetaryTopology TOPOLOGY = new PlanetaryTopology(PlanetaryTopology.VERSION, 12, RADIUS_METERS);
     public static final List<EarthChart> ALL = Stream.of(CubeFace.values()).flatMap(face ->
-            IntStream.rangeClosed(MIN_BAND, MAX_BAND).mapToObj(band -> new EarthChart(face, band))).toList();
+            IntStream.rangeClosed(MIN_BAND, PRESET_MAX_BAND).mapToObj(band -> new EarthChart(face, band))).toList();
 
     private static final List<EarthChart> SECOND_GENERATION = ALL.stream()
             .map(value -> new EarthChart(value.face(), value.band(), 2)).toList();
 
     private static final List<EarthChart> THIRD_GENERATION = ALL.stream()
             .map(value -> new EarthChart(value.face(), value.band(), 3)).toList();
+
+    // Immutable identities only. Per-frame dimension lookup must not construct every possible chart and path.
+    private static final List<Map<String, EarthChart>> DIMENSIONS = IntStream.rangeClosed(1, 3)
+            .mapToObj(version -> Stream.of(CubeFace.values()).flatMap(face ->
+                    IntStream.rangeClosed(MIN_BAND, MAX_BAND).mapToObj(band -> new EarthChart(face, band, version)))
+                    .collect(Collectors.toUnmodifiableMap(EarthChart::dimensionId, value -> value))).toList();
 
     /** Retains the original version-one geography for existing callers and saved identities. */
     public EarthChart(CubeFace face, int band) { this(face, band, ContinentalTerrain.VERSION); }
@@ -43,7 +53,7 @@ public record EarthChart(CubeFace face, int band, int terrainVersion) implements
     public EarthChart {
         if (face == null || band < MIN_BAND || band > MAX_BAND
                 || (terrainVersion < ContinentalTerrain.VERSION || terrainVersion > ContinentalTerrain.CURRENT_VERSION)) {
-            throw new IllegalArgumentException("Earth storage requires a cube face and altitude band in [-2,3]");
+            throw new IllegalArgumentException("Earth storage requires a cube face and altitude band in [-2,25]");
         }
     }
 
@@ -55,6 +65,22 @@ public record EarthChart(CubeFace face, int band, int terrainVersion) implements
 
     /** Exact physical sea-level altitude to add to host Y, in meters. */
     public int altitudeOriginMeters() { return band * HEIGHT; }
+
+    @Override public double radiusMeters() { return RADIUS_METERS; }
+    @Override public int minY() { return MIN_Y; }
+    @Override public int height() { return HEIGHT; }
+    @Override public Optional<CubeStorageChart> chart(CubeFace targetFace, int targetBand) {
+        if (targetFace == null) { throw new IllegalArgumentException("An Earth face is required"); }
+        return targetBand >= MIN_BAND && targetBand <= MAX_BAND
+                ? Optional.of(new EarthChart(targetFace, targetBand, terrainVersion)) : Optional.empty();
+    }
+
+    /** Exact connection-authorized identity lookup, including lazily allocated upper atmosphere bands. */
+    public static Optional<EarthChart> forDimension(String dimensionId, int terrainVersion) {
+        ContinentalTerrain.requireVersion(terrainVersion);
+        if (dimensionId == null) { throw new IllegalArgumentException("A dimension identity is required"); }
+        return Optional.ofNullable(DIMENSIONS.get(terrainVersion - 1).get(dimensionId));
+    }
 
     @Override public String geographyId() { return "astraengine:sol/earth/continental_v" + terrainVersion; }
     @Override public PlanetaryTopology topology() { return TOPOLOGY; }

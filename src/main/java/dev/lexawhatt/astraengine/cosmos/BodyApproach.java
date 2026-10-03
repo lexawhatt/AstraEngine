@@ -1,6 +1,9 @@
 package dev.lexawhatt.astraengine.cosmos;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.ToDoubleFunction;
 
 /**
  * Immutable, bounded local camera route in double meters. Planning and sampling are pure;
@@ -22,9 +25,11 @@ public final class BodyApproach {
     private final int aimTicks;
     private final double logarithm;
     private final FlightOrientation[] orientationGuide;
+    private final Map<String, Double> envelopes;
 
     private BodyApproach(CosmosSystem system, CelestialBody body, SpaceVector start, SpaceVector control,
-            SpaceVector destination, FlightOrientation initialOrientation, OrbitalTimeline timeline, int durationTicks) {
+            SpaceVector destination, FlightOrientation initialOrientation, OrbitalTimeline timeline, int durationTicks,
+            Map<String, Double> envelopes) {
         this.system = system;
         this.body = body;
         this.start = start;
@@ -33,6 +38,7 @@ public final class BodyApproach {
         this.initialOrientation = initialOrientation;
         this.timeline = timeline;
         this.durationTicks = durationTicks;
+        this.envelopes = envelopes;
         aimTicks = Math.min(AIM_TICKS, durationTicks / 5);
         logarithm = Math.clamp(Math.log1p(start.distance(destination) / Math.max(body.radiusMeters() * 3, 100_000)),
                 0.25, 24);
@@ -48,6 +54,7 @@ public final class BodyApproach {
         initialOrientation = checked.initialOrientation;
         timeline = checked.timeline;
         durationTicks = checked.durationTicks;
+        envelopes = checked.envelopes;
         aimTicks = checked.aimTicks;
         logarithm = checked.logarithm;
         // Only a collision-checked candidate allocates the bounded, immutable orientation guide.
@@ -86,16 +93,36 @@ public final class BodyApproach {
      */
     public static Optional<BodyApproach> plan(CosmosSystem system, CelestialBody body, FlightDynamics.State state,
             FlightOrientation orientation, OrbitalTimeline timeline, int fixedTicks) {
+        return plan(system, body, state, orientation, timeline, fixedTicks, FlightDynamics::safeRadius);
+    }
+
+    /**
+     * Captures a collision radius in meters once per member body, retaining no resolver or world reference.
+     * Each radius must be finite and at least the physical radius. The same immutable policy is used while
+     * planning and by {@link #clearSegment} during server advancement. Other planning bounds are unchanged.
+     */
+    public static Optional<BodyApproach> plan(CosmosSystem system, CelestialBody body, FlightDynamics.State state,
+            FlightOrientation orientation, OrbitalTimeline timeline, int fixedTicks,
+            ToDoubleFunction<CelestialBody> envelope) {
         if (fixedTicks != 0 && (fixedTicks < 20 || fixedTicks > MAX_TICKS)) {
             throw new IllegalArgumentException("Fixed approach duration must be zero or 20..72000 ticks");
         }
         if (system == null || body == null || !system.bodies().contains(body) || state == null || orientation == null
-                || timeline == null) {
+                || timeline == null || envelope == null) {
             throw new IllegalArgumentException("A local approach requires valid system, target, navigation and time");
         }
+        Map<String, Double> captured = new HashMap<>();
+        for (var obstacle : system.bodies()) {
+            double radius = envelope.applyAsDouble(obstacle);
+            if (!Double.isFinite(radius) || radius < obstacle.radiusMeters() || radius > FlightDynamics.MAX_POSITION) {
+                throw new IllegalArgumentException("Approach envelope is smaller than its body or non-finite");
+            }
+            captured.put(obstacle.id(), radius);
+        }
+        Map<String, Double> envelopes = Map.copyOf(captured);
         if (state.position().length() > FlightDynamics.MAX_POSITION
                 || !FlightDynamics.clearSegment(state.position(), state.position(), system.bodies(),
-                        timeline.secondsAt(0), timeline.secondsAt(0))) {
+                        timeline.secondsAt(0), timeline.secondsAt(0), 0, obstacle -> envelopes.get(obstacle.id()))) {
             return Optional.empty();
         }
         for (int candidate = 0; candidate < 9; candidate++) {
@@ -104,7 +131,8 @@ public final class BodyApproach {
             for (int refinement = 0; refinement < 8; refinement++) {
                 FlightDynamics.Observation arrival;
                 try {
-                    arrival = FlightDynamics.observation(system, body, timeline.secondsAt(duration));
+                    arrival = FlightDynamics.observation(system, body, timeline.secondsAt(duration),
+                            envelopes.get(body.id()) + 1000);
                 } catch (IllegalArgumentException unreachable) {
                     break;
                 }
@@ -128,7 +156,7 @@ public final class BodyApproach {
                     break;
                 }
                 BodyApproach proposed = new BodyApproach(system, body, state.position(), control, destination,
-                        orientation, timeline, duration);
+                        orientation, timeline, duration, envelopes);
                 if (fixedTicks > 0) { route = proposed; break; }
                 double curveDerivative = 2 * Math.max(state.position().distance(control),
                         control.distance(destination));
@@ -152,6 +180,12 @@ public final class BodyApproach {
             }
         }
         return Optional.empty();
+    }
+
+    /** Checks an actual server movement segment against this route's captured clearance policy and all moving bodies. */
+    public boolean clearSegment(SpaceVector from, SpaceVector to, double startSeconds, double endSeconds) {
+        return FlightDynamics.clearSegment(from, to, system.bodies(), startSeconds, endSeconds, 0,
+                obstacle -> envelopes.get(obstacle.id()));
     }
 
     /** Bounded total occupied ticks, including the initial stationary aiming interval. */
@@ -235,17 +269,23 @@ public final class BodyApproach {
             double tick = durationTicks * sample / (double) segments;
             SpaceVector next = position(tick);
             double progress = progress(tick);
-            double curveAllowance = curvature * Math.pow(progress - previousProgress, 2) / 4;
+            boolean exactHostStep = durationTicks <= PLANNING_SEGMENTS;
+            // Short routes sample every actual host movement chord. A hypothetical Bezier bow between
+            // those ticks is not movement performed by the server; inflating its starting envelope can
+            // incorrectly reject a safe outward departure just above a planetary boundary.
+            double curveAllowance = exactHostStep ? 0 : curvature * Math.pow(progress - previousProgress, 2) / 4;
             // The easing traverses each chord nonlinearly in time. Cover obstacle movement over the
             // full interval, in addition to the geometric bow, before using a linear sweep as a bound.
             double timingAllowance = 0;
-            for (CelestialBody obstacle : system.bodies()) {
-                double displacement = CelestialOrbits.displacementBound(system.bodies(), obstacle,
-                        timeline.secondsAt(tick) - timeline.secondsAt(previousTick));
-                timingAllowance = Math.max(timingAllowance, displacement);
+            if (!exactHostStep) {
+                for (CelestialBody obstacle : system.bodies()) {
+                    double displacement = CelestialOrbits.displacementBound(system.bodies(), obstacle,
+                            timeline.secondsAt(tick) - timeline.secondsAt(previousTick));
+                    timingAllowance = Math.max(timingAllowance, displacement);
+                }
             }
             if (!FlightDynamics.clearSegment(previous, next, system.bodies(), timeline.secondsAt(previousTick),
-                    timeline.secondsAt(tick), curveAllowance + timingAllowance)) {
+                    timeline.secondsAt(tick), curveAllowance + timingAllowance, obstacle -> envelopes.get(obstacle.id()))) {
                 return false;
             }
             previous = next;

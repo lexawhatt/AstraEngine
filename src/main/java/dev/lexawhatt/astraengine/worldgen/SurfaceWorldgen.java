@@ -18,6 +18,7 @@ public final class SurfaceWorldgen {
 
     static {
         GENERATORS.register("earth", () -> EarthChunkGenerator.CODEC);
+        GENERATORS.register("solid_planet", () -> PlanetChunkGenerator.CODEC);
         BIOMES.register("earth", () -> EarthBiomeSource.CODEC);
         GENERATORS.register("surface_patch", () -> SurfaceChunkGenerator.CODEC);
         GENERATORS.register("planetary_terrain", () -> PlanetaryTerrainChunkGenerator.CODEC);

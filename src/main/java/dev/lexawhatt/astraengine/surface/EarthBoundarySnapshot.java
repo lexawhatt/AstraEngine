@@ -9,7 +9,7 @@ import java.util.List;
  * Immutable data may be consumed on mesh workers. The connection owns revisions and retirement; no persistence
  * or second simulation clock is implied. A complete snapshot means requested sections were actually loaded.
  */
-public record EarthBoundarySnapshot(long revision, EarthChart source, SpaceVector anchorFeet,
+public record EarthBoundarySnapshot(long revision, CubeStorageChart source, SpaceVector anchorFeet,
         boolean complete, List<EarthBoundarySection> sections) {
     public static final int MAX_SECTIONS = 32;
 
@@ -20,7 +20,7 @@ public record EarthBoundarySnapshot(long revision, EarthChart source, SpaceVecto
         }
         var keys = new HashSet<Key>();
         for (EarthBoundarySection section : sections) {
-            if (section == null || section.chart().terrainVersion() != source.terrainVersion()
+            if (section == null || !section.chart().geographyId().equals(source.geographyId())
                     || !keys.add(new Key(section.chart(), section.section().asLong()))) {
                 throw new IllegalArgumentException("Earth boundary observations require unique matching section identities");
             }
@@ -39,8 +39,8 @@ public record EarthBoundarySnapshot(long revision, EarthChart source, SpaceVecto
      * including into the opposite hemisphere of a previously neighboring face, return false rather than
      * evaluating a singular projection. Null and foreign terrain contexts also return false.
      */
-    public boolean visibleFrom(EarthChart chart, SpaceVector feet) {
-        if (chart == null || feet == null || chart.terrainVersion() != source.terrainVersion()
+    public boolean visibleFrom(CubeStorageChart chart, SpaceVector feet) {
+        if (chart == null || feet == null || !chart.geographyId().equals(source.geographyId())
                 || !chart.equals(source) && sections.stream().noneMatch(section -> section.chart().equals(chart))
                 || Math.abs(feet.y() + chart.altitudeOriginMeters() - anchorFeet.y() - source.altitudeOriginMeters())
                         > EarthChartRebase.MAX_EXTENSION_METERS
@@ -49,5 +49,5 @@ public record EarthBoundarySnapshot(long revision, EarthChart source, SpaceVecto
         return represented.distance(anchorFeet) <= EarthChartRebase.MAX_EXTENSION_METERS;
     }
 
-    private record Key(EarthChart chart, long section) {}
+    private record Key(CubeStorageChart chart, long section) {}
 }

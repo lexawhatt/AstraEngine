@@ -1,8 +1,15 @@
 package dev.lexawhatt.astraengine.verification;
 
+import com.mojang.authlib.GameProfile;
 import dev.lexawhatt.astraengine.cosmos.SpaceVector;
 import dev.lexawhatt.astraengine.cosmos.FlightOrientation;
+import dev.lexawhatt.astraengine.cosmos.CelestialBody;
 import dev.lexawhatt.astraengine.network.EarthBoundaryPayload;
+import dev.lexawhatt.astraengine.server.EarthBoundaryService;
+import dev.lexawhatt.astraengine.server.PlanetSurfaceBindings;
+import dev.lexawhatt.astraengine.server.PlanetSurfaceWorlds;
+import dev.lexawhatt.astraengine.server.PlanetaryCrossingService;
+import dev.lexawhatt.astraengine.server.RocketService;
 import dev.lexawhatt.astraengine.surface.CubeFace;
 import dev.lexawhatt.astraengine.surface.EarthBoundarySection;
 import dev.lexawhatt.astraengine.surface.EarthBoundarySnapshot;
@@ -10,23 +17,125 @@ import dev.lexawhatt.astraengine.surface.EarthBoundaryPlan;
 import dev.lexawhatt.astraengine.surface.EarthChartRebase;
 import dev.lexawhatt.astraengine.surface.EarthChartTransform;
 import dev.lexawhatt.astraengine.surface.EarthChart;
+import dev.lexawhatt.astraengine.surface.PlanetChart;
+import dev.lexawhatt.astraengine.surface.SolidPlanetProfile;
+import dev.lexawhatt.astraengine.worldgen.PlanetChunkGenerator;
 import io.netty.buffer.Unpooled;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import net.minecraft.core.SectionPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.biome.Biomes;
+import net.minecraft.world.level.biome.FixedBiomeSource;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.neoforged.neoforge.common.util.FakePlayer;
 
 /** Real-registry observation wire checks, malformed bounds and defensive numeric ownership. */
 @PrefixGameTestTemplate(false)
 public final class EarthBoundaryGameTests {
+    @GameTest(templateNamespace = "astraengine_verify", template = "empty", timeoutTicks = 400)
+    public static void fullPersistentChartCapacityKeepsBoundaryIncompleteAndHoldsReachedPose(GameTestHelper helper) {
+        var server = helper.getLevel().getServer();
+        var profile = SolidPlanetGameTests.chart("moon").profile();
+        var source = new PlanetChart(profile, CubeFace.NEGATIVE_Y, 22);
+        var target = new PlanetChart(profile, CubeFace.NEGATIVE_Y, 23);
+        var level = PlanetSurfaceWorlds.ensure(server, source);
+        var manifest = PlanetSurfaceBindings.get(server);
+        var original = manifest.bindings();
+        helper.assertTrue(manifest.binding(target.dimensionId()) == null,
+                "Capacity fixture requires a previously unallocated adjacent chart");
+        var biome = new FixedBiomeSource(level.registryAccess().registryOrThrow(Registries.BIOME)
+                .getHolderOrThrow(Biomes.THE_VOID));
+        var added = new ArrayList<String>();
+        var player = new FakePlayer(level, new GameProfile(UUID.randomUUID(), "ChartCapacity"));
+        player.setPos(8.5, 2031.75, 8.5);
+        var reached = player.position();
+        var boundaries = new EarthBoundaryService(server);
+        var rocket = new RocketService(server);
+        var crossings = new PlanetaryCrossingService(server, boundaries, rocket);
+        try (var connection = new HostPlayerConnection(player)) {
+            // Fill immutable definitions only, without opening 96 worlds or generating their chunks.
+            for (var face : CubeFace.values()) {
+                for (int band = PlanetChart.MIN_BAND; band <= PlanetChart.MAX_BAND
+                        && manifest.bindings().size() < PlanetSurfaceBindings.MAX_CHARTS; band++) {
+                    var candidate = new PlanetChart(profile, face, band);
+                    if (candidate.equals(target) || manifest.binding(candidate.dimensionId()) != null) { continue; }
+                    manifest.bind(candidate, new PlanetChunkGenerator(candidate, biome));
+                    added.add(candidate.dimensionId());
+                }
+            }
+            helper.assertTrue(manifest.bindings().size() == PlanetSurfaceBindings.MAX_CHARTS,
+                    "Fixture failed to fill the actual permanent chart budget");
+            long revision = manifest.revision();
+            boolean refused = false;
+            try { PlanetSurfaceWorlds.ensure(server, target); }
+            catch (PlanetSurfaceBindings.CapacityExceededException expected) { refused = true; }
+            helper.assertTrue(refused, "Full capacity did not produce its typed allocation refusal");
+            crossings.observe(player);
+            observe(boundaries, player);
+            var snapshot = boundaries.snapshot(player).orElseThrow();
+            boundaries.ready(player, snapshot.revision());
+            helper.assertTrue(!snapshot.complete() && !boundaries.ready(player)
+                    && !boundaries.acceptsInteraction(player, snapshot.revision()),
+                    "Unavailable neighboring storage became a ready or interactive observation");
+            observe(boundaries, player);
+            helper.assertTrue(boundaries.snapshot(player).orElseThrow().revision() == snapshot.revision(),
+                    "Repeated capacity refusal needlessly replaced an unchanged incomplete view");
+            player.setPos(8.5, 2032.25, 8.5);
+            crossings.observe(player);
+            helper.assertTrue(player.serverLevel() == level && player.position().equals(reached)
+                    && manifest.revision() == revision && manifest.binding(target.dimensionId()) == null
+                    && server.getLevel(PlanetSurfaceWorlds.dimension(target)) == null,
+                    "Refused traversal changed pose/storage: feet=" + player.position() + ", expected=" + reached
+                            + ", revision=" + manifest.revision() + "/" + revision
+                            + ", binding=" + manifest.binding(target.dimensionId()));
+            helper.assertTrue(PlanetSurfaceWorlds.ensure(server, source) == level,
+                    "A full manifest prevented returning to an existing canonical world");
+        } finally {
+            crossings.close(); boundaries.close(); rocket.close();
+            // This synchronous fixture must not exhaust the shared disposable server for other GameTests.
+            // Only its un-opened filler definitions are removed; every prior binding/generator stays identical.
+            var stored = mutableBindings(manifest);
+            for (String dimension : added) { stored.remove(dimension); }
+            manifest.setDirty();
+        }
+        helper.assertTrue(manifest.bindings().equals(original), "Capacity fixture changed another test's permanent definitions");
+        helper.succeed();
+    }
+
+    private static void observe(EarthBoundaryService service, ServerPlayer player) {
+        try {
+            var method = EarthBoundaryService.class.getDeclaredMethod("observe", ServerPlayer.class);
+            method.setAccessible(true); method.invoke(service, player);
+        } catch (InvocationTargetException failure) {
+            if (failure.getCause() instanceof RuntimeException cause) { throw cause; }
+            throw new IllegalStateException("Boundary fixture observation failed", failure.getCause());
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("Boundary fixture cannot access its per-player observation", failure);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, PlanetSurfaceBindings.Binding> mutableBindings(PlanetSurfaceBindings manifest) {
+        try {
+            var field = PlanetSurfaceBindings.class.getDeclaredField("bindings");
+            field.setAccessible(true);
+            return (Map<String, PlanetSurfaceBindings.Binding>) field.get(manifest);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("Capacity fixture cannot restore its isolated filler definitions", failure);
+        }
+    }
+
     @GameTest(templateNamespace = "astraengine_verify", template = "empty", timeoutTicks = 400)
     public static void boundaryPlansCoverCanonicalNeighborsWithinTheirSectionBudget(GameTestHelper helper) {
         double radius = EarthChart.RADIUS_METERS;
@@ -82,10 +191,14 @@ public final class EarthBoundaryGameTests {
         states[123] = Block.getId(Blocks.GOLD_BLOCK.defaultBlockState()); light[123] = (byte) 0xCE;
         var registry = helper.getLevel().registryAccess().registryOrThrow(Registries.BIOME);
         Arrays.fill(biomes, registry.getId(registry.getOrThrow(Biomes.PLAINS)));
-        var section = new EarthBoundarySection(target, SectionPos.of(0, -127, 0), states, light, biomes);
+        long[] opened = new long[EarthBoundarySection.VISUAL_WORD_COUNT];
+        opened[123 / Long.SIZE] |= 1L << (123 % Long.SIZE);
+        var section = new EarthBoundarySection(target, SectionPos.of(0, -127, 0), states, light, biomes, opened);
+        opened[123 / Long.SIZE] = 0;
         int savedBiome = biomes[0]; states[123] = 0; light[123] = 0; biomes[0] = 0;
         helper.assertTrue(section.state(123) == Block.getId(Blocks.GOLD_BLOCK.defaultBlockState())
-                && section.light(123) == 0xCE && section.biome(0) == savedBiome, "Observation retained mutable caller arrays");
+                && section.light(123) == 0xCE && section.biome(0) == savedBiome && section.containerOpen(123)
+                && !section.containerOpen(122), "Observation retained mutable caller arrays or changed the visual mask");
         var mutableSections = new ArrayList<>(List.of(section));
         var snapshot = new EarthBoundarySnapshot(7, source, new SpaceVector(0, 2031, 0), true, mutableSections);
         mutableSections.clear(); helper.assertTrue(snapshot.sections().size() == 1, "Observation retained mutable section list");
@@ -134,11 +247,12 @@ public final class EarthBoundaryGameTests {
         int[] states = new int[4096]; byte[] light = new byte[4096]; int[] biomes = new int[64];
         // Numeric maximum intentionally need not exist in this registry: measure the format's true worst case.
         Arrays.fill(states, EarthBoundarySection.MAX_REGISTRY_ID); Arrays.fill(biomes, EarthBoundarySection.MAX_REGISTRY_ID);
+        long[] opened = new long[EarthBoundarySection.VISUAL_WORD_COUNT]; Arrays.fill(opened, -1L);
         var sections = new ArrayList<EarthBoundarySection>();
         for (int y = -127; y <= -126; y++) {
             for (int x = -2; x < 2; x++) {
                 for (int z = -2; z < 2; z++) {
-                    sections.add(new EarthBoundarySection(target, SectionPos.of(x, y, z), states, light, biomes));
+                    sections.add(new EarthBoundarySection(target, SectionPos.of(x, y, z), states, light, biomes, opened));
                 }
             }
         }
@@ -148,6 +262,17 @@ public final class EarthBoundaryGameTests {
             EarthBoundaryPayload.CODEC.encode(buffer, new EarthBoundaryPayload(snapshot));
             helper.assertTrue(buffer.readableBytes() <= EarthBoundaryPayload.MAX_BYTES
                     && sections.size() == EarthBoundarySnapshot.MAX_SECTIONS, "Maximum boundary packet exceeded its budget");
+            var profile = new SolidPlanetProfile(1, "n:" + "s".repeat(62), "b".repeat(64), Long.MAX_VALUE,
+                    EarthChart.RADIUS_METERS, CelestialBody.Kind.OCEAN, 86_400, .4, 1);
+            var planetSource = new PlanetChart(profile, CubeFace.POSITIVE_X, 0);
+            var planetTarget = new PlanetChart(profile, CubeFace.POSITIVE_X, 1);
+            var genericSections = sections.stream().map(section -> new EarthBoundarySection(planetTarget,
+                    section.section(), states, light, biomes, opened)).toList();
+            buffer.clear();
+            EarthBoundaryPayload.CODEC.encode(buffer, new EarthBoundaryPayload(new EarthBoundarySnapshot(2,
+                    planetSource, snapshot.anchorFeet(), true, genericSections)));
+            helper.assertTrue(buffer.readableBytes() <= EarthBoundaryPayload.MAX_BYTES,
+                    "Maximum generic profile identifiers and visual masks exceeded the aggregate wire budget");
         } finally { buffer.release(); }
         helper.succeed();
     }

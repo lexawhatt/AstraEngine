@@ -32,7 +32,9 @@ public final class EarthWeather {
         var normal = chart.normal(x + .5, z + .5);
         var sample = terrain.sample(normal);
         double altitude = y + chart.altitudeOriginMeters();
-        double temperature = 31 - 48 * Math.pow(Math.abs(normal.y()), 1.15) - Math.max(0, altitude) * .0065;
+        double temperature = terrain.version() >= 3
+                ? sample.temperature() - (Math.max(0, altitude) - Math.max(0, sample.heightMeters())) * .0065
+                : 31 - 48 * Math.pow(Math.abs(normal.y()), 1.15) - Math.max(0, altitude) * .0065;
         return altitude < Math.max(0, sample.heightMeters()) - 2 || temperature >= 0;
     }
 }
